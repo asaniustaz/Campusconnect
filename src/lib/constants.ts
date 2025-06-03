@@ -1,11 +1,23 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School } from 'lucide-react';
+import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle } from 'lucide-react';
 
 export type UserRole = 'student' | 'staff' | 'admin';
 
 export type SchoolLevel = 'Kindergarten' | 'Primary' | 'Secondary';
-export type SubjectCategory = 'Science' | 'Art' | 'General';
+
+// Updated Subject Categories
+export type SubjectCategory = 
+  'Languages' | 
+  'Mathematics' | 
+  'Sciences' | 
+  'Social & Humanities' | 
+  'Creative Arts' | 
+  'Technology' | 
+  'Business & Vocational' | 
+  'Health & PE' | 
+  'Religious Studies' |
+  'General Studies';
 
 export type NavItem = {
   href: string;
@@ -33,6 +45,33 @@ export const NAV_ITEMS: NavItem[] = [
 export const APP_NAME = "ANNAJIHUN ACADEMY ZARIA";
 
 export const SCHOOL_LEVELS: SchoolLevel[] = ['Kindergarten', 'Primary', 'Secondary'];
-export const SUBJECT_CATEGORIES: SubjectCategory[] = ['Science', 'Art', 'General'];
+
+// Updated list of subject categories
+export const SUBJECT_CATEGORIES: SubjectCategory[] = [
+  'Languages', 
+  'Mathematics', 
+  'Sciences', 
+  'Social & Humanities', 
+  'Creative Arts', 
+  'Technology', 
+  'Business & Vocational', 
+  'Health & PE', 
+  'Religious Studies',
+  'General Studies'
+];
+
 export const TERMS: string[] = ["First Term", "Second Term", "Third Term"];
+
+export const subjectCategoryIcons: Record<SubjectCategory, LucideIcon> = {
+  'Languages': NotebookPen,
+  'Mathematics': Calculator,
+  'Sciences': FlaskConical,
+  'Social & Humanities': Landmark,
+  'Creative Arts': Palette,
+  'Technology': Laptop,
+  'Business & Vocational': Briefcase,
+  'Health & PE': HeartPulse,
+  'Religious Studies': BookOpenCheck,
+  'General Studies': Puzzle
+};
 
