@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 // Student Schema for Add/Edit
 const studentSchema = z.object({
@@ -271,95 +272,99 @@ export default function ManageUsersPage() {
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle>Existing Students by Class</CardTitle>
-                <CardDescription>View, edit, or remove students, grouped by their classes.</CardDescription>
+                <CardDescription>View, edit, or remove students, grouped by their classes. Click on a class name to expand/collapse.</CardDescription>
               </CardHeader>
               <CardContent>
                 {studentList.length > 0 ? (
                   <ScrollArea className="max-h-[500px]">
-                    {mockSchoolClasses.map(cls => {
-                      const studentsInThisClass = studentList.filter(s => s.classId === cls.id);
-                      if (studentsInThisClass.length === 0) return null;
-                      return (
-                        <div key={cls.id} className="mb-6">
-                          <h3 className="text-lg font-semibold mb-2 text-primary">{cls.name} ({cls.displayLevel})</h3>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>School Level</TableHead>
-                                <TableHead>Roll No.</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {studentsInThisClass.map((student) => (
-                                <TableRow key={student.id}>
-                                  <TableCell>{student.name}</TableCell>
-                                  <TableCell>{student.email}</TableCell>
-                                  <TableCell>{student.schoolLevel}</TableCell>
-                                  <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      );
-                    })}
-                    
-                    {(() => {
-                      const unassignedStudents = studentList.filter(s => !s.classId || !mockSchoolClasses.some(c => c.id === s.classId));
-                      if (unassignedStudents.length === 0 && studentList.some(s => s.classId && mockSchoolClasses.some(c => c.id === s.classId))) return null; // Hide if all assigned or no students
-                      if (unassignedStudents.length === 0 && studentList.length > 0 && !studentList.some(s => s.classId && mockSchoolClasses.some(c => c.id === s.classId)) ) {
-                        // This condition is complex: if there ARE students, but NONE are assigned to known classes, they are all effectively unassigned.
-                      } else if (unassignedStudents.length === 0) {
-                         return null;
-                      }
+                    <Accordion type="multiple" collapsible className="w-full">
+                      {mockSchoolClasses.map(cls => {
+                        const studentsInThisClass = studentList.filter(s => s.classId === cls.id);
+                        if (studentsInThisClass.length === 0) return null;
+                        return (
+                          <AccordionItem value={cls.id} key={cls.id}>
+                            <AccordionTrigger>
+                              <h3 className="text-lg font-semibold text-primary">{cls.name} ({cls.displayLevel}) - {studentsInThisClass.length} Student(s)</h3>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>School Level</TableHead>
+                                    <TableHead>Roll No.</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {studentsInThisClass.map((student) => (
+                                    <TableRow key={student.id}>
+                                      <TableCell>{student.name}</TableCell>
+                                      <TableCell>{student.email}</TableCell>
+                                      <TableCell>{student.schoolLevel}</TableCell>
+                                      <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                                      <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                      
+                      {(() => {
+                        const unassignedStudents = studentList.filter(s => !s.classId || !mockSchoolClasses.some(c => c.id === s.classId));
+                        if (unassignedStudents.length === 0) return null;
 
-
-                      return (
-                        <div className="mb-6">
-                          <h3 className="text-lg font-semibold mb-2 text-orange-600">Unassigned Students</h3>
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>School Level</TableHead>
-                                <TableHead>Roll No.</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {unassignedStudents.map((student) => (
-                                <TableRow key={student.id}>
-                                  <TableCell>{student.name}</TableCell>
-                                  <TableCell>{student.email}</TableCell>
-                                  <TableCell>{student.schoolLevel}</TableCell>
-                                  <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                                  <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      );
-                    })()}
+                        return (
+                          <AccordionItem value="unassigned-students">
+                            <AccordionTrigger>
+                              <h3 className="text-lg font-semibold text-orange-600">Unassigned Students - {unassignedStudents.length} Student(s)</h3>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>School Level</TableHead>
+                                    <TableHead>Roll No.</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {unassignedStudents.map((student) => (
+                                    <TableRow key={student.id}>
+                                      <TableCell>{student.name}</TableCell>
+                                      <TableCell>{student.email}</TableCell>
+                                      <TableCell>{student.schoolLevel}</TableCell>
+                                      <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                                      <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })()}
+                    </Accordion>
                   </ScrollArea>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">No students found. Add one below.</p>
@@ -471,52 +476,58 @@ export default function ManageUsersPage() {
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle>Existing Staff Members by Department</CardTitle>
-                 <CardDescription>View, edit, or remove staff members, grouped by department.</CardDescription>
+                 <CardDescription>View, edit, or remove staff members, grouped by department. Click on a department name to expand/collapse.</CardDescription>
               </CardHeader>
               <CardContent>
                 {staffList.length > 0 ? (
                    <ScrollArea className="max-h-[500px]">
-                    {Object.entries(groupedStaff).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([department, members]) => {
-                        if (members.length === 0) return null;
-                        return (
-                            <div key={department} className="mb-6">
-                                <h3 className="text-lg font-semibold mb-2 text-primary">{department}</h3>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Name</TableHead>
-                                      <TableHead>Email</TableHead>
-                                      <TableHead>Title</TableHead>
-                                      <TableHead>Assigned Classes (Master)</TableHead>
-                                      <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {members.map((staff) => (
-                                      <TableRow key={staff.id}>
-                                        <TableCell>{staff.name}</TableCell>
-                                        <TableCell>{staff.email}</TableCell>
-                                        <TableCell>{staff.title}</TableCell>
-                                        <TableCell>
-                                            {staff.assignedClasses && staff.assignedClasses.length > 0
-                                            ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ')
-                                            : "None"}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          <Button variant="ghost" size="icon" onClick={() => handleEditStaff(staff)} className="mr-2">
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                          <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80">
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                            </div>
-                        );
-                    })}
+                     <Accordion type="multiple" collapsible className="w-full">
+                        {Object.entries(groupedStaff).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([department, members]) => {
+                            if (members.length === 0) return null;
+                            return (
+                                <AccordionItem value={department.toLowerCase().replace(/\s+/g, '-')} key={department}>
+                                  <AccordionTrigger>
+                                    <h3 className="text-lg font-semibold text-primary">{department} - {members.length} Member(s)</h3>
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Name</TableHead>
+                                          <TableHead>Email</TableHead>
+                                          <TableHead>Title</TableHead>
+                                          <TableHead>Assigned Classes (Master)</TableHead>
+                                          <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {members.map((staff) => (
+                                          <TableRow key={staff.id}>
+                                            <TableCell>{staff.name}</TableCell>
+                                            <TableCell>{staff.email}</TableCell>
+                                            <TableCell>{staff.title}</TableCell>
+                                            <TableCell>
+                                                {staff.assignedClasses && staff.assignedClasses.length > 0
+                                                ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ')
+                                                : "None"}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              <Button variant="ghost" size="icon" onClick={() => handleEditStaff(staff)} className="mr-2">
+                                                <Edit className="h-4 w-4" />
+                                              </Button>
+                                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80">
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </AccordionContent>
+                                </AccordionItem>
+                            );
+                        })}
+                      </Accordion>
                    </ScrollArea>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">No staff members found. Add one below.</p>
