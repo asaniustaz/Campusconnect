@@ -22,9 +22,18 @@ import { APP_NAME } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn } from "lucide-react";
 
+// Define a type for users stored in localStorage
+type ManagedUser = {
+  id: string;
+  name: string;
+  email: string;
+  password?: string; // Password stored directly for prototype
+  role: UserRole;
+};
+
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(1, { message: "Password is required." }), // Min 1 for flexibility with potentially empty passwords from old mocks
   role: z.enum(["student", "staff", "admin"], { required_error: "Please select a role." }),
 });
 
@@ -40,31 +49,75 @@ export default function AuthForm() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    const REAL_ADMIN_EMAIL = "asaniustaz@gmail.com";
+    const REAL_ADMIN_PASS = "Aa12345678@";
+
+    let loggedIn = false;
     let userName = values.email.split('@')[0] || "User";
     let userRole: UserRole = values.role;
 
-    // Test user credentials
-    if (values.password === "password") {
-      if (values.email === "student@test.com") {
-        userRole = "student";
-        userName = "Test Student";
-      } else if (values.email === "staff@test.com") {
-        userRole = "staff";
-        userName = "Test Staff";
-      } else if (values.email === "admin@test.com") {
-        userRole = "admin";
-        userName = "Test Admin";
+    // 1. Check for the "real" admin
+    if (values.email === REAL_ADMIN_EMAIL && values.password === REAL_ADMIN_PASS) {
+      userRole = "admin";
+      userName = "Asani Ustaz";
+      loggedIn = true;
+    }
+
+    // 2. If not real admin, check users from localStorage
+    if (!loggedIn && typeof window !== 'undefined') {
+      const storedUsersString = localStorage.getItem('managedUsers');
+      if (storedUsersString) {
+        try {
+          const managedUsers: ManagedUser[] = JSON.parse(storedUsersString);
+          const matchedUser = managedUsers.find(u => u.email === values.email && u.password === values.password);
+          if (matchedUser) {
+            userRole = matchedUser.role;
+            userName = matchedUser.name;
+            loggedIn = true;
+          }
+        } catch (error) {
+          console.error("Error parsing managedUsers from localStorage:", error);
+        }
       }
     }
     
-    localStorage.setItem("userRole", userRole);
-    localStorage.setItem("userName", userName);
-    
-    toast({
-      title: "Login Successful",
-      description: `Welcome back, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1)}`,
-    });
-    router.push("/dashboard");
+    // 3. Fallback to existing test user credentials if not logged in yet
+    if (!loggedIn && values.password === "password") {
+      if (values.email === "student@test.com") {
+        userRole = "student";
+        userName = "Test Student";
+        loggedIn = true;
+      } else if (values.email === "staff@test.com") {
+        userRole = "staff";
+        userName = "Test Staff";
+        loggedIn = true;
+      } else if (values.email === "admin@test.com" && values.email !== REAL_ADMIN_EMAIL) { // Ensure this doesn't override real admin if password was 'password'
+        userRole = "admin";
+        userName = "Test Admin";
+        loggedIn = true;
+      }
+    }
+
+    if (loggedIn) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("userRole", userRole);
+        localStorage.setItem("userName", userName);
+        localStorage.setItem("userId", values.email); // Use email as a simple ID for now
+      }
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1)}`,
+      });
+      router.push("/dashboard");
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: "Invalid email, password, or role selected.",
+      });
+      form.setError("email", { type: "manual", message: " " }); // Add error to field to show something is wrong
+      form.setError("password", { type: "manual", message: "Invalid credentials or role mismatch." });
+    }
   }
 
   return (
@@ -107,7 +160,7 @@ export default function AuthForm() {
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role</FormLabel>
+                  <FormLabel>Role (Select if not using managed credentials)</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>

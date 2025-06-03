@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolLevel, SchoolClass, Student } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses, globalMockStudents, addStudentToGlobalList, updateStudentInGlobalList, deleteStudentFromGlobalList } from "@/lib/constants";
+import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants";
 import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +26,7 @@ const studentSchema = z.object({
   email: z.string().email("Invalid email address"),
   schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
   classId: z.string().optional(), 
-  password: z.string().optional(), 
+  password: z.string().min(6, "Password must be at least 6 characters for new students.").optional(), 
   rollNumber: z.string().optional(),
 });
 type StudentFormData = z.infer<typeof studentSchema>;
@@ -37,7 +37,7 @@ const staffSchema = z.object({
   email: z.string().email("Invalid email address"),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
-  password: z.string().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters for new staff.").optional(),
   assignedClasses: z.array(z.string()).optional(),
 });
 type StaffFormData = z.infer<typeof staffSchema>;
@@ -49,25 +49,22 @@ interface StaffMember {
   email: string;
   department: string;
   title: string;
-  passwordHash?: string; 
+  password?: string; // Storing actual password for prototype login
   assignedClasses?: string[];
+  role: UserRole; // Added role
 }
 
-const initialMockStaff: StaffMember[] = [
-  { id: "staff001", name: "Mrs. Eleanor Vance", email: "evance@campus.edu", department: "Science Department", title: "Senior Teacher", assignedClasses: ["SSS_ENG_C", "SSS_LIT_A"] },
-  { id: "staff002", name: "Mr. Samuel Green", email: "sgreen@campus.edu", department: "Administration", title: "Admin Officer" },
-  { id: "staff006", name: "Ms. Bola Aderibigbe", email: "mbola@campus.edu", department: "Early Years", title: "Nursery Teacher", assignedClasses: ["nur1", "nur2"]},
-];
+const initialMockStaff: StaffMember[] = []; // Emptied for real user management
 
 
 export default function ManageUsersPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   
-  const [studentList, setStudentList] = useState<Student[]>(globalMockStudents);
+  const [studentList, setStudentList] = useState<Student[]>([]);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   
-  const [staffList, setStaffList] = useState<StaffMember[]>(initialMockStaff);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
 
   const studentForm = useForm<StudentFormData>({
@@ -97,10 +94,25 @@ export default function ManageUsersPage() {
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
-  }, []);
 
-  useEffect(() => {
-    setStudentList([...globalMockStudents]); 
+    // Load users from localStorage
+    if (typeof window !== 'undefined') {
+      const storedUsersString = localStorage.getItem('managedUsers');
+      if (storedUsersString) {
+        try {
+          const allStoredUsers: (Student | StaffMember)[] = JSON.parse(storedUsersString);
+          setStudentList(allStoredUsers.filter(u => u.role === 'student') as Student[]);
+          setStaffList(allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin') as StaffMember[]);
+        } catch (e) {
+          console.error("Failed to parse users from localStorage", e);
+          setStudentList([]);
+          setStaffList([]);
+        }
+      } else {
+        setStudentList([]);
+        setStaffList([]);
+      }
+    }
   }, []);
 
 
@@ -111,7 +123,7 @@ export default function ManageUsersPage() {
         email: editingStudent.email,
         schoolLevel: editingStudent.schoolLevel,
         classId: editingStudent.classId,
-        password: "", 
+        password: "", // Clear password field on edit
         rollNumber: editingStudent.rollNumber,
       });
     } else {
@@ -126,7 +138,7 @@ export default function ManageUsersPage() {
         email: editingStaff.email,
         department: editingStaff.department,
         title: editingStaff.title,
-        password: "",
+        password: "", // Clear password field on edit
         assignedClasses: editingStaff.assignedClasses || [],
       });
     } else {
@@ -134,10 +146,18 @@ export default function ManageUsersPage() {
     }
   }, [editingStaff, staffForm]);
 
+  const saveUsersToLocalStorage = (updatedStudents: Student[], updatedStaff: StaffMember[]) => {
+    if (typeof window !== 'undefined') {
+      const allUsers = [...updatedStudents, ...updatedStaff];
+      localStorage.setItem('managedUsers', JSON.stringify(allUsers));
+    }
+  };
+
   const onStudentSubmit: SubmitHandler<StudentFormData> = (data) => {
+    let newStudentList = [...studentList];
     if (editingStudent) {
-      if (!data.password && !editingStudent.passwordHash) { 
-         studentForm.setError("password", { type: "manual", message: "Password is required for students without one."});
+      if (!data.password && !editingStudent.password) { 
+         studentForm.setError("password", { type: "manual", message: "Password is required if not previously set or to change it."});
          return;
       }
       const updatedStudentData: Student = {
@@ -147,10 +167,11 @@ export default function ManageUsersPage() {
         schoolLevel: data.schoolLevel!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
-        passwordHash: data.password ? `hashed_${data.password}` : editingStudent.passwordHash,
+        password: data.password ? data.password : editingStudent.password, // Store actual password for prototype
+        role: 'student',
       };
-      updateStudentInGlobalList(updatedStudentData);
-      setStudentList([...globalMockStudents]); 
+      newStudentList = studentList.map(s => s.id === editingStudent.id ? updatedStudentData : s);
+      setStudentList(newStudentList);
       toast({ title: "Student Updated", description: `${data.name}'s details have been updated.` });
       setEditingStudent(null);
     } else {
@@ -165,26 +186,31 @@ export default function ManageUsersPage() {
         schoolLevel: data.schoolLevel!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
-        passwordHash: `hashed_${data.password}`,
+        password: data.password, // Store actual password for prototype
+        role: 'student',
       };
-      addStudentToGlobalList(newStudentData);
-      setStudentList([...globalMockStudents]); 
+      newStudentList.push(newStudentData);
+      setStudentList(newStudentList);
       toast({ title: "Student Added", description: `${data.name} has been added.` });
     }
+    saveUsersToLocalStorage(newStudentList, staffList);
     studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleEditStudent = (student: Student) => {
     setEditingStudent(student);
+    studentForm.clearErrors("password"); // Clear password error when starting edit
   };
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
+    studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleDeleteStudent = (studentId: string) => {
-    deleteStudentFromGlobalList(studentId);
-    setStudentList([...globalMockStudents]); 
+    const newStudentList = studentList.filter(s => s.id !== studentId);
+    setStudentList(newStudentList);
+    saveUsersToLocalStorage(newStudentList, staffList);
     toast({ title: "Student Deleted", description: "Student has been removed.", variant: "destructive" });
     if (editingStudent && editingStudent.id === studentId) {
       handleCancelStudentEdit();
@@ -193,13 +219,20 @@ export default function ManageUsersPage() {
 
 
   const onStaffSubmit: SubmitHandler<StaffFormData> = (data) => {
+    let newStaffList = [...staffList];
     if (editingStaff) {
       const updatedStaff: StaffMember = {
         ...editingStaff,
-        ...data,
-        passwordHash: data.password ? `hashed_${data.password}` : editingStaff.passwordHash,
+        name: data.name,
+        email: data.email,
+        department: data.department,
+        title: data.title,
+        password: data.password ? data.password : editingStaff.password, // Store actual password
+        assignedClasses: data.assignedClasses || [],
+        role: editingStaff.role || 'staff', // Preserve role or default to staff
       };
-      setStaffList(staffList.map(staff => staff.id === editingStaff.id ? updatedStaff : staff));
+      newStaffList = staffList.map(staff => staff.id === editingStaff.id ? updatedStaff : staff);
+      setStaffList(newStaffList);
       toast({ title: "Staff Updated", description: `${data.name}'s details have been updated.` });
       setEditingStaff(null);
     } else {
@@ -209,25 +242,36 @@ export default function ManageUsersPage() {
       }
       const newStaffMember: StaffMember = {
         id: `staff-${Date.now()}`,
-        ...data,
-        passwordHash: `hashed_${data.password}`,
+        name: data.name,
+        email: data.email,
+        department: data.department,
+        title: data.title,
+        password: data.password, // Store actual password
+        assignedClasses: data.assignedClasses || [],
+        role: 'staff', // Default new staff to 'staff' role
       };
-      setStaffList([...staffList, newStaffMember]);
+      newStaffList.push(newStaffMember);
+      setStaffList(newStaffList);
       toast({ title: "Staff Added", description: `${data.name} has been added as a staff member.` });
     }
+    saveUsersToLocalStorage(studentList, newStaffList);
     staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
   };
 
   const handleEditStaff = (staff: StaffMember) => {
     setEditingStaff(staff);
+    staffForm.clearErrors("password");
   };
 
   const handleCancelStaffEdit = () => {
     setEditingStaff(null);
+    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
   };
   
   const handleDeleteStaff = (staffId: string) => {
-    setStaffList(staffList.filter(staff => staff.id !== staffId));
+    const newStaffList = staffList.filter(staff => staff.id !== staffId);
+    setStaffList(newStaffList);
+    saveUsersToLocalStorage(studentList, newStaffList);
     toast({ title: "Staff Deleted", description: "Staff member has been removed.", variant: "destructive" });
      if (editingStaff && editingStaff.id === staffId) {
       handleCancelStaffEdit();
@@ -452,7 +496,12 @@ export default function ManageUsersPage() {
                   </div>
                   <div>
                     <Label htmlFor="studentPassword">Password</Label>
-                    <Input id="studentPassword" type="password" {...studentForm.register("password")} placeholder={editingStudent ? "Leave blank to keep current" : "Min. 6 characters"} />
+                    <Input 
+                        id="studentPassword" 
+                        type="password" 
+                        {...studentForm.register("password")} 
+                        placeholder={editingStudent ? "Leave blank to keep current" : "Min. 6 characters"} 
+                    />
                     {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 pt-2">
