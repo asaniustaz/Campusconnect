@@ -73,10 +73,26 @@ export default function ManageUsersPage() {
 
   const studentForm = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
+    defaultValues: {
+        name: "",
+        email: "",
+        schoolLevel: undefined,
+        classId: undefined,
+        password: "",
+        rollNumber: ""
+    }
   });
 
   const staffForm = useForm<StaffFormData>({
     resolver: zodResolver(staffSchema),
+    defaultValues: {
+        name: "",
+        email: "",
+        department: "",
+        title: "",
+        password: "",
+        assignedClasses: []
+    }
   });
 
   useEffect(() => {
@@ -131,7 +147,7 @@ export default function ManageUsersPage() {
         name: data.name,
         email: data.email,
         schoolLevel: data.schoolLevel!,
-        classId: data.classId,
+        classId: data.classId, // Will be undefined if "Unassigned" was selected
         rollNumber: data.rollNumber,
         passwordHash: data.password ? `hashed_${data.password}` : editingStudent.passwordHash,
       };
@@ -144,16 +160,17 @@ export default function ManageUsersPage() {
         studentForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new students."});
         return;
       }
-      if (!data.classId) {
-        studentForm.setError("classId", { type: "manual", message: "Please assign a class to the student."});
-        return;
-      }
+      // classId is optional, so a check like this might be too strict if unassigned is allowed.
+      // if (!data.classId) { 
+      //   studentForm.setError("classId", { type: "manual", message: "Please assign a class to the student."});
+      //   return;
+      // }
       const newStudentData: Student = {
         id: `stud-${Date.now()}`,
         name: data.name,
         email: data.email,
         schoolLevel: data.schoolLevel!,
-        classId: data.classId,
+        classId: data.classId, // Will be undefined if "Unassigned" was selected
         rollNumber: data.rollNumber,
         passwordHash: `hashed_${data.password}`,
       };
@@ -166,13 +183,13 @@ export default function ManageUsersPage() {
 
   const handleEditStudent = (student: Student) => {
     setEditingStudent(student);
-    studentForm.setValue("schoolLevel", student.schoolLevel); // Ensure select is pre-filled
-    studentForm.setValue("classId", student.classId);       // Ensure select is pre-filled
+    // studentForm.setValue("schoolLevel", student.schoolLevel); // Done by reset
+    // studentForm.setValue("classId", student.classId || undefined); // Done by reset
   };
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
-    studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
+    // studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""}); // Done by useEffect
   };
 
   const handleDeleteStudent = (studentId: string) => {
@@ -217,7 +234,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStaffEdit = () => {
     setEditingStaff(null);
-    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+    // staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] }); // Done by useEffect
   };
   
   const handleDeleteStaff = (staffId: string) => {
@@ -334,8 +351,7 @@ export default function ManageUsersPage() {
                           <Select 
                             onValueChange={(value) => {
                                 field.onChange(value);
-                                // Optionally, filter classes based on selected level
-                                // studentForm.setValue("classId", undefined); // Reset class if level changes
+                                studentForm.setValue("classId", undefined); // Reset class if level changes
                             }} 
                             value={field.value || ""}
                           >
@@ -358,14 +374,19 @@ export default function ManageUsersPage() {
                         name="classId"
                         control={studentForm.control}
                         render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <Select 
+                            onValueChange={(value) => {
+                                field.onChange(value === "__UNASSIGNED__" ? undefined : value);
+                            }} 
+                            value={field.value ?? ""} // Use ?? "" to show placeholder if field.value is undefined
+                          >
                             <SelectTrigger id="classId">
                               <SelectValue placeholder="Select class" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">Unassigned</SelectItem>
+                              <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
                               {mockSchoolClasses
-                                .filter(cls => !studentForm.getValues("schoolLevel") || cls.level === studentForm.getValues("schoolLevel")) // Optional: filter by selected level
+                                .filter(cls => !studentForm.getValues("schoolLevel") || cls.level === studentForm.getValues("schoolLevel")) 
                                 .map(cls => (
                                 <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
                               ))}
