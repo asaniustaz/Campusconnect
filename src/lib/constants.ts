@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck } from 'lucide-react';
+import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck, Presentation } from 'lucide-react';
 
 export type UserRole = 'student' | 'staff' | 'admin';
 
@@ -40,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/profile', label: 'Profile', icon: UserCircle, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/school-overview', label: 'School Overview', icon: Building, roles: ['admin', 'staff'] },
+  { href: '/dashboard/my-classes', label: 'My Classes', icon: Presentation, roles: ['staff', 'admin'] },
   { href: '/dashboard/courses', label: 'Courses', icon: BookOpen, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/staff', label: 'Staff Directory', icon: Users, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/payments', label: 'Payment History', icon: CreditCard, roles: ['student'] },
@@ -106,12 +107,30 @@ export const mockSchoolClasses: SchoolClass[] = [
   { id: 'jss3', name: 'JSS 3', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 35, classMasterId: 'staff003' }, // Ms. Olivia Chen
 
   // Senior Secondary Classes
-  { id: 'sss1_sci', name: 'SSS 1 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 25, classMasterId: 'staff004' }, // Prof. Robert Downy
+  { id: 'sss1_sci', name: 'SSS 1 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 25, classMasterId: 'staff004' }, // Prof. Robert Downy -> Mr. Robert Adewale
   { id: 'sss1_art', name: 'SSS 1 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 20, classMasterId: 'staff011' }, // Prof. Wole
   { id: 'sss1_com', name: 'SSS 1 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 18, classMasterId: 'staff001' }, // Dr. Eleanor Vance
-  { id: 'sss2_sci', name: 'SSS 2 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 22, classMasterId: 'staff004' }, // Prof. Robert Downy
+  { id: 'sss2_sci', name: 'SSS 2 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 22, classMasterId: 'staff004' }, // Prof. Robert Downy -> Mr. Robert Adewale
   { id: 'sss2_art', name: 'SSS 2 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 23, classMasterId: 'staff011' }, // Prof. Wole
   { id: 'sss2_com', name: 'SSS 2 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 15, classMasterId: 'staff001' }, // Dr. Eleanor Vance
   { id: 'sss3_sci', name: 'SSS 3 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 20 },
   { id: 'sss3_art', name: 'SSS 3 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 19 },
+];
+
+// Simplified staff list used in school-overview and my-classes for mapping classMasterId to name/avatar
+// This should ideally be consistent with the main staff list or fetched from a central source
+// For mock purposes, it's redefined here if those pages need it.
+export const mockStaffListSimpleForClassMaster = [
+  { id: "staff001", name: "Mrs. Eleanor Vance", avatarUrl: "https://placehold.co/40x40.png?text=EV" },
+  { id: "staff002", name: "Mr. Samuel Green", avatarUrl: "https://placehold.co/40x40.png?text=SG" },
+  { id: "staff003", name: "Ms. Olivia Chen", avatarUrl: "https://placehold.co/40x40.png?text=OC" },
+  { id: "staff004", name: "Mr. Robert Adewale", avatarUrl: "https://placehold.co/40x40.png?text=RA" },
+  { id: "staff005", name: "Mrs. Daisy Fields", avatarUrl: "https://placehold.co/40x40.png?text=DF" },
+  { id: "staff006", name: "Ms. Bola Aderibigbe", avatarUrl: "https://placehold.co/40x40.png?text=BA"},
+  { id: "staff007", name: "Mr. David Okon", avatarUrl: "https://placehold.co/40x40.png?text=DO"},
+  { id: "staff008", name: "Mrs. Esther Musa", avatarUrl: "https://placehold.co/40x40.png?text=EM"},
+  { id: "staff009", name: "Ms. Johnson Chioma", avatarUrl: "https://placehold.co/40x40.png?text=JC"},
+  { id: "staff010", name: "Mr. Adebayo Bello", avatarUrl: "https://placehold.co/40x40.png?text=AB"},
+  { id: "staff011", name: "Mr. Wole Soyinka", avatarUrl: "https://placehold.co/40x40.png?text=WS"},
+  { id: "staff012", name: "Dr. Funmi Kuti", avatarUrl: "https://placehold.co/40x40.png?text=FK"},
 ];
