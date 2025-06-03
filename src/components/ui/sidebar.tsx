@@ -201,7 +201,7 @@ const Sidebar = React.forwardRef<
 
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-          <ShadcnSheetContent
+          <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
             className="flex flex-col w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
@@ -221,7 +221,7 @@ const Sidebar = React.forwardRef<
               </ShadcnSheetTitle>
             </ShadcnSheetHeader>
             {sidebarContentElement ? React.cloneElement(sidebarContentElement as React.ReactElement<any>) : null}
-          </ShadcnSheetContent>
+          </SheetContent>
         </Sheet>
       )
     }
