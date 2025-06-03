@@ -140,12 +140,6 @@ export default function DashboardPage() {
                 <p className="text-sm mt-1">{announcement.content}</p>
               </div>
             ))}
-             {userInfo.role === 'student' && !mockStudentResults.termResults.some(tr => tr.results.length > 0) && (
-                <div className="p-3 border rounded-md bg-yellow-100 border-yellow-300">
-                    <h3 className="font-semibold text-yellow-800">No Results Yet!</h3>
-                    <p className="text-sm text-yellow-700 mt-1">Your results for the current term are not yet available. Please check back later.</p>
-                </div>
-             )}
           </CardContent>
         </Card>
       </section>
