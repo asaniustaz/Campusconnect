@@ -1,16 +1,17 @@
+
 "use client"
 
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import { PanelLeft } from "lucide-react"
+import { PanelLeft, LogIn } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader as ShadcnSheetHeader, SheetTitle as ShadcnSheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
@@ -18,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { APP_NAME } from "@/lib/constants"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -193,12 +195,16 @@ const Sidebar = React.forwardRef<
     }
 
     if (isMobile) {
+      const sidebarContentElement = React.Children.toArray(children).find(child =>
+        React.isValidElement(child) && (child.type as any)?.displayName === 'SidebarContent'
+      );
+
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-          <SheetContent
+          <ShadcnSheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="flex flex-col w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -206,8 +212,16 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-            <div className="flex h-full w-full flex-col">{children}</div>
-          </SheetContent>
+            <ShadcnSheetHeader className="p-4 border-b border-sidebar-border">
+              <ShadcnSheetTitle>
+                <div className="flex items-center gap-2">
+                  <LogIn className="h-8 w-8 text-primary" />
+                  <span className="text-2xl font-semibold font-headline text-primary">{APP_NAME}</span>
+                </div>
+              </ShadcnSheetTitle>
+            </ShadcnSheetHeader>
+            {sidebarContentElement ? React.cloneElement(sidebarContentElement as React.ReactElement<any>) : null}
+          </ShadcnSheetContent>
         </Sheet>
       )
     }
@@ -761,3 +775,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+    
