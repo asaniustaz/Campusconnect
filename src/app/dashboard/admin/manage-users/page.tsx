@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel, SchoolClass } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants";
-import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks } from "lucide-react";
+import type { UserRole, SchoolLevel, SchoolClass, Student } from "@/lib/constants"; // Added Student
+import { SCHOOL_LEVELS, mockSchoolClasses, globalMockStudents, addStudentToGlobalList, updateStudentInGlobalList, deleteStudentFromGlobalList } from "@/lib/constants"; // Using globalMockStudents
+import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -24,7 +24,9 @@ const studentSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
+  classId: z.string().optional(), // Optional for now, can be made required
   password: z.string().optional(), // Optional for editing
+  rollNumber: z.string().optional(),
 });
 type StudentFormData = z.infer<typeof studentSchema>;
 
@@ -34,19 +36,11 @@ const staffSchema = z.object({
   email: z.string().email("Invalid email address"),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
-  password: z.string().optional(), 
+  password: z.string().optional(),
   assignedClasses: z.array(z.string()).optional(),
 });
 type StaffFormData = z.infer<typeof staffSchema>;
 
-// Interface for Student in the list
-interface Student {
-  id: string;
-  name: string;
-  email: string;
-  schoolLevel: SchoolLevel;
-  passwordHash?: string; // Store hashed password, not plain text
-}
 
 // Interface for Staff Member in the list
 interface StaffMember {
@@ -59,18 +53,11 @@ interface StaffMember {
   assignedClasses?: string[];
 }
 
-// Initial Mock Student List
-const initialMockStudents: Student[] = [
-  { id: "stud001", name: "Adekunle Gold", email: "agold@campus.edu", schoolLevel: "Primary", passwordHash: "hashed_password1" },
-  { id: "stud002", name: "Bisiola Kolawole", email: "bkolawole@campus.edu", schoolLevel: "Secondary", passwordHash: "hashed_password2" },
-  { id: "stud003", name: "Chinedu Okoro", email: "cokoro@campus.edu", schoolLevel: "Kindergarten", passwordHash: "hashed_password3"},
-];
-
 // Initial Mock Staff List
 const initialMockStaff: StaffMember[] = [
   { id: "staff001", name: "Mrs. Eleanor Vance", email: "evance@campus.edu", department: "Science Department", title: "Senior Teacher", assignedClasses: ["SSS_ENG_C", "SSS_LIT_A"] },
   { id: "staff002", name: "Mr. Samuel Green", email: "sgreen@campus.edu", department: "Administration", title: "Admin Officer" },
-  { id: "staff006", name: "Ms. Bola Aderibigbe", email: "mbola@campus.edu", department: "Early Years", title: "Nursery Teacher", assignedClasses: ["NUR_ENG", "NUR_MTH"]},
+  { id: "staff006", name: "Ms. Bola Aderibigbe", email: "mbola@campus.edu", department: "Early Years", title: "Nursery Teacher", assignedClasses: ["nur1", "nur2"]},
 ];
 
 
@@ -78,7 +65,7 @@ export default function ManageUsersPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   
-  const [studentList, setStudentList] = useState<Student[]>(initialMockStudents);
+  const [studentList, setStudentList] = useState<Student[]>(globalMockStudents);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   
   const [staffList, setStaffList] = useState<StaffMember[]>(initialMockStaff);
@@ -95,7 +82,13 @@ export default function ManageUsersPage() {
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
+    // studentList is already initialized with globalMockStudents
   }, []);
+
+  useEffect(() => {
+    setStudentList(globalMockStudents); // Keep local state in sync if global changes elsewhere (e.g. other components)
+  }, []);
+
 
   useEffect(() => {
     if (editingStudent) {
@@ -103,10 +96,12 @@ export default function ManageUsersPage() {
         name: editingStudent.name,
         email: editingStudent.email,
         schoolLevel: editingStudent.schoolLevel,
+        classId: editingStudent.classId,
         password: "", // Clear password for editing
+        rollNumber: editingStudent.rollNumber,
       });
     } else {
-      studentForm.reset({ name: "", email: "", schoolLevel: undefined, password: "" });
+      studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: "" });
     }
   }, [editingStudent, studentForm]);
 
@@ -117,7 +112,7 @@ export default function ManageUsersPage() {
         email: editingStaff.email,
         department: editingStaff.department,
         title: editingStaff.title,
-        password: "", 
+        password: "",
         assignedClasses: editingStaff.assignedClasses || [],
       });
     } else {
@@ -127,16 +122,21 @@ export default function ManageUsersPage() {
 
   const onStudentSubmit: SubmitHandler<StudentFormData> = (data) => {
     if (editingStudent) {
-      if (!data.password && !editingStudent.passwordHash) { // if editing a student who somehow had no password and none provided
+      if (!data.password && !editingStudent.passwordHash) { 
          studentForm.setError("password", { type: "manual", message: "Password is required for students without one."});
          return;
       }
-      const updatedStudent: Student = {
+      const updatedStudentData: Student = {
         ...editingStudent,
-        ...data,
+        name: data.name,
+        email: data.email,
+        schoolLevel: data.schoolLevel!,
+        classId: data.classId,
+        rollNumber: data.rollNumber,
         passwordHash: data.password ? `hashed_${data.password}` : editingStudent.passwordHash,
       };
-      setStudentList(studentList.map(s => s.id === editingStudent.id ? updatedStudent : s));
+      updateStudentInGlobalList(updatedStudentData);
+      setStudentList([...globalMockStudents]); // Refresh local list
       toast({ title: "Student Updated", description: `${data.name}'s details have been updated.` });
       setEditingStudent(null);
     } else {
@@ -144,29 +144,40 @@ export default function ManageUsersPage() {
         studentForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new students."});
         return;
       }
-      const newStudent: Student = {
+      if (!data.classId) {
+        studentForm.setError("classId", { type: "manual", message: "Please assign a class to the student."});
+        return;
+      }
+      const newStudentData: Student = {
         id: `stud-${Date.now()}`,
-        ...data,
-        schoolLevel: data.schoolLevel!, // Already validated by Zod
+        name: data.name,
+        email: data.email,
+        schoolLevel: data.schoolLevel!,
+        classId: data.classId,
+        rollNumber: data.rollNumber,
         passwordHash: `hashed_${data.password}`,
       };
-      setStudentList([...studentList, newStudent]);
+      addStudentToGlobalList(newStudentData);
+      setStudentList([...globalMockStudents]); // Refresh local list
       toast({ title: "Student Added", description: `${data.name} has been added.` });
     }
-    studentForm.reset({ name: "", email: "", schoolLevel: undefined, password: ""});
+    studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleEditStudent = (student: Student) => {
     setEditingStudent(student);
+    studentForm.setValue("schoolLevel", student.schoolLevel); // Ensure select is pre-filled
+    studentForm.setValue("classId", student.classId);       // Ensure select is pre-filled
   };
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
-    studentForm.reset({ name: "", email: "", schoolLevel: undefined, password: ""});
+    studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleDeleteStudent = (studentId: string) => {
-    setStudentList(studentList.filter(s => s.id !== studentId));
+    deleteStudentFromGlobalList(studentId);
+    setStudentList([...globalMockStudents]); // Refresh local list
     toast({ title: "Student Deleted", description: "Student has been removed.", variant: "destructive" });
     if (editingStudent && editingStudent.id === studentId) {
       handleCancelStudentEdit();
@@ -190,9 +201,9 @@ export default function ManageUsersPage() {
         return;
       }
       const newStaffMember: StaffMember = {
-        id: `staff-${Date.now()}`, 
+        id: `staff-${Date.now()}`,
         ...data,
-        passwordHash: `hashed_${data.password}`, 
+        passwordHash: `hashed_${data.password}`,
       };
       setStaffList([...staffList, newStaffMember]);
       toast({ title: "Staff Added", description: `${data.name} has been added as a staff member.` });
@@ -235,9 +246,9 @@ export default function ManageUsersPage() {
         <p className="text-muted-foreground">Add new students or manage staff members.</p>
       </header>
 
-      <Tabs defaultValue="manage-staff" className="w-full">
+      <Tabs defaultValue="manage-students" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
-          <TabsTrigger value="manage-students"><Users className="mr-2"/> Manage Students</TabsTrigger>
+          <TabsTrigger value="manage-students"><GraduationCap className="mr-2"/> Manage Students</TabsTrigger>
           <TabsTrigger value="manage-staff"><Briefcase className="mr-2"/> Manage Staff</TabsTrigger>
         </TabsList>
         
@@ -258,6 +269,8 @@ export default function ManageUsersPage() {
                           <TableHead>Name</TableHead>
                           <TableHead>Email</TableHead>
                           <TableHead>School Level</TableHead>
+                          <TableHead>Class</TableHead>
+                          <TableHead>Roll No.</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -267,6 +280,8 @@ export default function ManageUsersPage() {
                             <TableCell>{student.name}</TableCell>
                             <TableCell>{student.email}</TableCell>
                             <TableCell>{student.schoolLevel}</TableCell>
+                            <TableCell>{mockSchoolClasses.find(c => c.id === student.classId)?.name || 'N/A'}</TableCell>
+                            <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                             <TableCell className="text-right">
                               <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
                                 <Edit className="h-4 w-4" />
@@ -305,24 +320,61 @@ export default function ManageUsersPage() {
                     {studentForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.email.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="schoolLevel">School Level</Label>
-                    <Controller
-                      name="schoolLevel"
-                      control={studentForm.control}
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <SelectTrigger id="schoolLevel">
-                            <SelectValue placeholder="Select school level" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SCHOOL_LEVELS.map(level => (
-                              <SelectItem key={level} value={level}>{level}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {studentForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolLevel.message}</p>}
+                    <Label htmlFor="studentRollNumber">Roll Number</Label>
+                    <Input id="studentRollNumber" {...studentForm.register("rollNumber")} />
+                    {studentForm.formState.errors.rollNumber && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.rollNumber.message}</p>}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="schoolLevel">School Level</Label>
+                      <Controller
+                        name="schoolLevel"
+                        control={studentForm.control}
+                        render={({ field }) => (
+                          <Select 
+                            onValueChange={(value) => {
+                                field.onChange(value);
+                                // Optionally, filter classes based on selected level
+                                // studentForm.setValue("classId", undefined); // Reset class if level changes
+                            }} 
+                            value={field.value || ""}
+                          >
+                            <SelectTrigger id="schoolLevel">
+                              <SelectValue placeholder="Select school level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SCHOOL_LEVELS.map(level => (
+                                <SelectItem key={level} value={level}>{level}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {studentForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolLevel.message}</p>}
+                    </div>
+                    <div>
+                      <Label htmlFor="classId">Assign to Class</Label>
+                      <Controller
+                        name="classId"
+                        control={studentForm.control}
+                        render={({ field }) => (
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <SelectTrigger id="classId">
+                              <SelectValue placeholder="Select class" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">Unassigned</SelectItem>
+                              {mockSchoolClasses
+                                .filter(cls => !studentForm.getValues("schoolLevel") || cls.level === studentForm.getValues("schoolLevel")) // Optional: filter by selected level
+                                .map(cls => (
+                                <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {studentForm.formState.errors.classId && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.classId.message}</p>}
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="studentPassword">Password</Label>
@@ -363,7 +415,7 @@ export default function ManageUsersPage() {
                           <TableHead>Email</TableHead>
                           <TableHead>Department</TableHead>
                           <TableHead>Title</TableHead>
-                          <TableHead>Assigned Classes</TableHead>
+                          <TableHead>Assigned Classes (Master)</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -375,8 +427,8 @@ export default function ManageUsersPage() {
                             <TableCell>{staff.department}</TableCell>
                             <TableCell>{staff.title}</TableCell>
                             <TableCell>
-                                {staff.assignedClasses && staff.assignedClasses.length > 0 
-                                ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ') 
+                                {staff.assignedClasses && staff.assignedClasses.length > 0
+                                ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ')
                                 : "None"}
                             </TableCell>
                             <TableCell className="text-right">

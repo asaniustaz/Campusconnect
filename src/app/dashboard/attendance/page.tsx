@@ -9,60 +9,67 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Save } from "lucide-react";
+import { CalendarIcon, Save, Users } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole } from "@/lib/constants";
-
-interface Student {
-  id: string;
-  name: string;
-  rollNumber: string;
-}
+import type { UserRole, Student, SchoolClass } from "@/lib/constants";
+import { mockSchoolClasses, globalMockStudents, mockStaffListSimpleForClassMaster } from "@/lib/constants";
 
 interface AttendanceRecord {
   [studentId: string]: boolean; // true for present, false for absent
 }
 
-const mockStudents: Student[] = [
-  { id: "std001", name: "Alice Wonderland", rollNumber: "S001" },
-  { id: "std002", name: "Bob The Builder", rollNumber: "S002" },
-  { id: "std003", name: "Charlie Brown", rollNumber: "S003" },
-  { id: "std004", name: "Diana Prince", rollNumber: "S004" },
-  { id: "std005", name: "Edward Scissorhands", rollNumber: "S005" },
-];
-
-// Using Nigerian curriculum subjects
-const mockCourses = [
-  { id: "PRI_ENG", name: "English Language (Primary)" },
-  { id: "JSS_MTH", name: "Mathematics (JSS)" },
-  { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
-];
-
 export default function AttendancePage() {
-  const [selectedCourse, setSelectedCourse] = useState<string | undefined>(mockCourses[0]?.id);
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
+  const [studentsInClass, setStudentsInClass] = useState<Student[]>([]);
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [userId, setUserId] = useState<string | null>(null); // For staff to filter classes
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
+    const storedUserId = localStorage.getItem("userId"); // Assuming userId is stored for staff
     setUserRole(role);
-    const initialAttendance: AttendanceRecord = {};
-    mockStudents.forEach(student => initialAttendance[student.id] = true);
-    setAttendance(initialAttendance);
+    if (role === 'staff' && storedUserId) {
+        setUserId(storedUserId);
+    } else if (role === 'staff') {
+        // Fallback: try to get ID from username if `userId` not in localStorage
+        const staffName = localStorage.getItem("userName");
+        const matchedStaff = mockStaffListSimpleForClassMaster.find(s => s.name === staffName);
+        if (matchedStaff) setUserId(matchedStaff.id);
+    }
   }, []);
+
+  useEffect(() => {
+    if (selectedClassId) {
+      const students = globalMockStudents.filter(student => student.classId === selectedClassId);
+      setStudentsInClass(students);
+      const initialAttendance: AttendanceRecord = {};
+      students.forEach(student => initialAttendance[student.id] = true); // Default to present
+      setAttendance(initialAttendance);
+    } else {
+      setStudentsInClass([]);
+      setAttendance({});
+    }
+  }, [selectedClassId]);
+
 
   const handleAttendanceChange = (studentId: string, isPresent: boolean) => {
     setAttendance(prev => ({ ...prev, [studentId]: isPresent }));
   };
 
   const handleSaveAttendance = () => {
-    console.log("Attendance for", selectedCourse, "on", selectedDate, ":", attendance);
+    if (!selectedClassId || !selectedDate) {
+        toast({ variant: "destructive", title: "Error", description: "Please select a class and date." });
+        return;
+    }
+    const className = mockSchoolClasses.find(c => c.id === selectedClassId)?.name;
+    console.log("Attendance for class:", className, "on", format(selectedDate, "PPP"), ":", attendance);
     toast({
       title: "Attendance Saved",
-      description: `Attendance for ${mockCourses.find(c=>c.id === selectedCourse)?.name || 'subject'} on ${selectedDate ? format(selectedDate, "PPP") : ''} has been recorded.`,
+      description: `Attendance for ${className || 'class'} on ${format(selectedDate, "PPP")} has been recorded.`,
     });
   };
   
@@ -77,26 +84,29 @@ export default function AttendancePage() {
     );
   }
 
+  const availableClassesForStaff = userRole === 'admin' 
+    ? mockSchoolClasses 
+    : mockSchoolClasses.filter(cls => cls.classMasterId === userId);
 
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Mark Attendance</h1>
-        <p className="text-muted-foreground">Select subject and date to mark student attendance.</p>
+        <h1 className="text-3xl font-bold font-headline text-foreground">Mark Class Attendance</h1>
+        <p className="text-muted-foreground">Select class and date to mark student attendance.</p>
       </header>
 
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle>Attendance Sheet</CardTitle>
           <div className="flex flex-col sm:flex-row gap-4 mt-2">
-            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-              <SelectTrigger className="w-full sm:w-[250px]">
-                <SelectValue placeholder="Select Subject" />
+            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+              <SelectTrigger className="w-full sm:w-[300px]">
+                <SelectValue placeholder="Select Class" />
               </SelectTrigger>
               <SelectContent>
-                {mockCourses.map(course => (
-                  <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                ))}
+                {availableClassesForStaff.length > 0 ? availableClassesForStaff.map(cls => (
+                  <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                )) : <SelectItem value="no-class" disabled>No classes assigned/available</SelectItem>}
               </SelectContent>
             </Select>
             <Popover>
@@ -115,41 +125,50 @@ export default function AttendancePage() {
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   initialFocus
+                  disabled={(date) => date.getDay() === 0 || date.getDay() === 6} // Disable weekends
                 />
               </PopoverContent>
             </Popover>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Roll Number</TableHead>
-                <TableHead>Student Name</TableHead>
-                <TableHead className="text-center">Present</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockStudents.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell>{student.rollNumber}</TableCell>
-                  <TableCell>{student.name}</TableCell>
-                  <TableCell className="text-center">
-                    <Checkbox
-                      checked={attendance[student.id] || false}
-                      onCheckedChange={(checked) => handleAttendanceChange(student.id, !!checked)}
-                      aria-label={`Mark ${student.name} as ${attendance[student.id] ? 'absent' : 'present'}`}
-                    />
-                  </TableCell>
+          {selectedClassId && studentsInClass.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Roll Number</TableHead>
+                  <TableHead>Student Name</TableHead>
+                  <TableHead className="text-center">Present</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleSaveAttendance} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Save className="mr-2 h-4 w-4"/> Save Attendance
-            </Button>
-          </div>
+              </TableHeader>
+              <TableBody>
+                {studentsInClass.map((student) => (
+                  <TableRow key={student.id}>
+                    <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                    <TableCell>{student.name}</TableCell>
+                    <TableCell className="text-center">
+                      <Checkbox
+                        checked={attendance[student.id] || false}
+                        onCheckedChange={(checked) => handleAttendanceChange(student.id, !!checked)}
+                        aria-label={`Mark ${student.name} as ${attendance[student.id] ? 'absent' : 'present'}`}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : selectedClassId ? (
+             <p className="text-muted-foreground text-center py-10">No students found in the selected class.</p>
+          ) : (
+            <p className="text-muted-foreground text-center py-10">Please select a class to view the attendance sheet.</p>
+          )}
+          {selectedClassId && studentsInClass.length > 0 && (
+            <div className="mt-6 flex justify-end">
+                <Button onClick={handleSaveAttendance} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Save className="mr-2 h-4 w-4"/> Save Attendance
+                </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

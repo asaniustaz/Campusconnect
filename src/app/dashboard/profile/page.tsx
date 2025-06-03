@@ -12,8 +12,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolLevel } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants";
-import { Edit3, School, Camera } from "lucide-react";
+import { SCHOOL_LEVELS, mockSchoolClasses, globalMockStudents } from "@/lib/constants"; // Added globalMockStudents
+import { Edit3, School, Camera, GraduationCap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -23,8 +23,10 @@ const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
-  departmentOrClass: z.string().optional(), // General field for department (staff) or class (student)
-  schoolLevel: z.custom<SchoolLevel>().optional(), // For students primarily
+  // departmentOrClass: z.string().optional(), // Replaced by classId for students
+  classId: z.string().optional(), // For students
+  department: z.string().optional(), // For staff/admin
+  schoolLevel: z.custom<SchoolLevel>().optional(), 
   avatarFile: z
     .custom<FileList>()
     .optional()
@@ -40,12 +42,13 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
-type UserProfile = Omit<ProfileFormData, 'avatarFile' | 'departmentOrClass'> & {
+type UserProfile = Omit<ProfileFormData, 'avatarFile' | 'classId' | 'department'> & {
   role: UserRole;
   id: string;
-  avatarUrl?: string; 
+  avatarUrl?: string;
+  classId?: string; // Specific class for student
   department?: string; // For staff/admin
-  className?: string; // For student
+  className?: string; // Derived from classId for display
 };
 
 export default function ProfilePage() {
@@ -61,37 +64,37 @@ export default function ProfilePage() {
   useEffect(() => {
     const name = localStorage.getItem("userName") || "User";
     const role = (localStorage.getItem("userRole") as UserRole) || "student";
-    const email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
+    // Try to find user in globalMockStudents if student to get ID and classId
+    const studentUser = role === 'student' ? globalMockStudents.find(s => s.name === name) : null;
+    const userId = studentUser?.id || (role === "admin" ? "adm001" : (role === "staff" ? "stf001" : "std001"));
+    const email = studentUser?.email || `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
     
     let departmentValue: string | undefined = undefined;
-    let classNameValue: string | undefined = undefined;
-    let schoolLevelValue: SchoolLevel | undefined = undefined;
+    let classIdValue: string | undefined = studentUser?.classId;
+    let schoolLevelValue: SchoolLevel | undefined = studentUser?.schoolLevel;
+    let classNameValue: string | undefined = classIdValue ? mockSchoolClasses.find(c => c.id === classIdValue)?.name : undefined;
 
-    if (role === "student") {
-      if (name.toLowerCase().includes("kinder")) {
-        schoolLevelValue = "Kindergarten";
-        classNameValue = mockSchoolClasses.find(c => c.displayLevel === 'Nursery')?.name || "Nursery 1"; // Example
-      } else if (name.toLowerCase().includes("primary")) {
-        schoolLevelValue = "Primary";
-        classNameValue = mockSchoolClasses.find(c => c.displayLevel === 'Primary')?.name || "Primary 3"; // Example
-      } else {
-         schoolLevelValue = "Secondary";
-         classNameValue = mockSchoolClasses.find(c => c.displayLevel === 'Junior Secondary')?.name || "JSS 1"; // Example
-      }
+
+    if (role === "student" && !studentUser) { // Fallback for a student not in globalMockStudents
+      if (name.toLowerCase().includes("kinder")) schoolLevelValue = "Kindergarten";
+      else if (name.toLowerCase().includes("primary")) schoolLevelValue = "Primary";
+      else schoolLevelValue = "Secondary";
+      // No specific classId if not found
     } else if (role === "staff") {
-      departmentValue = name.toLowerCase().includes("teacher") || name.toLowerCase().includes("bola") ? "Academics" : "Administration"; // Example
+      departmentValue = name.toLowerCase().includes("teacher") || name.toLowerCase().includes("bola") ? "Academics" : "Administration"; 
     } else if (role === "admin") {
-      departmentValue = "School Administration"; 
+      departmentValue = "School Administration";
     }
     
     const initialAvatarUrl = `https://placehold.co/150x150.png?text=${name[0]}`;
     const profileData: UserProfile = {
-      id: role === "admin" ? "adm001" : (role === "staff" ? "stf001" : "std001"),
+      id: userId,
       name,
       email,
       role,
-      phone: "08012345678",
+      phone: "08012345678", // Default phone
       department: departmentValue,
+      classId: classIdValue,
       className: classNameValue,
       schoolLevel: schoolLevelValue,
       avatarUrl: initialAvatarUrl,
@@ -102,7 +105,8 @@ export default function ProfilePage() {
       name: profileData.name,
       email: profileData.email,
       phone: profileData.phone,
-      departmentOrClass: role === 'student' ? profileData.className : profileData.department,
+      department: profileData.department,
+      classId: profileData.classId,
       schoolLevel: profileData.schoolLevel,
     });
   }, [form]);
@@ -117,13 +121,13 @@ export default function ProfilePage() {
           setAvatarPreview(reader.result as string);
         };
         reader.readAsDataURL(file);
-        form.setValue("avatarFile", files); 
+        form.setValue("avatarFile", files);
       } else {
-        form.setError("avatarFile", { 
-            type: "manual", 
+        form.setError("avatarFile", {
+            type: "manual",
             message: !ACCEPTED_IMAGE_TYPES.includes(file.type) ? "Invalid file type." : "File too large."
         });
-        setAvatarPreview(userProfile?.avatarUrl || null); 
+        setAvatarPreview(userProfile?.avatarUrl || null);
       }
     }
   };
@@ -131,7 +135,7 @@ export default function ProfilePage() {
   const onSubmit: SubmitHandler<ProfileFormData> = (data) => {
     let newAvatarUrl = userProfile?.avatarUrl;
     if (data.avatarFile && data.avatarFile.length > 0 && avatarPreview && avatarPreview.startsWith('data:image')) {
-      newAvatarUrl = avatarPreview; 
+      newAvatarUrl = avatarPreview;
     }
 
     setUserProfile(prev => {
@@ -143,21 +147,19 @@ export default function ProfilePage() {
         phone: data.phone,
         schoolLevel: data.schoolLevel,
         avatarUrl: newAvatarUrl,
+        classId: prev.role === 'student' ? data.classId : prev.classId,
+        department: prev.role !== 'student' ? data.department : prev.department,
+        className: prev.role === 'student' && data.classId ? mockSchoolClasses.find(c => c.id === data.classId)?.name : prev.className,
       };
-      if (prev.role === 'student') {
-        updatedProfile.className = data.departmentOrClass;
-      } else {
-        updatedProfile.department = data.departmentOrClass;
-      }
       return updatedProfile;
     });
     
     if (localStorage.getItem("userName") !== data.name) {
-       localStorage.setItem("userName", data.name); 
+       localStorage.setItem("userName", data.name);
     }
     toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     setIsEditing(false);
-    form.reset({...data, avatarFile: undefined }); 
+    form.reset({...data, avatarFile: undefined });
   };
 
   if (!userProfile) {
@@ -166,32 +168,26 @@ export default function ProfilePage() {
   
   const userInitials = userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase() || userProfile.email[0].toUpperCase();
   
-  let departmentOrClassLabel = "Details";
-  if (userProfile.role === "student") departmentOrClassLabel = "Class";
-  else if (userProfile.role === "staff") departmentOrClassLabel = "Department / Subject Area";
-  else if (userProfile.role === "admin") departmentOrClassLabel = "Role Description";
-
-
   return (
     <div className="space-y-6">
       <Card className="max-w-2xl mx-auto shadow-xl">
         <CardHeader className="items-center text-center">
           <div className="relative">
             <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
-              <AvatarImage 
-                src={avatarPreview || userProfile.avatarUrl} 
-                alt={userProfile.name} 
-                data-ai-hint="user avatar passport" 
+              <AvatarImage
+                src={avatarPreview || userProfile.avatarUrl}
+                alt={userProfile.name}
+                data-ai-hint="user avatar passport"
               />
               <AvatarFallback className="text-4xl">{userInitials}</AvatarFallback>
             </Avatar>
             {isEditing && (
               <label htmlFor="avatarFile" className="absolute bottom-4 right-0 bg-accent text-accent-foreground rounded-full p-2 cursor-pointer hover:bg-accent/80 transition-colors">
                 <Camera className="h-5 w-5" />
-                <input 
-                  id="avatarFile" 
-                  type="file" 
-                  className="hidden" 
+                <input
+                  id="avatarFile"
+                  type="file"
+                  className="hidden"
                   accept={ACCEPTED_IMAGE_TYPES.join(",")}
                   onChange={handleAvatarChange}
                 />
@@ -201,10 +197,19 @@ export default function ProfilePage() {
           <CardTitle className="text-3xl font-headline">{userProfile.name}</CardTitle>
           <CardDescription>
             {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)} - ID: {userProfile.id}
-            {userProfile.schoolLevel && userProfile.role === 'student' && (
-              <span className="block mt-1 text-sm text-muted-foreground">
-                <School className="inline-block h-4 w-4 mr-1 text-primary" /> Level: {userProfile.schoolLevel}
-              </span>
+             {userProfile.role === 'student' && (
+                <>
+                    {userProfile.schoolLevel && (
+                    <span className="block mt-1 text-sm text-muted-foreground">
+                        <School className="inline-block h-4 w-4 mr-1 text-primary" /> Level: {userProfile.schoolLevel}
+                    </span>
+                    )}
+                    {userProfile.className && (
+                    <span className="block mt-1 text-sm text-muted-foreground">
+                        <GraduationCap className="inline-block h-4 w-4 mr-1 text-primary" /> Class: {userProfile.className}
+                    </span>
+                    )}
+                </>
             )}
           </CardDescription>
         </CardHeader>
@@ -224,53 +229,88 @@ export default function ProfilePage() {
               <Label htmlFor="phone">Phone Number</Label>
               <Input id="phone" {...form.register("phone")} defaultValue={userProfile.phone} disabled={!isEditing} />
             </div>
-            <div>
-              <Label htmlFor="departmentOrClass">{departmentOrClassLabel}</Label>
-              <Input id="departmentOrClass" {...form.register("departmentOrClass")} defaultValue={userProfile.role === 'student' ? userProfile.className : userProfile.department} disabled={!isEditing || (userProfile.role === 'admin' && departmentOrClassLabel === 'Role Description')} />
-            </div>
-             {userProfile.role === 'student' && (
+
+            {userProfile.role === 'student' && (
+              <>
+                <div>
+                  <Label htmlFor="schoolLevel">School Level</Label>
+                  {isEditing ? (
+                    <Controller
+                      name="schoolLevel"
+                      control={form.control}
+                      defaultValue={userProfile.schoolLevel}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <SelectTrigger id="schoolLevel">
+                            <SelectValue placeholder="Select school level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SCHOOL_LEVELS.map(level => (
+                              <SelectItem key={level} value={level}>{level}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  ) : (
+                    <Input id="schoolLevelInput" value={userProfile.schoolLevel || ''} disabled />
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="classId">Class</Label>
+                  {isEditing ? (
+                     <Controller
+                      name="classId"
+                      control={form.control}
+                      defaultValue={userProfile.classId}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <SelectTrigger id="classId">
+                            <SelectValue placeholder="Select class" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Unassigned</SelectItem>
+                            {mockSchoolClasses
+                              .filter(cls => !form.getValues("schoolLevel") || cls.level === form.getValues("schoolLevel"))
+                              .map(cls => (
+                              <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  ) : (
+                    <Input id="classNameInput" value={userProfile.className || 'N/A'} disabled />
+                  )}
+                </div>
+              </>
+            )}
+
+            {(userProfile.role === 'staff' || userProfile.role === 'admin') && (
               <div>
-                <Label htmlFor="schoolLevel">School Level</Label>
-                {isEditing ? (
-                  <Controller
-                    name="schoolLevel"
-                    control={form.control}
-                    defaultValue={userProfile.schoolLevel}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger id="schoolLevel">
-                          <SelectValue placeholder="Select school level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SCHOOL_LEVELS.map(level => (
-                            <SelectItem key={level} value={level}>{level}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                ) : (
-                  <Input id="schoolLevelInput" value={userProfile.schoolLevel || ''} disabled />
-                )}
+                <Label htmlFor="department">Department</Label>
+                <Input id="department" {...form.register("department")} defaultValue={userProfile.department} disabled={!isEditing || userProfile.role === 'admin'} />
               </div>
             )}
+
             {isEditing && form.formState.errors.avatarFile && (
                 <p className="text-sm text-destructive mt-1">{form.formState.errors.avatarFile.message}</p>
             )}
 
             {isEditing && (
               <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => { 
-                    setIsEditing(false); 
+                <Button type="button" variant="outline" onClick={() => {
+                    setIsEditing(false);
                     form.reset({
-                        name: userProfile.name, 
-                        email: userProfile.email, 
-                        phone: userProfile.phone, 
-                        departmentOrClass: userProfile.role === 'student' ? userProfile.className : userProfile.department, 
-                        schoolLevel: userProfile.schoolLevel, 
-                        avatarFile: undefined 
-                    }); 
-                    setAvatarPreview(userProfile.avatarUrl || null); 
+                        name: userProfile.name,
+                        email: userProfile.email,
+                        phone: userProfile.phone,
+                        department: userProfile.department,
+                        classId: userProfile.classId,
+                        schoolLevel: userProfile.schoolLevel,
+                        avatarFile: undefined
+                    });
+                    setAvatarPreview(userProfile.avatarUrl || null);
                 }}>Cancel</Button>
                 <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Save Changes</Button>
               </div>
@@ -281,15 +321,16 @@ export default function ProfilePage() {
           <CardFooter className="flex justify-end">
             <Button variant="outline" onClick={() => {
               setIsEditing(true);
-              form.reset({ 
+              form.reset({
                 name: userProfile.name,
                 email: userProfile.email,
                 phone: userProfile.phone,
-                departmentOrClass: userProfile.role === 'student' ? userProfile.className : userProfile.department,
+                department: userProfile.department,
+                classId: userProfile.classId,
                 schoolLevel: userProfile.schoolLevel,
                 avatarFile: undefined
               });
-              setAvatarPreview(userProfile.avatarUrl || null); 
+              setAvatarPreview(userProfile.avatarUrl || null);
             }}>
               <Edit3 className="mr-2 h-4 w-4" /> Edit Profile
             </Button>

@@ -24,7 +24,7 @@ export interface SchoolClass {
   name: string; // e.g., "Nursery 1A", "Primary 5B", "JSS 2"
   level: SchoolLevel; // This will be 'Primary' for Nursery, and 'Secondary' for JSS/SSS
   displayLevel: 'Nursery' | 'Primary' | 'Junior Secondary' | 'Senior Secondary'; // For UI grouping
-  studentCount: number;
+  studentCount: number; // Target student count
   classMasterId?: string; // ID of a staff member
 }
 
@@ -41,7 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/profile', label: 'Profile', icon: UserCircle, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/school-overview', label: 'School Overview', icon: Building, roles: ['admin', 'staff'] },
   { href: '/dashboard/my-classes', label: 'My Classes', icon: Presentation, roles: ['staff', 'admin'] },
-  { href: '/dashboard/courses', label: 'Courses', icon: BookOpen, roles: ['student', 'staff', 'admin'] },
+  { href: '/dashboard/courses', label: 'Subjects', icon: BookOpen, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/staff', label: 'Staff Directory', icon: Users, roles: ['student', 'staff', 'admin'] },
   { href: '/dashboard/payments', label: 'Payment History', icon: CreditCard, roles: ['student'] },
   { href: '/dashboard/attendance', label: 'Mark Attendance', icon: CalendarCheck, roles: ['staff', 'admin'] },
@@ -107,12 +107,12 @@ export const mockSchoolClasses: SchoolClass[] = [
   { id: 'jss3', name: 'JSS 3', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 35, classMasterId: 'staff003' }, // Ms. Olivia Chen
 
   // Senior Secondary Classes
-  { id: 'sss1_sci', name: 'SSS 1 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 25, classMasterId: 'staff004' }, // Prof. Robert Downy -> Mr. Robert Adewale
-  { id: 'sss1_art', name: 'SSS 1 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 20, classMasterId: 'staff011' }, // Prof. Wole
-  { id: 'sss1_com', name: 'SSS 1 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 18, classMasterId: 'staff001' }, // Dr. Eleanor Vance
-  { id: 'sss2_sci', name: 'SSS 2 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 22, classMasterId: 'staff004' }, // Prof. Robert Downy -> Mr. Robert Adewale
-  { id: 'sss2_art', name: 'SSS 2 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 23, classMasterId: 'staff011' }, // Prof. Wole
-  { id: 'sss2_com', name: 'SSS 2 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 15, classMasterId: 'staff001' }, // Dr. Eleanor Vance
+  { id: 'sss1_sci', name: 'SSS 1 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 25, classMasterId: 'staff004' }, // Mr. Robert Adewale
+  { id: 'sss1_art', name: 'SSS 1 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 20, classMasterId: 'staff011' }, // Mr. Wole Soyinka
+  { id: 'sss1_com', name: 'SSS 1 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 18, classMasterId: 'staff001' }, // Mrs. Eleanor Vance
+  { id: 'sss2_sci', name: 'SSS 2 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 22, classMasterId: 'staff004' }, // Mr. Robert Adewale
+  { id: 'sss2_art', name: 'SSS 2 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 23, classMasterId: 'staff011' }, // Mr. Wole Soyinka
+  { id: 'sss2_com', name: 'SSS 2 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 15, classMasterId: 'staff001' }, // Mrs. Eleanor Vance
   { id: 'sss3_sci', name: 'SSS 3 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 20 },
   { id: 'sss3_art', name: 'SSS 3 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 19 },
 ];
@@ -134,3 +134,44 @@ export const mockStaffListSimpleForClassMaster = [
   { id: "staff011", name: "Mr. Wole Soyinka", avatarUrl: "https://placehold.co/40x40.png?text=WS"},
   { id: "staff012", name: "Dr. Funmi Kuti", avatarUrl: "https://placehold.co/40x40.png?text=FK"},
 ];
+
+// Define Student interface here to be used across relevant files
+export interface Student {
+  id: string;
+  name: string;
+  email: string;
+  schoolLevel: SchoolLevel; // Overall school level
+  classId?: string; // Specific class assigned
+  passwordHash?: string;
+  rollNumber?: string; // For attendance page if needed
+}
+
+// Global mock student list, can be imported by pages that need it.
+// Ensure classIds match existing mockSchoolClasses
+export let globalMockStudents: Student[] = [
+  { id: "stud001", name: "Adekunle Gold", email: "agold@campus.edu", schoolLevel: "Primary", classId: "pri1", passwordHash: "hashed_password1", rollNumber: "P001" },
+  { id: "stud002", name: "Bisiola Kolawole", email: "bkolawole@campus.edu", schoolLevel: "Secondary", classId: "jss1", passwordHash: "hashed_password2", rollNumber: "J001" },
+  { id: "stud003", name: "Chinedu Okoro", email: "cokoro@campus.edu", schoolLevel: "Kindergarten", classId: "nur1", passwordHash: "hashed_password3", rollNumber: "N001"},
+  { id: "stud004", name: "David Alaba", email: "dalaba@campus.edu", schoolLevel: "Primary", classId: "pri1", passwordHash: "hashed_password4", rollNumber: "P002"},
+  { id: "stud005", name: "Esther Bala", email: "ebala@campus.edu", schoolLevel: "Secondary", classId: "jss1", passwordHash: "hashed_password5", rollNumber: "J002"},
+  { id: "stud006", name: "Funke Akindele", email: "fakindele@campus.edu", schoolLevel: "Kindergarten", classId: "nur1", passwordHash: "hashed_password6", rollNumber: "N002"},
+];
+
+// Function to update globalMockStudents (e.g., when admin adds/edits)
+export const updateGlobalMockStudents = (newStudents: Student[]) => {
+  globalMockStudents = newStudents;
+};
+export const addStudentToGlobalList = (newStudent: Student) => {
+  globalMockStudents.push(newStudent);
+};
+export const updateStudentInGlobalList = (updatedStudent: Student) => {
+  const index = globalMockStudents.findIndex(s => s.id === updatedStudent.id);
+  if (index !== -1) {
+    globalMockStudents[index] = updatedStudent;
+  }
+};
+export const deleteStudentFromGlobalList = (studentId: string) => {
+  globalMockStudents = globalMockStudents.filter(s => s.id !== studentId);
+};
+
+    
