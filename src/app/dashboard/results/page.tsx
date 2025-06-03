@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/lib/constants";
-import { TERMS } from "@/lib/constants";
+import { TERMS } from "@/lib/constants"; // Using TERMS from constants
 import { FileSpreadsheet, TrendingUp } from "lucide-react";
 
 interface SubjectResult {
@@ -20,65 +20,66 @@ interface SubjectResult {
 interface TermResult {
   term: string;
   results: SubjectResult[];
-  termGpa?: number; // Optional term GPA
+  termAverage?: number; // Optional term Average
 }
 
 interface StudentOverallResult {
   studentId: string;
   studentName: string;
-  cgpa: number;
+  overallAverage: number; // Changed from CGPA
   termResults: TermResult[];
 }
 
-// Mock Data (Expanded for terms)
+// Mock Data (Expanded for terms, K-12 subjects)
 const mockStudentResults: StudentOverallResult = {
   studentId: "std001",
   studentName: "Alice Wonderland",
-  cgpa: 3.8,
+  overallAverage: 88.5, // Example average
   termResults: [
     {
       term: "First Term",
-      termGpa: 3.7,
+      termAverage: 88.5,
       results: [
-        { subjectCode: "CS101", subjectName: "Intro to Programming", grade: "A", marks: 92, totalMarks: 100 },
-        { subjectCode: "MA101", subjectName: "Calculus I", grade: "B+", marks: 85, totalMarks: 100 },
+        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 92, totalMarks: 100 },
+        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B+", marks: 85, totalMarks: 100 },
       ],
     },
     {
       term: "Second Term",
-      termGpa: 3.9,
+      termAverage: 89,
       results: [
-        { subjectCode: "CS102", subjectName: "Data Structures", grade: "A-", marks: 88, totalMarks: 100 },
-        { subjectCode: "PHY101", subjectName: "Physics I", grade: "A", marks: 90, totalMarks: 100 },
+        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A-", marks: 88, totalMarks: 100 },
+        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "A", marks: 90, totalMarks: 100 },
       ],
     },
   ],
 };
 
-const mockStaffCourseResults: { [courseId: string]: { term: string, studentResults: Omit<StudentOverallResult, 'termResults' | 'cgpa'> & { courseResult: SubjectResult }[] }[] } = {
-  CS101: [
+const mockStaffSubjectResults: { [subjectId: string]: { term: string, studentResults: Omit<StudentOverallResult, 'termResults' | 'overallAverage'> & { subjectResult: SubjectResult }[] }[] } = {
+  PRI_ENG: [
     {
       term: "First Term",
       studentResults: [
-        { studentId: "std001", studentName: "Alice Wonderland", courseResult: { subjectCode: "CS101", subjectName: "Intro to Programming", grade: "A", marks: 92, totalMarks: 100 } },
-        { studentId: "std002", studentName: "Bob The Builder", courseResult: { subjectCode: "CS101", subjectName: "Intro to Programming", grade: "B", marks: 85, totalMarks: 100 } },
+        { studentId: "std001", studentName: "Alice Wonderland", subjectResult: { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 92, totalMarks: 100 } },
+        { studentId: "std002", studentName: "Bob The Builder", subjectResult: { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B", marks: 85, totalMarks: 100 } },
       ]
     }
   ],
-  MA202: [
+  JSS_MTH: [
      {
       term: "Second Term",
       studentResults: [
-        { studentId: "std001", studentName: "Alice Wonderland", courseResult: { subjectCode: "MA202", subjectName: "Calculus II", grade: "A-", marks: 88, totalMarks: 100 } },
-        { studentId: "std003", studentName: "Charlie Brown", courseResult: { subjectCode: "MA202", subjectName: "Calculus II", grade: "C+", marks: 72, totalMarks: 100 } },
+        { studentId: "std001", studentName: "Alice Wonderland", subjectResult: { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A-", marks: 88, totalMarks: 100 } },
+        { studentId: "std003", studentName: "Charlie Brown", subjectResult: { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "C+", marks: 72, totalMarks: 100 } },
       ]
     }
   ],
 };
 
-const mockCourses = [
-  { id: "CS101", name: "Introduction to Programming" },
-  { id: "MA202", name: "Calculus II" },
+const mockSubjectsForStaffView = [ // K-12 subjects
+  { id: "PRI_ENG", name: "English Language (Primary)" },
+  { id: "JSS_MTH", name: "Mathematics (JSS)" },
+  { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
 ];
 
 
@@ -86,7 +87,7 @@ export default function ResultsPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [selectedTerm, setSelectedTerm] = useState<string | undefined>(TERMS[0]);
-  const [selectedCourseForStaff, setSelectedCourseForStaff] = useState<string | undefined>(mockCourses[0]?.id);
+  const [selectedSubjectForStaff, setSelectedSubjectForStaff] = useState<string | undefined>(mockSubjectsForStaffView[0]?.id);
 
 
   useEffect(() => {
@@ -102,19 +103,18 @@ export default function ResultsPage() {
 
   if (userRole === "student") {
     let studentData = mockStudentResults;
-    // Customize for "Test Student" or other generic students
     if (userName.toLowerCase().includes("test student")) {
         studentData = {
             studentId: "teststd001",
             studentName: "Test Student",
-            cgpa: 3.5,
+            overallAverage: 82.0,
             termResults: [
-                { term: "First Term", termGpa: 3.6, results: [{ subjectCode: "CS101", subjectName: "Intro to Programming", grade: "B+", marks: 84, totalMarks: 100 }]},
-                { term: "Second Term", termGpa: 3.4, results: [{ subjectCode: "MA101", subjectName: "Calculus I", grade: "B", marks: 80, totalMarks: 100 }]},
+                { term: "First Term", termAverage: 84, results: [{ subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B+", marks: 84, totalMarks: 100 }]},
+                { term: "Second Term", termAverage: 80, results: [{ subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B", marks: 80, totalMarks: 100 }]},
             ]
         };
-    } else if (!userName.toLowerCase().includes("alice")) {
-        studentData = { ...mockStudentResults, studentName: userName, cgpa: 0, termResults: mockStudentResults.termResults.map(tr => ({...tr, results: tr.results.map(r => ({...r, grade: "N/A", marks: 0}))})) };
+    } else if (!userName.toLowerCase().includes("alice")) { // For other generic students
+        studentData = { ...mockStudentResults, studentName: userName, overallAverage: 0, termResults: mockStudentResults.termResults.map(tr => ({...tr, termAverage: 0, results: tr.results.map(r => ({...r, grade: "N/A", marks: 0}))})) };
     }
     
     const currentTermData = studentData.termResults.find(tr => tr.term === selectedTerm);
@@ -141,11 +141,11 @@ export default function ResultsPage() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>{studentData.studentName}</CardTitle>
-              <CardDescription className="text-right">Overall CGPA: <span className="font-semibold text-primary">{studentData.cgpa.toFixed(2)}</span></CardDescription>
+              <CardDescription className="text-right">Overall Average: <span className="font-semibold text-primary">{studentData.overallAverage.toFixed(1)}%</span></CardDescription>
             </div>
-            {currentTermData && currentTermData.termGpa && (
+            {currentTermData && currentTermData.termAverage !== undefined && (
               <CardDescription>
-                {currentTermData.term} GPA: <span className="font-semibold text-primary">{currentTermData.termGpa.toFixed(2)}</span>
+                {currentTermData.term} Average: <span className="font-semibold text-primary">{currentTermData.termAverage.toFixed(1)}%</span>
               </CardDescription>
             )}
           </CardHeader>
@@ -181,27 +181,27 @@ export default function ResultsPage() {
   }
 
   // Staff or Admin View
-  const courseResultsForSelectedTerm = selectedCourseForStaff ? 
-    (mockStaffCourseResults[selectedCourseForStaff]?.find(ct => ct.term === selectedTerm)?.studentResults || []) 
+  const subjectResultsForSelectedTerm = selectedSubjectForStaff ? 
+    (mockStaffSubjectResults[selectedSubjectForStaff]?.find(ct => ct.term === selectedTerm)?.studentResults || []) 
     : [];
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Student Results</h1>
-        <p className="text-muted-foreground">View collective results by course and term.</p>
+        <p className="text-muted-foreground">View collective results by subject and term.</p>
       </header>
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet/> Results Overview</CardTitle>
           <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <Select value={selectedCourseForStaff} onValueChange={setSelectedCourseForStaff}>
+            <Select value={selectedSubjectForStaff} onValueChange={setSelectedSubjectForStaff}>
               <SelectTrigger className="w-full sm:w-[300px]">
-                <SelectValue placeholder="Select Course" />
+                <SelectValue placeholder="Select Subject" />
               </SelectTrigger>
               <SelectContent>
-                {mockCourses.map(course => (
-                  <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                {mockSubjectsForStaffView.map(subject => (
+                  <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -218,10 +218,10 @@ export default function ResultsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {selectedCourseForStaff && courseResultsForSelectedTerm.length > 0 ? (
+          {selectedSubjectForStaff && subjectResultsForSelectedTerm.length > 0 ? (
             <>
             <h3 className="text-lg font-semibold mb-2 text-foreground">
-              {mockCourses.find(c => c.id === selectedCourseForStaff)?.name} - {selectedTerm}
+              {mockSubjectsForStaffView.find(s => s.id === selectedSubjectForStaff)?.name} - {selectedTerm}
             </h3>
             <Table>
               <TableHeader>
@@ -233,24 +233,26 @@ export default function ResultsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {courseResultsForSelectedTerm.map((studentResult) => (
-                  <TableRow key={studentResult.studentId + studentResult.courseResult.subjectCode}>
+                {subjectResultsForSelectedTerm.map((studentResult) => (
+                  <TableRow key={studentResult.studentId + studentResult.subjectResult.subjectCode}>
                     <TableCell>{studentResult.studentId}</TableCell>
                     <TableCell>{studentResult.studentName}</TableCell>
-                    <TableCell>{studentResult.courseResult.grade}</TableCell>
-                    <TableCell className="text-right">{studentResult.courseResult.marks}/{studentResult.courseResult.totalMarks}</TableCell>
+                    <TableCell>{studentResult.subjectResult.grade}</TableCell>
+                    <TableCell className="text-right">{studentResult.subjectResult.marks}/{studentResult.subjectResult.totalMarks}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
             </>
-          ) : selectedCourseForStaff ? (
-             <p className="text-muted-foreground p-4 text-center">No results found for the selected course and term.</p>
+          ) : selectedSubjectForStaff ? (
+             <p className="text-muted-foreground p-4 text-center">No results found for the selected subject and term.</p>
           ) : (
-             <p className="text-muted-foreground p-4 text-center">Please select a course and term to view results.</p>
+             <p className="text-muted-foreground p-4 text-center">Please select a subject and term to view results.</p>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    

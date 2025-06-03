@@ -8,15 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Filter, Users, Percent } from "lucide-react";
+import { CalendarIcon, Filter } from "lucide-react"; // Removed Users, Percent as they might not fit K-12 context as well
 import { format, subDays } from "date-fns";
 import type { UserRole } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 
 interface AggregatedAttendanceRecord {
   id: string;
-  courseName: string;
-  courseCode: string;
+  subjectName: string; // Changed from courseName
+  subjectCode: string; // Changed from courseCode
   date: string; 
   totalStudents: number;
   presentCount: number;
@@ -24,29 +24,29 @@ interface AggregatedAttendanceRecord {
   attendanceRate: number; 
 }
 
-// Mock Data
-const mockCoursesForReport = [
-  { id: "CRS001", name: "English Language (Primary)", code: "PRI_ENG" },
-  { id: "CRS002", name: "Mathematics (JSS)", code: "JSS_MTH" },
-  { id: "CRS003", name: "Basic Science (Nursery)", code: "NUR_BSC" },
-  { id: "CRS004", name: "Chemistry (SSS Science)", code: "SSS_CHM_S" },
-  { id: "CRS005", name: "Literacy (KG)", code: "KG_LIT" },
+// Mock Subjects for Report (aligning with K-12)
+const mockSubjectsForReport = [
+  { id: "PRI_ENG", name: "English Language (Primary)", code: "PRI_ENG" },
+  { id: "JSS_MTH", name: "Mathematics (JSS)", code: "JSS_MTH" },
+  { id: "NUR_BSC", name: "Basic Science (Nursery)", code: "NUR_BSC" },
+  { id: "SSS_CHM_S", name: "Chemistry (SSS Science)", code: "SSS_CHM_S" },
+  { id: "KG_LIT", name: "Literacy (KG)", code: "KG_LIT" },
 ];
 
 const generateMockReport = (): AggregatedAttendanceRecord[] => {
   const reports: AggregatedAttendanceRecord[] = [];
   const today = new Date();
-  mockCoursesForReport.forEach(course => {
-    for (let i = 0; i < 5; i++) { // Generate 5 records per course for different dates
-      const date = format(subDays(today, i * 7), "yyyy-MM-dd"); // Weekly reports for past 5 weeks
-      const totalStudents = Math.floor(Math.random() * 20) + 10; // 10-30 students
+  mockSubjectsForReport.forEach(subject => {
+    for (let i = 0; i < 5; i++) { 
+      const date = format(subDays(today, i * 7), "yyyy-MM-dd"); 
+      const totalStudents = Math.floor(Math.random() * 20) + 10; 
       const presentCount = Math.floor(Math.random() * totalStudents);
       const absentCount = totalStudents - presentCount;
       const attendanceRate = parseFloat(((presentCount / totalStudents) * 100).toFixed(1));
       reports.push({
-        id: `${course.code}-${date}`,
-        courseName: course.name,
-        courseCode: course.code,
+        id: `${subject.code}-${date}`,
+        subjectName: subject.name,
+        subjectCode: subject.code,
         date: date,
         totalStudents,
         presentCount,
@@ -63,7 +63,7 @@ export default function AttendanceReportPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [reportData, setReportData] = useState<AggregatedAttendanceRecord[]>([]);
   const [filteredData, setFilteredData] = useState<AggregatedAttendanceRecord[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<string | "all">("all");
+  const [selectedSubject, setSelectedSubject] = useState<string | "all">("all"); // Changed from selectedCourse
   const [selectedDateRange, setSelectedDateRange] = useState<{ from?: Date; to?: Date }>({});
 
   useEffect(() => {
@@ -76,8 +76,8 @@ export default function AttendanceReportPage() {
 
   useEffect(() => {
     let data = reportData;
-    if (selectedCourse !== "all") {
-      data = data.filter(record => record.courseCode === selectedCourse);
+    if (selectedSubject !== "all") {
+      data = data.filter(record => record.subjectCode === selectedSubject);
     }
     if (selectedDateRange.from && selectedDateRange.to) {
       data = data.filter(record => {
@@ -90,7 +90,7 @@ export default function AttendanceReportPage() {
         data = data.filter(record => new Date(record.date) <= selectedDateRange.to!);
     }
     setFilteredData(data);
-  }, [reportData, selectedCourse, selectedDateRange]);
+  }, [reportData, selectedSubject, selectedDateRange]);
 
   if (userRole !== 'admin') {
     return (
@@ -107,21 +107,21 @@ export default function AttendanceReportPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Attendance Report</h1>
-        <p className="text-muted-foreground">View aggregated attendance records for all classes.</p>
+        <p className="text-muted-foreground">View aggregated attendance records for all classes and subjects.</p>
       </header>
 
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Filter /> Filters</CardTitle>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Course" />
+                <SelectValue placeholder="Select Subject" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Courses</SelectItem>
-                {mockCoursesForReport.map(course => (
-                  <SelectItem key={course.id} value={course.code}>{course.name}</SelectItem>
+                <SelectItem value="all">All Subjects</SelectItem>
+                {mockSubjectsForReport.map(subject => (
+                  <SelectItem key={subject.id} value={subject.code}>{subject.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -150,7 +150,7 @@ export default function AttendanceReportPage() {
               </PopoverContent>
             </Popover>
 
-             <Button variant="outline" onClick={() => {setSelectedCourse("all"); setSelectedDateRange({});}} className="w-full lg:w-auto">
+             <Button variant="outline" onClick={() => {setSelectedSubject("all"); setSelectedDateRange({});}} className="w-full lg:w-auto">
                 Clear Filters
             </Button>
           </div>
@@ -161,8 +161,8 @@ export default function AttendanceReportPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Course Name</TableHead>
-                  <TableHead>Course Code</TableHead>
+                  <TableHead>Subject Name</TableHead>
+                  <TableHead>Subject Code</TableHead>
                   <TableHead className="text-center">Total Students</TableHead>
                   <TableHead className="text-center">Present</TableHead>
                   <TableHead className="text-center">Absent</TableHead>
@@ -173,8 +173,8 @@ export default function AttendanceReportPage() {
                 {filteredData.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell>{format(new Date(record.date), "PPP")}</TableCell>
-                    <TableCell>{record.courseName}</TableCell>
-                    <TableCell><Badge variant="secondary">{record.courseCode}</Badge></TableCell>
+                    <TableCell>{record.subjectName}</TableCell>
+                    <TableCell><Badge variant="secondary">{record.subjectCode}</Badge></TableCell>
                     <TableCell className="text-center">{record.totalStudents}</TableCell>
                     <TableCell className="text-center text-green-600 font-medium">{record.presentCount}</TableCell>
                     <TableCell className="text-center text-red-600 font-medium">{record.absentCount}</TableCell>
@@ -197,3 +197,5 @@ export default function AttendanceReportPage() {
     </div>
   );
 }
+
+    

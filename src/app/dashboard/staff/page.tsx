@@ -10,39 +10,40 @@ import { Badge } from "@/components/ui/badge";
 interface StaffMember {
   id: string;
   name: string;
-  title: string;
-  department: string;
+  title: string; // e.g., Teacher, Head of Department, Librarian
+  department: string; // e.g., Mathematics Department, Early Years, Administration
   email: string;
   phone?: string;
   avatarUrl: string;
   aiHint: string;
-  schoolLevel: SchoolLevel[];
-  subjectsTaught: string[];
+  schoolLevel: SchoolLevel[]; // Levels they are associated with
+  subjectsTaught: string[]; // Subjects or key responsibilities
 }
 
+// K-12 Focused Mock Staff
 const mockStaff: StaffMember[] = [
   {
     id: "staff001",
-    name: "Dr. Eleanor Vance",
-    title: "Professor & Head of Department",
-    department: "Computer Science",
+    name: "Mrs. Eleanor Vance",
+    title: "Senior Science Teacher",
+    department: "Science Department",
     email: "evance@campus.edu",
     phone: "123-555-0101",
     avatarUrl: "https://placehold.co/150x150.png",
-    aiHint: "professor portrait",
+    aiHint: "teacher smiling",
     schoolLevel: ["Secondary"],
-    subjectsTaught: ["Programming", "Calculus"],
+    subjectsTaught: ["Physics", "Chemistry"],
   },
   {
     id: "staff002",
     name: "Mr. Samuel Green",
-    title: "Admissions Officer",
-    department: "Student Affairs",
+    title: "Admin Officer",
+    department: "Administration",
     email: "sgreen@campus.edu",
     avatarUrl: "https://placehold.co/150x150.png",
     aiHint: "administrator friendly",
     schoolLevel: ["Kindergarten", "Primary", "Secondary"],
-    subjectsTaught: ["Student Onboarding"],
+    subjectsTaught: ["School Records", "Parent Liason"],
   },
   {
     id: "staff003",
@@ -52,32 +53,32 @@ const mockStaff: StaffMember[] = [
     email: "ochen@campus.edu",
     phone: "123-555-0103",
     avatarUrl: "https://placehold.co/150x150.png",
-    aiHint: "librarian smiling",
+    aiHint: "librarian books",
     schoolLevel: ["Primary", "Secondary"],
-    subjectsTaught: ["Reading Skills", "Research Methods"],
+    subjectsTaught: ["Reading Programs", "Resource Management"],
   },
    {
     id: "staff004",
-    name: "Prof. Robert Downy",
-    title: "Associate Professor",
-    department: "Physics",
-    email: "rdowney@campus.edu",
+    name: "Mr. Robert Adewale",
+    title: "Mathematics Teacher",
+    department: "Mathematics Department",
+    email: "radewale@campus.edu",
     phone: "123-555-0104",
     avatarUrl: "https://placehold.co/150x150.png",
-    aiHint: "scientist lecture",
+    aiHint: "teacher writing_board",
     schoolLevel: ["Secondary"],
-    subjectsTaught: ["Physics I", "Astrophysics"],
+    subjectsTaught: ["JSS Mathematics", "SSS Mathematics"],
   },
   {
     id: "staff005",
     name: "Mrs. Daisy Fields",
     title: "Kindergarten Teacher",
-    department: "Early Childhood Education",
+    department: "Early Years Education",
     email: "dfields@campus.edu",
     avatarUrl: "https://placehold.co/150x150.png",
     aiHint: "teacher kindergarten",
     schoolLevel: ["Kindergarten"],
-    subjectsTaught: ["Basic Numeracy", "Story Time", "Play Activities"],
+    subjectsTaught: ["Literacy", "Numeracy", "Play Activities"],
   },
 ];
 
@@ -133,3 +134,5 @@ export default function StaffDirectoryPage() {
     </div>
   );
 }
+
+    

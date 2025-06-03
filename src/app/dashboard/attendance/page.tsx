@@ -32,9 +32,11 @@ const mockStudents: Student[] = [
   { id: "std005", name: "Edward Scissorhands", rollNumber: "S005" },
 ];
 
+// Using Nigerian curriculum subjects
 const mockCourses = [
-  { id: "CS101", name: "Introduction to Programming" },
-  { id: "MA202", name: "Calculus II" },
+  { id: "PRI_ENG", name: "English Language (Primary)" },
+  { id: "JSS_MTH", name: "Mathematics (JSS)" },
+  { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
 ];
 
 export default function AttendancePage() {
@@ -47,7 +49,6 @@ export default function AttendancePage() {
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
-    // Initialize attendance: all present by default for the selected course
     const initialAttendance: AttendanceRecord = {};
     mockStudents.forEach(student => initialAttendance[student.id] = true);
     setAttendance(initialAttendance);
@@ -58,11 +59,10 @@ export default function AttendancePage() {
   };
 
   const handleSaveAttendance = () => {
-    // Mock saving attendance
     console.log("Attendance for", selectedCourse, "on", selectedDate, ":", attendance);
     toast({
       title: "Attendance Saved",
-      description: `Attendance for ${mockCourses.find(c=>c.id === selectedCourse)?.name || 'course'} on ${selectedDate ? format(selectedDate, "PPP") : ''} has been recorded.`,
+      description: `Attendance for ${mockCourses.find(c=>c.id === selectedCourse)?.name || 'subject'} on ${selectedDate ? format(selectedDate, "PPP") : ''} has been recorded.`,
     });
   };
   
@@ -82,7 +82,7 @@ export default function AttendancePage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Mark Attendance</h1>
-        <p className="text-muted-foreground">Select course and date to mark student attendance.</p>
+        <p className="text-muted-foreground">Select subject and date to mark student attendance.</p>
       </header>
 
       <Card className="shadow-xl">
@@ -91,7 +91,7 @@ export default function AttendancePage() {
           <div className="flex flex-col sm:flex-row gap-4 mt-2">
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
               <SelectTrigger className="w-full sm:w-[250px]">
-                <SelectValue placeholder="Select Course" />
+                <SelectValue placeholder="Select Subject" />
               </SelectTrigger>
               <SelectContent>
                 {mockCourses.map(course => (
@@ -155,3 +155,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    

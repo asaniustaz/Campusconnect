@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolLevel, SchoolClass } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants"; // Import mockSchoolClasses
+import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants";
 import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,32 +19,34 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-// Student Schema (remains the same)
+// Student Schema for Add/Edit
 const studentSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().optional(), // Optional for editing
 });
 type StudentFormData = z.infer<typeof studentSchema>;
 
-// Updated Staff Schema for Add/Edit
+// Staff Schema for Add/Edit
 const staffSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
-  password: z.string().optional(), // Optional for editing, required for adding will be handled in submit
+  password: z.string().optional(), 
   assignedClasses: z.array(z.string()).optional(),
-}).refine(data => {
-    // If it's a new staff (no pre-existing password means we are not editing one with a password)
-    // and password field is empty, then it's an error.
-    // This logic is a bit tricky with zod alone, better handled in onSubmit for add mode.
-    // For edit mode, empty password means "don't change".
-    return true; 
-}, {});
-
+});
 type StaffFormData = z.infer<typeof staffSchema>;
+
+// Interface for Student in the list
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  schoolLevel: SchoolLevel;
+  passwordHash?: string; // Store hashed password, not plain text
+}
 
 // Interface for Staff Member in the list
 interface StaffMember {
@@ -57,23 +59,33 @@ interface StaffMember {
   assignedClasses?: string[];
 }
 
+// Initial Mock Student List
+const initialMockStudents: Student[] = [
+  { id: "stud001", name: "Adekunle Gold", email: "agold@campus.edu", schoolLevel: "Primary", passwordHash: "hashed_password1" },
+  { id: "stud002", name: "Bisiola Kolawole", email: "bkolawole@campus.edu", schoolLevel: "Secondary", passwordHash: "hashed_password2" },
+  { id: "stud003", name: "Chinedu Okoro", email: "cokoro@campus.edu", schoolLevel: "Kindergarten", passwordHash: "hashed_password3"},
+];
+
 // Initial Mock Staff List
 const initialMockStaff: StaffMember[] = [
-  { id: "staff001", name: "Dr. Eleanor Vance", email: "evance@campus.edu", department: "Computer Science", title: "Professor", assignedClasses: ["SSS_ENG_C", "SSS_LIT_A"] },
-  { id: "staff002", name: "Mr. Samuel Green", email: "sgreen@campus.edu", department: "Student Affairs", title: "Admissions Officer" },
-  { id: "staff006", name: "Ms. Bola", email: "mbola@campus.edu", department: "Early Years", title: "Nursery Teacher", assignedClasses: ["NUR_ENG", "NUR_MTH"]},
+  { id: "staff001", name: "Mrs. Eleanor Vance", email: "evance@campus.edu", department: "Science Department", title: "Senior Teacher", assignedClasses: ["SSS_ENG_C", "SSS_LIT_A"] },
+  { id: "staff002", name: "Mr. Samuel Green", email: "sgreen@campus.edu", department: "Administration", title: "Admin Officer" },
+  { id: "staff006", name: "Ms. Bola Aderibigbe", email: "mbola@campus.edu", department: "Early Years", title: "Nursery Teacher", assignedClasses: ["NUR_ENG", "NUR_MTH"]},
 ];
 
 
 export default function ManageUsersPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  
+  const [studentList, setStudentList] = useState<Student[]>(initialMockStudents);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  
   const [staffList, setStaffList] = useState<StaffMember[]>(initialMockStaff);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
 
   const studentForm = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
-    defaultValues: { name: "", email: "", password: "" },
   });
 
   const staffForm = useForm<StaffFormData>({
@@ -86,13 +98,26 @@ export default function ManageUsersPage() {
   }, []);
 
   useEffect(() => {
+    if (editingStudent) {
+      studentForm.reset({
+        name: editingStudent.name,
+        email: editingStudent.email,
+        schoolLevel: editingStudent.schoolLevel,
+        password: "", // Clear password for editing
+      });
+    } else {
+      studentForm.reset({ name: "", email: "", schoolLevel: undefined, password: "" });
+    }
+  }, [editingStudent, studentForm]);
+
+  useEffect(() => {
     if (editingStaff) {
       staffForm.reset({
         name: editingStaff.name,
         email: editingStaff.email,
         department: editingStaff.department,
         title: editingStaff.title,
-        password: "", // Clear password field for editing
+        password: "", 
         assignedClasses: editingStaff.assignedClasses || [],
       });
     } else {
@@ -101,35 +126,73 @@ export default function ManageUsersPage() {
   }, [editingStaff, staffForm]);
 
   const onStudentSubmit: SubmitHandler<StudentFormData> = (data) => {
-    console.log("New Student Data:", data);
-    toast({
-      title: "Student Added",
-      description: `${data.name} has been added as a student.`,
-    });
-    studentForm.reset();
+    if (editingStudent) {
+      if (!data.password && !editingStudent.passwordHash) { // if editing a student who somehow had no password and none provided
+         studentForm.setError("password", { type: "manual", message: "Password is required for students without one."});
+         return;
+      }
+      const updatedStudent: Student = {
+        ...editingStudent,
+        ...data,
+        passwordHash: data.password ? `hashed_${data.password}` : editingStudent.passwordHash,
+      };
+      setStudentList(studentList.map(s => s.id === editingStudent.id ? updatedStudent : s));
+      toast({ title: "Student Updated", description: `${data.name}'s details have been updated.` });
+      setEditingStudent(null);
+    } else {
+      if (!data.password || data.password.length < 6) {
+        studentForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new students."});
+        return;
+      }
+      const newStudent: Student = {
+        id: `stud-${Date.now()}`,
+        ...data,
+        schoolLevel: data.schoolLevel!, // Already validated by Zod
+        passwordHash: `hashed_${data.password}`,
+      };
+      setStudentList([...studentList, newStudent]);
+      toast({ title: "Student Added", description: `${data.name} has been added.` });
+    }
+    studentForm.reset({ name: "", email: "", schoolLevel: undefined, password: ""});
   };
+
+  const handleEditStudent = (student: Student) => {
+    setEditingStudent(student);
+  };
+
+  const handleCancelStudentEdit = () => {
+    setEditingStudent(null);
+    studentForm.reset({ name: "", email: "", schoolLevel: undefined, password: ""});
+  };
+
+  const handleDeleteStudent = (studentId: string) => {
+    setStudentList(studentList.filter(s => s.id !== studentId));
+    toast({ title: "Student Deleted", description: "Student has been removed.", variant: "destructive" });
+    if (editingStudent && editingStudent.id === studentId) {
+      handleCancelStudentEdit();
+    }
+  };
+
 
   const onStaffSubmit: SubmitHandler<StaffFormData> = (data) => {
     if (editingStaff) {
-      // Update existing staff
       const updatedStaff: StaffMember = {
         ...editingStaff,
         ...data,
-        passwordHash: data.password ? `hashed_${data.password}` : editingStaff.passwordHash, // Mock hashing
+        passwordHash: data.password ? `hashed_${data.password}` : editingStaff.passwordHash,
       };
       setStaffList(staffList.map(staff => staff.id === editingStaff.id ? updatedStaff : staff));
       toast({ title: "Staff Updated", description: `${data.name}'s details have been updated.` });
       setEditingStaff(null);
     } else {
-      // Add new staff
       if (!data.password || data.password.length < 6) {
         staffForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new staff."});
         return;
       }
       const newStaffMember: StaffMember = {
-        id: `staff-${Date.now()}`, // Simple unique ID
+        id: `staff-${Date.now()}`, 
         ...data,
-        passwordHash: `hashed_${data.password}`, // Mock hashing
+        passwordHash: `hashed_${data.password}`, 
       };
       setStaffList([...staffList, newStaffMember]);
       toast({ title: "Staff Added", description: `${data.name} has been added as a staff member.` });
@@ -139,21 +202,18 @@ export default function ManageUsersPage() {
 
   const handleEditStaff = (staff: StaffMember) => {
     setEditingStaff(staff);
-    // Consider scrolling to the form or ensuring it's visible
   };
 
-  const handleCancelEdit = () => {
+  const handleCancelStaffEdit = () => {
     setEditingStaff(null);
     staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
   };
   
   const handleDeleteStaff = (staffId: string) => {
-    // Mock deletion
     setStaffList(staffList.filter(staff => staff.id !== staffId));
     toast({ title: "Staff Deleted", description: "Staff member has been removed.", variant: "destructive" });
      if (editingStaff && editingStaff.id === staffId) {
-      setEditingStaff(null); // Clear editing state if the deleted staff was being edited
-      staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+      handleCancelStaffEdit();
     }
   };
   
@@ -177,59 +237,112 @@ export default function ManageUsersPage() {
 
       <Tabs defaultValue="manage-staff" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
-          <TabsTrigger value="add-student"><Users className="mr-2"/> Add Student</TabsTrigger>
+          <TabsTrigger value="manage-students"><Users className="mr-2"/> Manage Students</TabsTrigger>
           <TabsTrigger value="manage-staff"><Briefcase className="mr-2"/> Manage Staff</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="add-student">
-          <Card className="shadow-xl max-w-lg mx-auto">
-            <CardHeader>
-              <CardTitle>Add New Student</CardTitle>
-              <CardDescription>Fill in the details to register a new student.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={studentForm.handleSubmit(onStudentSubmit)} className="space-y-4">
-                <div>
-                  <Label htmlFor="studentName">Full Name</Label>
-                  <Input id="studentName" {...studentForm.register("name")} />
-                  {studentForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.name.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="studentEmail">Email Address</Label>
-                  <Input id="studentEmail" type="email" {...studentForm.register("email")} />
-                  {studentForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.email.message}</p>}
-                </div>
-                 <div>
-                  <Label htmlFor="schoolLevel">School Level</Label>
-                   <Controller
-                    name="schoolLevel"
-                    control={studentForm.control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
-                        <SelectTrigger id="schoolLevel">
-                          <SelectValue placeholder="Select school level" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SCHOOL_LEVELS.map(level => (
-                            <SelectItem key={level} value={level}>{level}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+        <TabsContent value="manage-students">
+          <div className="space-y-8">
+            {/* Student List Table */}
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle>Existing Students</CardTitle>
+                <CardDescription>View, edit, or remove students.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {studentList.length > 0 ? (
+                  <ScrollArea className="max-h-96">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>School Level</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {studentList.map((student) => (
+                          <TableRow key={student.id}>
+                            <TableCell>{student.name}</TableCell>
+                            <TableCell>{student.email}</TableCell>
+                            <TableCell>{student.schoolLevel}</TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No students found. Add one below.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Add/Edit Student Form */}
+            <Card className="shadow-xl max-w-lg mx-auto">
+              <CardHeader>
+                <CardTitle>{editingStudent ? "Edit Student" : "Add New Student"}</CardTitle>
+                <CardDescription>{editingStudent ? `Update details for ${editingStudent.name}.` : "Fill in the details to register a new student."}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={studentForm.handleSubmit(onStudentSubmit)} className="space-y-4">
+                  <div>
+                    <Label htmlFor="studentName">Full Name</Label>
+                    <Input id="studentName" {...studentForm.register("name")} />
+                    {studentForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.name.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="studentEmail">Email Address</Label>
+                    <Input id="studentEmail" type="email" {...studentForm.register("email")} />
+                    {studentForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.email.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="schoolLevel">School Level</Label>
+                    <Controller
+                      name="schoolLevel"
+                      control={studentForm.control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <SelectTrigger id="schoolLevel">
+                            <SelectValue placeholder="Select school level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SCHOOL_LEVELS.map(level => (
+                              <SelectItem key={level} value={level}>{level}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {studentForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolLevel.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="studentPassword">Password</Label>
+                    <Input id="studentPassword" type="password" {...studentForm.register("password")} placeholder={editingStudent ? "Leave blank to keep current" : "Min. 6 characters"} />
+                    {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <Button type="submit" className="w-full sm:flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+                      <UserPlus className="mr-2 h-4 w-4"/> {editingStudent ? "Update Student" : "Add Student"}
+                    </Button>
+                    {editingStudent && (
+                      <Button type="button" variant="outline" onClick={handleCancelStudentEdit} className="w-full sm:w-auto">
+                        Cancel Edit
+                      </Button>
                     )}
-                  />
-                  {studentForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolLevel.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="studentPassword">Password</Label>
-                  <Input id="studentPassword" type="password" {...studentForm.register("password")} />
-                  {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
-                </div>
-                <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                  <UserPlus className="mr-2 h-4 w-4"/> Add Student
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="manage-staff">
@@ -304,12 +417,12 @@ export default function ManageUsersPage() {
                     {staffForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.email.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="department">Department</Label>
+                    <Label htmlFor="department">Department / Subject Area</Label>
                     <Input id="department" {...staffForm.register("department")} />
                     {staffForm.formState.errors.department && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.department.message}</p>}
                   </div>
                   <div>
-                    <Label htmlFor="title">Job Title</Label>
+                    <Label htmlFor="title">Job Title (e.g., Teacher, Admin Officer)</Label>
                     <Input id="title" {...staffForm.register("title")} />
                     {staffForm.formState.errors.title && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.title.message}</p>}
                   </div>
@@ -319,7 +432,6 @@ export default function ManageUsersPage() {
                     {staffForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.password.message}</p>}
                   </div>
 
-                  {/* Assign Classes Section */}
                   <Controller
                     name="assignedClasses"
                     control={staffForm.control}
@@ -359,7 +471,7 @@ export default function ManageUsersPage() {
                       <UserPlus className="mr-2 h-4 w-4"/> {editingStaff ? "Update Staff Member" : "Add Staff Member"}
                     </Button>
                     {editingStaff && (
-                      <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
+                      <Button type="button" variant="outline" onClick={handleCancelStaffEdit} className="w-full sm:w-auto">
                         Cancel Edit
                       </Button>
                     )}
@@ -373,3 +485,5 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+    
