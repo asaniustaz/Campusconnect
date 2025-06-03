@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel, SchoolClass, Student } from "@/lib/constants"; // Added Student
-import { SCHOOL_LEVELS, mockSchoolClasses, globalMockStudents, addStudentToGlobalList, updateStudentInGlobalList, deleteStudentFromGlobalList } from "@/lib/constants"; // Using globalMockStudents
+import type { UserRole, SchoolLevel, SchoolClass, Student } from "@/lib/constants";
+import { SCHOOL_LEVELS, mockSchoolClasses, globalMockStudents, addStudentToGlobalList, updateStudentInGlobalList, deleteStudentFromGlobalList } from "@/lib/constants";
 import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,8 +24,8 @@ const studentSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
-  classId: z.string().optional(), // Optional for now, can be made required
-  password: z.string().optional(), // Optional for editing
+  classId: z.string().optional(), 
+  password: z.string().optional(), 
   rollNumber: z.string().optional(),
 });
 type StudentFormData = z.infer<typeof studentSchema>;
@@ -42,18 +42,16 @@ const staffSchema = z.object({
 type StaffFormData = z.infer<typeof staffSchema>;
 
 
-// Interface for Staff Member in the list
 interface StaffMember {
   id: string;
   name: string;
   email: string;
   department: string;
   title: string;
-  passwordHash?: string; // Store hashed password, not plain text
+  passwordHash?: string; 
   assignedClasses?: string[];
 }
 
-// Initial Mock Staff List
 const initialMockStaff: StaffMember[] = [
   { id: "staff001", name: "Mrs. Eleanor Vance", email: "evance@campus.edu", department: "Science Department", title: "Senior Teacher", assignedClasses: ["SSS_ENG_C", "SSS_LIT_A"] },
   { id: "staff002", name: "Mr. Samuel Green", email: "sgreen@campus.edu", department: "Administration", title: "Admin Officer" },
@@ -98,11 +96,10 @@ export default function ManageUsersPage() {
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
-    // studentList is already initialized with globalMockStudents
   }, []);
 
   useEffect(() => {
-    setStudentList(globalMockStudents); // Keep local state in sync if global changes elsewhere (e.g. other components)
+    setStudentList([...globalMockStudents]); 
   }, []);
 
 
@@ -113,7 +110,7 @@ export default function ManageUsersPage() {
         email: editingStudent.email,
         schoolLevel: editingStudent.schoolLevel,
         classId: editingStudent.classId,
-        password: "", // Clear password for editing
+        password: "", 
         rollNumber: editingStudent.rollNumber,
       });
     } else {
@@ -147,12 +144,12 @@ export default function ManageUsersPage() {
         name: data.name,
         email: data.email,
         schoolLevel: data.schoolLevel!,
-        classId: data.classId, // Will be undefined if "Unassigned" was selected
+        classId: data.classId, 
         rollNumber: data.rollNumber,
         passwordHash: data.password ? `hashed_${data.password}` : editingStudent.passwordHash,
       };
       updateStudentInGlobalList(updatedStudentData);
-      setStudentList([...globalMockStudents]); // Refresh local list
+      setStudentList([...globalMockStudents]); 
       toast({ title: "Student Updated", description: `${data.name}'s details have been updated.` });
       setEditingStudent(null);
     } else {
@@ -160,22 +157,17 @@ export default function ManageUsersPage() {
         studentForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new students."});
         return;
       }
-      // classId is optional, so a check like this might be too strict if unassigned is allowed.
-      // if (!data.classId) { 
-      //   studentForm.setError("classId", { type: "manual", message: "Please assign a class to the student."});
-      //   return;
-      // }
       const newStudentData: Student = {
         id: `stud-${Date.now()}`,
         name: data.name,
         email: data.email,
         schoolLevel: data.schoolLevel!,
-        classId: data.classId, // Will be undefined if "Unassigned" was selected
+        classId: data.classId, 
         rollNumber: data.rollNumber,
         passwordHash: `hashed_${data.password}`,
       };
       addStudentToGlobalList(newStudentData);
-      setStudentList([...globalMockStudents]); // Refresh local list
+      setStudentList([...globalMockStudents]); 
       toast({ title: "Student Added", description: `${data.name} has been added.` });
     }
     studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
@@ -183,18 +175,15 @@ export default function ManageUsersPage() {
 
   const handleEditStudent = (student: Student) => {
     setEditingStudent(student);
-    // studentForm.setValue("schoolLevel", student.schoolLevel); // Done by reset
-    // studentForm.setValue("classId", student.classId || undefined); // Done by reset
   };
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
-    // studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""}); // Done by useEffect
   };
 
   const handleDeleteStudent = (studentId: string) => {
     deleteStudentFromGlobalList(studentId);
-    setStudentList([...globalMockStudents]); // Refresh local list
+    setStudentList([...globalMockStudents]); 
     toast({ title: "Student Deleted", description: "Student has been removed.", variant: "destructive" });
     if (editingStudent && editingStudent.id === studentId) {
       handleCancelStudentEdit();
@@ -234,7 +223,6 @@ export default function ManageUsersPage() {
 
   const handleCancelStaffEdit = () => {
     setEditingStaff(null);
-    // staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] }); // Done by useEffect
   };
   
   const handleDeleteStaff = (staffId: string) => {
@@ -244,6 +232,15 @@ export default function ManageUsersPage() {
       handleCancelStaffEdit();
     }
   };
+
+  const groupedStaff = staffList.reduce((acc, staffMember) => {
+    const department = staffMember.department || "Uncategorized";
+    if (!acc[department]) {
+      acc[department] = [];
+    }
+    acc[department].push(staffMember);
+    return acc;
+  }, {} as Record<string, StaffMember[]>);
   
   if (userRole !== 'admin') {
      return (
@@ -271,46 +268,98 @@ export default function ManageUsersPage() {
         
         <TabsContent value="manage-students">
           <div className="space-y-8">
-            {/* Student List Table */}
             <Card className="shadow-xl">
               <CardHeader>
-                <CardTitle>Existing Students</CardTitle>
-                <CardDescription>View, edit, or remove students.</CardDescription>
+                <CardTitle>Existing Students by Class</CardTitle>
+                <CardDescription>View, edit, or remove students, grouped by their classes.</CardDescription>
               </CardHeader>
               <CardContent>
                 {studentList.length > 0 ? (
-                  <ScrollArea className="max-h-96">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>School Level</TableHead>
-                          <TableHead>Class</TableHead>
-                          <TableHead>Roll No.</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {studentList.map((student) => (
-                          <TableRow key={student.id}>
-                            <TableCell>{student.name}</TableCell>
-                            <TableCell>{student.email}</TableCell>
-                            <TableCell>{student.schoolLevel}</TableCell>
-                            <TableCell>{mockSchoolClasses.find(c => c.id === student.classId)?.name || 'N/A'}</TableCell>
-                            <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <ScrollArea className="max-h-[500px]">
+                    {mockSchoolClasses.map(cls => {
+                      const studentsInThisClass = studentList.filter(s => s.classId === cls.id);
+                      if (studentsInThisClass.length === 0) return null;
+                      return (
+                        <div key={cls.id} className="mb-6">
+                          <h3 className="text-lg font-semibold mb-2 text-primary">{cls.name} ({cls.displayLevel})</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>School Level</TableHead>
+                                <TableHead>Roll No.</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {studentsInThisClass.map((student) => (
+                                <TableRow key={student.id}>
+                                  <TableCell>{student.name}</TableCell>
+                                  <TableCell>{student.email}</TableCell>
+                                  <TableCell>{student.schoolLevel}</TableCell>
+                                  <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    })}
+                    
+                    {(() => {
+                      const unassignedStudents = studentList.filter(s => !s.classId || !mockSchoolClasses.some(c => c.id === s.classId));
+                      if (unassignedStudents.length === 0 && studentList.some(s => s.classId && mockSchoolClasses.some(c => c.id === s.classId))) return null; // Hide if all assigned or no students
+                      if (unassignedStudents.length === 0 && studentList.length > 0 && !studentList.some(s => s.classId && mockSchoolClasses.some(c => c.id === s.classId)) ) {
+                        // This condition is complex: if there ARE students, but NONE are assigned to known classes, they are all effectively unassigned.
+                      } else if (unassignedStudents.length === 0) {
+                         return null;
+                      }
+
+
+                      return (
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold mb-2 text-orange-600">Unassigned Students</h3>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Email</TableHead>
+                                <TableHead>School Level</TableHead>
+                                <TableHead>Roll No.</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {unassignedStudents.map((student) => (
+                                <TableRow key={student.id}>
+                                  <TableCell>{student.name}</TableCell>
+                                  <TableCell>{student.email}</TableCell>
+                                  <TableCell>{student.schoolLevel}</TableCell>
+                                  <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteStudent(student.id)} className="text-destructive hover:text-destructive/80">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      );
+                    })()}
                   </ScrollArea>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">No students found. Add one below.</p>
@@ -318,7 +367,6 @@ export default function ManageUsersPage() {
               </CardContent>
             </Card>
 
-            {/* Add/Edit Student Form */}
             <Card className="shadow-xl max-w-lg mx-auto">
               <CardHeader>
                 <CardTitle>{editingStudent ? "Edit Student" : "Add New Student"}</CardTitle>
@@ -351,7 +399,7 @@ export default function ManageUsersPage() {
                           <Select 
                             onValueChange={(value) => {
                                 field.onChange(value);
-                                studentForm.setValue("classId", undefined); // Reset class if level changes
+                                studentForm.setValue("classId", undefined); 
                             }} 
                             value={field.value || ""}
                           >
@@ -378,7 +426,7 @@ export default function ManageUsersPage() {
                             onValueChange={(value) => {
                                 field.onChange(value === "__UNASSIGNED__" ? undefined : value);
                             }} 
-                            value={field.value ?? ""} // Use ?? "" to show placeholder if field.value is undefined
+                            value={field.value ?? "__UNASSIGNED__"}
                           >
                             <SelectTrigger id="classId">
                               <SelectValue placeholder="Select class" />
@@ -420,58 +468,62 @@ export default function ManageUsersPage() {
 
         <TabsContent value="manage-staff">
           <div className="space-y-8">
-            {/* Staff List Table */}
             <Card className="shadow-xl">
               <CardHeader>
-                <CardTitle>Existing Staff Members</CardTitle>
-                 <CardDescription>View, edit, or remove staff members.</CardDescription>
+                <CardTitle>Existing Staff Members by Department</CardTitle>
+                 <CardDescription>View, edit, or remove staff members, grouped by department.</CardDescription>
               </CardHeader>
               <CardContent>
                 {staffList.length > 0 ? (
-                  <ScrollArea className="max-h-96">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Department</TableHead>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Assigned Classes (Master)</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {staffList.map((staff) => (
-                          <TableRow key={staff.id}>
-                            <TableCell>{staff.name}</TableCell>
-                            <TableCell>{staff.email}</TableCell>
-                            <TableCell>{staff.department}</TableCell>
-                            <TableCell>{staff.title}</TableCell>
-                            <TableCell>
-                                {staff.assignedClasses && staff.assignedClasses.length > 0
-                                ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ')
-                                : "None"}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditStaff(staff)} className="mr-2">
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
+                   <ScrollArea className="max-h-[500px]">
+                    {Object.entries(groupedStaff).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([department, members]) => {
+                        if (members.length === 0) return null;
+                        return (
+                            <div key={department} className="mb-6">
+                                <h3 className="text-lg font-semibold mb-2 text-primary">{department}</h3>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Name</TableHead>
+                                      <TableHead>Email</TableHead>
+                                      <TableHead>Title</TableHead>
+                                      <TableHead>Assigned Classes (Master)</TableHead>
+                                      <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {members.map((staff) => (
+                                      <TableRow key={staff.id}>
+                                        <TableCell>{staff.name}</TableCell>
+                                        <TableCell>{staff.email}</TableCell>
+                                        <TableCell>{staff.title}</TableCell>
+                                        <TableCell>
+                                            {staff.assignedClasses && staff.assignedClasses.length > 0
+                                            ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ')
+                                            : "None"}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          <Button variant="ghost" size="icon" onClick={() => handleEditStaff(staff)} className="mr-2">
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80">
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                            </div>
+                        );
+                    })}
+                   </ScrollArea>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">No staff members found. Add one below.</p>
                 )}
               </CardContent>
             </Card>
 
-            {/* Add/Edit Staff Form */}
             <Card className="shadow-xl max-w-lg mx-auto">
               <CardHeader>
                 <CardTitle>{editingStaff ? "Edit Staff Member" : "Add New Staff Member"}</CardTitle>
@@ -558,5 +610,3 @@ export default function ManageUsersPage() {
     </div>
   );
 }
-
-    
