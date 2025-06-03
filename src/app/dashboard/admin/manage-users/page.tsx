@@ -8,14 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel } from "@/lib/constants";
-import { SCHOOL_LEVELS } from "@/lib/constants";
-import { UserPlus, Users, Briefcase } from "lucide-react";
+import type { UserRole, SchoolLevel, SchoolClass } from "@/lib/constants";
+import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants"; // Import mockSchoolClasses
+import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Student Schema (remains the same)
 const studentSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
@@ -24,18 +28,48 @@ const studentSchema = z.object({
 });
 type StudentFormData = z.infer<typeof studentSchema>;
 
+// Updated Staff Schema for Add/Edit
 const staffSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+  password: z.string().optional(), // Optional for editing, required for adding will be handled in submit
+  assignedClasses: z.array(z.string()).optional(),
+}).refine(data => {
+    // If it's a new staff (no pre-existing password means we are not editing one with a password)
+    // and password field is empty, then it's an error.
+    // This logic is a bit tricky with zod alone, better handled in onSubmit for add mode.
+    // For edit mode, empty password means "don't change".
+    return true; 
+}, {});
+
 type StaffFormData = z.infer<typeof staffSchema>;
+
+// Interface for Staff Member in the list
+interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  title: string;
+  passwordHash?: string; // Store hashed password, not plain text
+  assignedClasses?: string[];
+}
+
+// Initial Mock Staff List
+const initialMockStaff: StaffMember[] = [
+  { id: "staff001", name: "Dr. Eleanor Vance", email: "evance@campus.edu", department: "Computer Science", title: "Professor", assignedClasses: ["SSS_ENG_C", "SSS_LIT_A"] },
+  { id: "staff002", name: "Mr. Samuel Green", email: "sgreen@campus.edu", department: "Student Affairs", title: "Admissions Officer" },
+  { id: "staff006", name: "Ms. Bola", email: "mbola@campus.edu", department: "Early Years", title: "Nursery Teacher", assignedClasses: ["NUR_ENG", "NUR_MTH"]},
+];
+
 
 export default function ManageUsersPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [staffList, setStaffList] = useState<StaffMember[]>(initialMockStaff);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
 
   const studentForm = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
@@ -44,7 +78,6 @@ export default function ManageUsersPage() {
 
   const staffForm = useForm<StaffFormData>({
     resolver: zodResolver(staffSchema),
-    defaultValues: { name: "", email: "", department: "", title: "", password: "" },
   });
 
   useEffect(() => {
@@ -52,9 +85,23 @@ export default function ManageUsersPage() {
     setUserRole(role);
   }, []);
 
+  useEffect(() => {
+    if (editingStaff) {
+      staffForm.reset({
+        name: editingStaff.name,
+        email: editingStaff.email,
+        department: editingStaff.department,
+        title: editingStaff.title,
+        password: "", // Clear password field for editing
+        assignedClasses: editingStaff.assignedClasses || [],
+      });
+    } else {
+      staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+    }
+  }, [editingStaff, staffForm]);
+
   const onStudentSubmit: SubmitHandler<StudentFormData> = (data) => {
     console.log("New Student Data:", data);
-    // Mock adding student
     toast({
       title: "Student Added",
       description: `${data.name} has been added as a student.`,
@@ -63,13 +110,51 @@ export default function ManageUsersPage() {
   };
 
   const onStaffSubmit: SubmitHandler<StaffFormData> = (data) => {
-    console.log("New Staff Data:", data);
-    // Mock adding staff
-    toast({
-      title: "Staff Added",
-      description: `${data.name} has been added as a staff member.`,
-    });
-    staffForm.reset();
+    if (editingStaff) {
+      // Update existing staff
+      const updatedStaff: StaffMember = {
+        ...editingStaff,
+        ...data,
+        passwordHash: data.password ? `hashed_${data.password}` : editingStaff.passwordHash, // Mock hashing
+      };
+      setStaffList(staffList.map(staff => staff.id === editingStaff.id ? updatedStaff : staff));
+      toast({ title: "Staff Updated", description: `${data.name}'s details have been updated.` });
+      setEditingStaff(null);
+    } else {
+      // Add new staff
+      if (!data.password || data.password.length < 6) {
+        staffForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new staff."});
+        return;
+      }
+      const newStaffMember: StaffMember = {
+        id: `staff-${Date.now()}`, // Simple unique ID
+        ...data,
+        passwordHash: `hashed_${data.password}`, // Mock hashing
+      };
+      setStaffList([...staffList, newStaffMember]);
+      toast({ title: "Staff Added", description: `${data.name} has been added as a staff member.` });
+    }
+    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+  };
+
+  const handleEditStaff = (staff: StaffMember) => {
+    setEditingStaff(staff);
+    // Consider scrolling to the form or ensuring it's visible
+  };
+
+  const handleCancelEdit = () => {
+    setEditingStaff(null);
+    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+  };
+  
+  const handleDeleteStaff = (staffId: string) => {
+    // Mock deletion
+    setStaffList(staffList.filter(staff => staff.id !== staffId));
+    toast({ title: "Staff Deleted", description: "Staff member has been removed.", variant: "destructive" });
+     if (editingStaff && editingStaff.id === staffId) {
+      setEditingStaff(null); // Clear editing state if the deleted staff was being edited
+      staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+    }
   };
   
   if (userRole !== 'admin') {
@@ -87,14 +172,15 @@ export default function ManageUsersPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Manage Users</h1>
-        <p className="text-muted-foreground">Add new students or staff members to the system.</p>
+        <p className="text-muted-foreground">Add new students or manage staff members.</p>
       </header>
 
-      <Tabs defaultValue="add-student" className="w-full">
+      <Tabs defaultValue="manage-staff" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
           <TabsTrigger value="add-student"><Users className="mr-2"/> Add Student</TabsTrigger>
-          <TabsTrigger value="add-staff"><Briefcase className="mr-2"/> Add Staff</TabsTrigger>
+          <TabsTrigger value="manage-staff"><Briefcase className="mr-2"/> Manage Staff</TabsTrigger>
         </TabsList>
+        
         <TabsContent value="add-student">
           <Card className="shadow-xl max-w-lg mx-auto">
             <CardHeader>
@@ -119,7 +205,7 @@ export default function ManageUsersPage() {
                     name="schoolLevel"
                     control={studentForm.control}
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <SelectTrigger id="schoolLevel">
                           <SelectValue placeholder="Select school level" />
                         </SelectTrigger>
@@ -145,48 +231,145 @@ export default function ManageUsersPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="add-staff">
-          <Card className="shadow-xl max-w-lg mx-auto">
-            <CardHeader>
-              <CardTitle>Add New Staff Member</CardTitle>
-              <CardDescription>Fill in the details to register a new staff member.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={staffForm.handleSubmit(onStaffSubmit)} className="space-y-4">
-                <div>
-                  <Label htmlFor="staffName">Full Name</Label>
-                  <Input id="staffName" {...staffForm.register("name")} />
-                   {staffForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.name.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="staffEmail">Email Address</Label>
-                  <Input id="staffEmail" type="email" {...staffForm.register("email")} />
-                  {staffForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.email.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="department">Department</Label>
-                  <Input id="department" {...staffForm.register("department")} />
-                  {staffForm.formState.errors.department && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.department.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="title">Job Title</Label>
-                  <Input id="title" {...staffForm.register("title")} />
-                  {staffForm.formState.errors.title && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.title.message}</p>}
-                </div>
-                <div>
-                  <Label htmlFor="staffPassword">Password</Label>
-                  <Input id="staffPassword" type="password" {...staffForm.register("password")} />
-                  {staffForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.password.message}</p>}
-                </div>
-                <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                  <UserPlus className="mr-2 h-4 w-4"/> Add Staff Member
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+
+        <TabsContent value="manage-staff">
+          <div className="space-y-8">
+            {/* Staff List Table */}
+            <Card className="shadow-xl">
+              <CardHeader>
+                <CardTitle>Existing Staff Members</CardTitle>
+                 <CardDescription>View, edit, or remove staff members.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {staffList.length > 0 ? (
+                  <ScrollArea className="max-h-96">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Assigned Classes</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {staffList.map((staff) => (
+                          <TableRow key={staff.id}>
+                            <TableCell>{staff.name}</TableCell>
+                            <TableCell>{staff.email}</TableCell>
+                            <TableCell>{staff.department}</TableCell>
+                            <TableCell>{staff.title}</TableCell>
+                            <TableCell>
+                                {staff.assignedClasses && staff.assignedClasses.length > 0 
+                                ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ') 
+                                : "None"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditStaff(staff)} className="mr-2">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No staff members found. Add one below.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Add/Edit Staff Form */}
+            <Card className="shadow-xl max-w-lg mx-auto">
+              <CardHeader>
+                <CardTitle>{editingStaff ? "Edit Staff Member" : "Add New Staff Member"}</CardTitle>
+                <CardDescription>{editingStaff ? `Update details for ${editingStaff.name}.` : "Fill in the details to register a new staff member."}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={staffForm.handleSubmit(onStaffSubmit)} className="space-y-4">
+                  <div>
+                    <Label htmlFor="staffName">Full Name</Label>
+                    <Input id="staffName" {...staffForm.register("name")} />
+                    {staffForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.name.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="staffEmail">Email Address</Label>
+                    <Input id="staffEmail" type="email" {...staffForm.register("email")} />
+                    {staffForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.email.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="department">Department</Label>
+                    <Input id="department" {...staffForm.register("department")} />
+                    {staffForm.formState.errors.department && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.department.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="title">Job Title</Label>
+                    <Input id="title" {...staffForm.register("title")} />
+                    {staffForm.formState.errors.title && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.title.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="staffPassword">Password</Label>
+                    <Input id="staffPassword" type="password" {...staffForm.register("password")} placeholder={editingStaff ? "Leave blank to keep current password" : "Min. 6 characters"}/>
+                    {staffForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.password.message}</p>}
+                  </div>
+
+                  {/* Assign Classes Section */}
+                  <Controller
+                    name="assignedClasses"
+                    control={staffForm.control}
+                    render={({ field }) => (
+                      <div className="space-y-2">
+                        <Label className="flex items-center"><ListChecks className="mr-2 h-4 w-4 text-primary" /> Assign Classes (as Class Master)</Label>
+                        <ScrollArea className="h-48 w-full rounded-md border p-3 bg-secondary/20">
+                          <div className="space-y-1">
+                          {mockSchoolClasses.map((cls) => (
+                            <div key={cls.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary/50">
+                              <Checkbox
+                                id={`class-assign-${cls.id}`}
+                                checked={field.value?.includes(cls.id) || false}
+                                onCheckedChange={(checked) => {
+                                  const currentAssigned = field.value || [];
+                                  if (checked) {
+                                    field.onChange([...currentAssigned, cls.id]);
+                                  } else {
+                                    field.onChange(currentAssigned.filter(id => id !== cls.id));
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={`class-assign-${cls.id}`} className="font-normal cursor-pointer flex-grow">
+                                {cls.name} <span className="text-xs text-muted-foreground">({cls.displayLevel})</span>
+                              </Label>
+                            </div>
+                          ))}
+                          </div>
+                        </ScrollArea>
+                         {staffForm.formState.errors.assignedClasses && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.assignedClasses.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <Button type="submit" className="w-full sm:flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+                      <UserPlus className="mr-2 h-4 w-4"/> {editingStaff ? "Update Staff Member" : "Add Staff Member"}
+                    </Button>
+                    {editingStaff && (
+                      <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
+                        Cancel Edit
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
