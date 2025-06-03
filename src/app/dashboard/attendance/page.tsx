@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -65,12 +66,12 @@ export default function AttendancePage() {
     });
   };
   
-  if (userRole !== 'staff') {
+  if (userRole !== 'staff' && userRole !== 'admin') {
      return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
           <CardTitle className="text-2xl text-destructive mb-4">Access Denied</CardTitle>
-          <CardDescription>This page is only accessible to staff members.</CardDescription>
+          <CardDescription>This page is only accessible to staff or admin members.</CardDescription>
         </Card>
       </div>
     );

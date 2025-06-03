@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -67,8 +68,21 @@ export default function ResultsPage() {
 
   if (userRole === "student") {
     // For student view, we find their specific results.
-    // Here, we use a mock where Alice is the logged-in student.
-    const studentData = userName.toLowerCase().includes("alice") ? mockStudentResults : { ...mockStudentResults, studentName: userName, results: mockStudentResults.results.map(r => ({...r, grade: "N/A", marks: 0})) };
+    let studentData = mockStudentResults;
+    if (userName.toLowerCase().includes("test student")) { // Example for "Test Student"
+        studentData = {
+            studentId: "teststd001",
+            studentName: "Test Student",
+            cgpa: 3.5,
+            results: [
+                { subjectCode: "CS101", subjectName: "Intro to Programming", grade: "B+", marks: 84, totalMarks: 100 },
+                { subjectCode: "MA101", subjectName: "Calculus I", grade: "A", marks: 90, totalMarks: 100 },
+            ],
+        };
+    } else if (!userName.toLowerCase().includes("alice")) { // For any other student not Alice
+        studentData = { ...mockStudentResults, studentName: userName, results: mockStudentResults.results.map(r => ({...r, grade: "N/A", marks: 0})) };
+    }
+
 
     return (
       <div className="space-y-6">
@@ -108,7 +122,7 @@ export default function ResultsPage() {
     );
   }
 
-  // Staff View
+  // Staff or Admin View
   const currentCourseResults = selectedCourse ? mockStaffCourseResults[selectedCourse] || [] : [];
 
   return (

@@ -1,7 +1,8 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookOpen, Users, CalendarCheck, FileText, Bell } from "lucide-react";
+import { BookOpen, Users, CalendarCheck, FileText, Bell, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { UserRole } from "@/lib/constants";
 
@@ -39,8 +40,8 @@ export default function DashboardPage() {
   }
   
   const commonStats = [
-    { title: "My Courses", value: userInfo.role === 'student' ? 4 : 2, icon: BookOpen, description: "Currently enrolled" },
-    { title: "Notifications", value: 3, icon: Bell, description: "Unread messages" },
+    { title: "My Courses", value: userInfo.role === 'student' ? 4 : (userInfo.role === 'staff' ? 2 : 0), icon: BookOpen, description: userInfo.role === 'student' ? "Currently enrolled" : (userInfo.role === 'staff' ? "Courses Taught" : "Platform Overview") },
+    { title: "Notifications", value: userInfo.role === 'admin' ? 5 : 3, icon: Bell, description: "Unread messages" },
   ];
 
   const studentStats = [
@@ -54,14 +55,33 @@ export default function DashboardPage() {
     { title: "Students Taught", value: 45, icon: Users, description: "Across all courses" },
     { title: "Pending Actions", value: 2, icon: CalendarCheck, description: "Attendance/Results" },
   ];
+  
+  const adminStats = [
+    ...commonStats,
+    { title: "Total Users", value: 150, icon: Users, description: "Students & Staff" },
+    { title: "System Status", value: "Operational", icon: ShieldCheck, description: "All systems nominal" },
+  ];
 
-  const stats = userInfo.role === 'student' ? studentStats : staffStats;
+  let stats;
+  if (userInfo.role === 'student') {
+    stats = studentStats;
+  } else if (userInfo.role === 'staff') {
+    stats = staffStats;
+  } else { // admin
+    stats = adminStats;
+  }
+
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Welcome, {userInfo.name}!</h1>
-        <p className="text-muted-foreground">Here's an overview of your CampusConnect portal.</p>
+        <p className="text-muted-foreground">
+          {userInfo.role === 'admin' 
+            ? "Welcome to the Admin Dashboard of ANNAJIHUN ACADEMY ZARIA."
+            : "Here's an overview of your CampusConnect portal."
+          }
+        </p>
       </header>
 
       <section>
@@ -81,9 +101,10 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {[
-              { title: "Mid-term Exams Schedule", date: "Oct 15, 2023", content: "The schedule for mid-term exams has been published. Please check the notice board." },
-              { title: "Holiday Notification", date: "Oct 10, 2023", content: "The institution will be closed on October 20th for a public holiday." },
-            ].map((announcement, index) => (
+              { title: "System Maintenance Alert", date: "Nov 05, 2023", content: "Scheduled system maintenance on Nov 10th, 2 AM - 4 AM. Expect brief downtime.", forRoles: ['admin'] },
+              { title: "Mid-term Exams Schedule", date: "Oct 15, 2023", content: "The schedule for mid-term exams has been published. Please check the notice board.", forRoles: ['student', 'staff'] },
+              { title: "Holiday Notification", date: "Oct 10, 2023", content: "The institution will be closed on October 20th for a public holiday.", forRoles: ['student', 'staff', 'admin'] },
+            ].filter(ann => ann.forRoles.includes(userInfo.role)).map((announcement, index) => (
               <div key={index} className="p-3 border rounded-md bg-secondary/30">
                 <h3 className="font-semibold text-secondary-foreground">{announcement.title}</h3>
                 <p className="text-xs text-muted-foreground">{announcement.date}</p>

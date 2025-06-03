@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,11 +14,12 @@ import {
 import { LogOut, UserCircle, Settings, PanelLeft } from "lucide-react";
 import Link from "next/link";
 import { useSidebar } from "@/components/ui/sidebar";
+import type { UserRole } from "@/lib/constants";
 
 type User = {
   name: string;
   email: string;
-  role: 'student' | 'staff';
+  role: UserRole;
   avatarUrl?: string;
 };
 

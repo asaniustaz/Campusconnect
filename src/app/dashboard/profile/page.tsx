@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
-  department: z.string().optional(), // Relevant for staff, maybe major for student
+  department: z.string().optional(), // Relevant for staff/admin, major for student
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -41,15 +42,26 @@ export default function ProfilePage() {
     // Mock fetching user profile
     const name = localStorage.getItem("userName") || "User";
     const role = (localStorage.getItem("userRole") as UserRole) || "student";
-    const email = `${name.toLowerCase().replace(" ", ".")}@campus.edu`;
+    const email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
+    
+    let departmentLabel = "Major";
+    let departmentValue = "Software Engineering";
+
+    if (role === "staff") {
+      departmentLabel = "Department";
+      departmentValue = "Computer Science";
+    } else if (role === "admin") {
+      departmentLabel = "Role Description";
+      departmentValue = "System Administrator";
+    }
     
     const profileData: UserProfile = {
-      id: "123",
+      id: role === "admin" ? "adm001" : (role === "staff" ? "stf001" : "std001"),
       name,
       email,
       role,
       phone: "123-456-7890",
-      department: role === "staff" ? "Computer Science" : "Software Engineering",
+      department: departmentValue,
       avatarUrl: `https://placehold.co/150x150.png?text=${name[0]}`,
     };
     setUserProfile(profileData);
@@ -59,7 +71,9 @@ export default function ProfilePage() {
   const onSubmit: SubmitHandler<ProfileFormData> = (data) => {
     // Mock update
     setUserProfile(prev => prev ? { ...prev, ...data } : null);
-    localStorage.setItem("userName", data.name); // Update local storage if name changes
+    if (localStorage.getItem("userName") !== data.name) {
+       localStorage.setItem("userName", data.name); // Update local storage if name changes
+    }
     toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     setIsEditing(false);
   };
@@ -69,6 +83,11 @@ export default function ProfilePage() {
   }
   
   const userInitials = userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase() || userProfile.email[0].toUpperCase();
+  
+  let departmentFieldLabel = "Major";
+  if (userProfile.role === "staff") departmentFieldLabel = "Department";
+  if (userProfile.role === "admin") departmentFieldLabel = "Role Description";
+
 
   return (
     <div className="space-y-6">
@@ -98,7 +117,7 @@ export default function ProfilePage() {
               <Input id="phone" {...form.register("phone")} defaultValue={userProfile.phone} disabled={!isEditing} />
             </div>
             <div>
-              <Label htmlFor="department">{userProfile.role === "staff" ? "Department" : "Major"}</Label>
+              <Label htmlFor="department">{departmentFieldLabel}</Label>
               <Input id="department" {...form.register("department")} defaultValue={userProfile.department} disabled={!isEditing} />
             </div>
             {isEditing && (

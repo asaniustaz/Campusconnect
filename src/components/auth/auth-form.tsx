@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +25,7 @@ import { LogIn } from "lucide-react";
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  role: z.enum(["student", "staff"], { required_error: "Please select a role." }),
+  role: z.enum(["student", "staff", "admin"], { required_error: "Please select a role." }),
 });
 
 export default function AuthForm() {
@@ -39,13 +40,29 @@ export default function AuthForm() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Simulate API call
-    localStorage.setItem("userRole", values.role);
-    localStorage.setItem("userName", values.email.split('@')[0] || "User"); // Simple name derivation
+    let userName = values.email.split('@')[0] || "User";
+    let userRole: UserRole = values.role;
+
+    // Test user credentials
+    if (values.password === "password") {
+      if (values.email === "student@test.com") {
+        userRole = "student";
+        userName = "Test Student";
+      } else if (values.email === "staff@test.com") {
+        userRole = "staff";
+        userName = "Test Staff";
+      } else if (values.email === "admin@test.com") {
+        userRole = "admin";
+        userName = "Test Admin";
+      }
+    }
+    
+    localStorage.setItem("userRole", userRole);
+    localStorage.setItem("userName", userName);
     
     toast({
       title: "Login Successful",
-      description: `Welcome back, ${values.role}!`,
+      description: `Welcome back, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1)}`,
     });
     router.push("/dashboard");
   }
@@ -100,6 +117,7 @@ export default function AuthForm() {
                     <SelectContent>
                       <SelectItem value="student">Student</SelectItem>
                       <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
