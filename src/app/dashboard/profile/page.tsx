@@ -11,14 +11,17 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole } from "@/lib/constants";
-import { Edit3 } from "lucide-react";
+import type { UserRole, SchoolLevel } from "@/lib/constants";
+import { SCHOOL_LEVELS } from "@/lib/constants";
+import { Edit3, School, Layers } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
   department: z.string().optional(), // Relevant for staff/admin, major for student
+  schoolLevel: z.custom<SchoolLevel>().optional(), // For students primarily
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -39,20 +42,26 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    // Mock fetching user profile
     const name = localStorage.getItem("userName") || "User";
     const role = (localStorage.getItem("userRole") as UserRole) || "student";
     const email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
     
     let departmentLabel = "Major";
     let departmentValue = "Software Engineering";
+    let schoolLevelValue: SchoolLevel = "Secondary";
 
-    if (role === "staff") {
+    if (role === "student") {
+      // Could fetch this from a more specific source or assign based on ID/email pattern
+      if (name.toLowerCase().includes("kinder")) schoolLevelValue = "Kindergarten";
+      else if (name.toLowerCase().includes("primary")) schoolLevelValue = "Primary";
+    } else if (role === "staff") {
       departmentLabel = "Department";
       departmentValue = "Computer Science";
+      schoolLevelValue = "Secondary"; // Staff might be associated with a primary level
     } else if (role === "admin") {
       departmentLabel = "Role Description";
       departmentValue = "System Administrator";
+       schoolLevelValue = "Secondary"; // Admin oversees all
     }
     
     const profileData: UserProfile = {
@@ -62,6 +71,7 @@ export default function ProfilePage() {
       role,
       phone: "123-456-7890",
       department: departmentValue,
+      schoolLevel: schoolLevelValue,
       avatarUrl: `https://placehold.co/150x150.png?text=${name[0]}`,
     };
     setUserProfile(profileData);
@@ -69,10 +79,9 @@ export default function ProfilePage() {
   }, [form]);
 
   const onSubmit: SubmitHandler<ProfileFormData> = (data) => {
-    // Mock update
     setUserProfile(prev => prev ? { ...prev, ...data } : null);
     if (localStorage.getItem("userName") !== data.name) {
-       localStorage.setItem("userName", data.name); // Update local storage if name changes
+       localStorage.setItem("userName", data.name); 
     }
     toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     setIsEditing(false);
@@ -94,11 +103,18 @@ export default function ProfilePage() {
       <Card className="max-w-2xl mx-auto shadow-xl">
         <CardHeader className="items-center text-center">
           <Avatar className="w-24 h-24 mb-4 border-4 border-primary">
-            <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} data-ai-hint="user avatar" />
+            <AvatarImage src={userProfile.avatarUrl} alt={userProfile.name} data-ai-hint="user avatar passport" />
             <AvatarFallback className="text-3xl">{userInitials}</AvatarFallback>
           </Avatar>
           <CardTitle className="text-2xl font-headline">{userProfile.name}</CardTitle>
-          <CardDescription>{userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)} - ID: {userProfile.id}</CardDescription>
+          <CardDescription>
+            {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)} - ID: {userProfile.id}
+            {userProfile.schoolLevel && (
+              <span className="block mt-1 text-xs">
+                <School className="inline-block h-3 w-3 mr-1" /> Level: {userProfile.schoolLevel}
+              </span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -118,8 +134,35 @@ export default function ProfilePage() {
             </div>
             <div>
               <Label htmlFor="department">{departmentFieldLabel}</Label>
-              <Input id="department" {...form.register("department")} defaultValue={userProfile.department} disabled={!isEditing} />
+              <Input id="department" {...form.register("department")} defaultValue={userProfile.department} disabled={!isEditing || userProfile.role === 'admin'} />
             </div>
+             {userProfile.role === 'student' && (
+              <div>
+                <Label htmlFor="schoolLevel">School Level</Label>
+                {isEditing ? (
+                  <Controller
+                    name="schoolLevel"
+                    control={form.control}
+                    defaultValue={userProfile.schoolLevel}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger id="schoolLevel">
+                          <SelectValue placeholder="Select school level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SCHOOL_LEVELS.map(level => (
+                            <SelectItem key={level} value={level}>{level}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                ) : (
+                  <Input id="schoolLevel" value={userProfile.schoolLevel} disabled />
+                )}
+              </div>
+            )}
+
             {isEditing && (
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => { setIsEditing(false); form.reset(userProfile); }}>Cancel</Button>

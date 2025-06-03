@@ -1,8 +1,11 @@
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Mail, Phone, Briefcase } from "lucide-react";
+import { Mail, Phone, Briefcase, BookOpen, Layers } from "lucide-react";
+import type { SchoolLevel } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
 
 interface StaffMember {
   id: string;
@@ -13,6 +16,8 @@ interface StaffMember {
   phone?: string;
   avatarUrl: string;
   aiHint: string;
+  schoolLevel: SchoolLevel[];
+  subjectsTaught: string[];
 }
 
 const mockStaff: StaffMember[] = [
@@ -25,6 +30,8 @@ const mockStaff: StaffMember[] = [
     phone: "123-555-0101",
     avatarUrl: "https://placehold.co/150x150.png",
     aiHint: "professor portrait",
+    schoolLevel: ["Secondary"],
+    subjectsTaught: ["Programming", "Calculus"],
   },
   {
     id: "staff002",
@@ -34,6 +41,8 @@ const mockStaff: StaffMember[] = [
     email: "sgreen@campus.edu",
     avatarUrl: "https://placehold.co/150x150.png",
     aiHint: "administrator friendly",
+    schoolLevel: ["Kindergarten", "Primary", "Secondary"],
+    subjectsTaught: ["Student Onboarding"],
   },
   {
     id: "staff003",
@@ -44,6 +53,8 @@ const mockStaff: StaffMember[] = [
     phone: "123-555-0103",
     avatarUrl: "https://placehold.co/150x150.png",
     aiHint: "librarian smiling",
+    schoolLevel: ["Primary", "Secondary"],
+    subjectsTaught: ["Reading Skills", "Research Methods"],
   },
    {
     id: "staff004",
@@ -54,6 +65,19 @@ const mockStaff: StaffMember[] = [
     phone: "123-555-0104",
     avatarUrl: "https://placehold.co/150x150.png",
     aiHint: "scientist lecture",
+    schoolLevel: ["Secondary"],
+    subjectsTaught: ["Physics I", "Astrophysics"],
+  },
+  {
+    id: "staff005",
+    name: "Mrs. Daisy Fields",
+    title: "Kindergarten Teacher",
+    department: "Early Childhood Education",
+    email: "dfields@campus.edu",
+    avatarUrl: "https://placehold.co/150x150.png",
+    aiHint: "teacher kindergarten",
+    schoolLevel: ["Kindergarten"],
+    subjectsTaught: ["Basic Numeracy", "Story Time", "Play Activities"],
   },
 ];
 
@@ -76,7 +100,7 @@ export default function StaffDirectoryPage() {
               <CardTitle className="font-headline text-xl text-primary">{staff.name}</CardTitle>
               <CardDescription>{staff.title}</CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-1 p-0">
+            <CardContent className="text-sm text-muted-foreground space-y-2 p-0">
               <div className="flex items-center justify-center">
                 <Briefcase className="h-4 w-4 mr-2" /> {staff.department}
               </div>
@@ -88,6 +112,20 @@ export default function StaffDirectoryPage() {
                   <Phone className="h-4 w-4 mr-2" /> {staff.phone}
                 </div>
               )}
+              <div className="flex items-center justify-center">
+                 <Layers className="h-4 w-4 mr-2" /> 
+                 {staff.schoolLevel.join(', ')}
+              </div>
+              <div className="pt-2">
+                <h4 className="font-medium text-foreground mb-1">Subjects/Responsibilities:</h4>
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {staff.subjectsTaught.map(subject => (
+                    <Badge key={subject} variant="outline" className="text-xs">
+                      <BookOpen className="h-3 w-3 mr-1" />{subject}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         ))}

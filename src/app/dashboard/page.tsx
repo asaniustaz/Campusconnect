@@ -2,25 +2,38 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookOpen, Users, CalendarCheck, FileText, Bell, ShieldCheck } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BookOpen, Users, CalendarCheck, FileText, Bell, ShieldCheck, School, UserPlus, CreditCard } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { UserRole } from "@/lib/constants";
+import type { UserRole, SchoolLevel } from "@/lib/constants";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type UserInfo = {
   name: string;
   role: UserRole;
+  email: string;
+  schoolLevel?: SchoolLevel; // Added for students
+  avatarUrl?: string;
 }
 
-const StatCard = ({ title, value, icon: Icon, description }: { title: string, value: string | number, icon: React.ElementType, description?: string }) => (
-  <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+const StatCard = ({ title, value, icon: Icon, description, link, linkText }: { title: string, value: string | number, icon: React.ElementType, description?: string, link?: string, linkText?: string }) => (
+  <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
       <CardTitle className="text-sm font-medium">{title}</CardTitle>
       <Icon className="h-5 w-5 text-muted-foreground" />
     </CardHeader>
-    <CardContent>
+    <CardContent className="flex-grow">
       <div className="text-2xl font-bold">{value}</div>
       {description && <p className="text-xs text-muted-foreground">{description}</p>}
     </CardContent>
+    {link && linkText && (
+      <CardContent className="pt-0">
+         <Button variant="outline" size="sm" className="w-full" asChild>
+            <Link href={link}>{linkText}</Link>
+        </Button>
+      </CardContent>
+    )}
   </Card>
 );
 
@@ -30,8 +43,16 @@ export default function DashboardPage() {
   useEffect(() => {
     const name = localStorage.getItem("userName");
     const role = localStorage.getItem("userRole") as UserRole;
+    
     if (name && role) {
-      setUserInfo({ name, role });
+      const email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
+      let schoolLevel: SchoolLevel | undefined = undefined;
+      if (role === 'student') { // Assign a mock school level for students
+        if (name.toLowerCase().includes("kinder")) schoolLevel = "Kindergarten";
+        else if (name.toLowerCase().includes("primary")) schoolLevel = "Primary";
+        else schoolLevel = "Secondary";
+      }
+      setUserInfo({ name, role, email, schoolLevel, avatarUrl: `https://placehold.co/100x100.png?text=${name[0]}` });
     }
   }, []);
 
@@ -39,56 +60,63 @@ export default function DashboardPage() {
     return <div className="text-center p-10">Loading user information...</div>;
   }
   
-  const commonStats = [
-    { title: "My Courses", value: userInfo.role === 'student' ? 4 : (userInfo.role === 'staff' ? 2 : 0), icon: BookOpen, description: userInfo.role === 'student' ? "Currently enrolled" : (userInfo.role === 'staff' ? "Courses Taught" : "Platform Overview") },
+  const userInitials = userInfo.name.split(' ').map(n => n[0]).join('').toUpperCase() || userInfo.email[0].toUpperCase();
+
+  const commonStatsBase = [
+    { title: "My Courses", value: userInfo.role === 'student' ? 4 : (userInfo.role === 'staff' ? 2 : 5), icon: BookOpen, description: userInfo.role === 'student' ? "Currently enrolled" : (userInfo.role === 'staff' ? "Courses Taught" : "Total Courses"), link: "/dashboard/courses", linkText: "View Courses"},
     { title: "Notifications", value: userInfo.role === 'admin' ? 5 : 3, icon: Bell, description: "Unread messages" },
   ];
 
-  const studentStats = [
-    ...commonStats,
-    { title: "Recent Grades", value: "B+", icon: FileText, description: "Latest assessment" },
-    { title: "Attendance", value: "92%", icon: CalendarCheck, description: "Overall presence" },
-  ];
-
-  const staffStats = [
-    ...commonStats,
-    { title: "Students Taught", value: 45, icon: Users, description: "Across all courses" },
-    { title: "Pending Actions", value: 2, icon: CalendarCheck, description: "Attendance/Results" },
-  ];
-  
-  const adminStats = [
-    ...commonStats,
-    { title: "Total Users", value: 150, icon: Users, description: "Students & Staff" },
-    { title: "System Status", value: "Operational", icon: ShieldCheck, description: "All systems nominal" },
-  ];
-
-  let stats;
+  let stats = [];
   if (userInfo.role === 'student') {
-    stats = studentStats;
+    stats = [
+      ...commonStatsBase,
+      { title: "My Grades", value: "B+", icon: FileText, description: "Latest assessment", link: "/dashboard/results", linkText: "View Results" },
+      { title: "Payment History", value: "NGN 55k", icon: CreditCard, description: "Total Paid", link: "/dashboard/payments", linkText: "View Payments"},
+    ];
   } else if (userInfo.role === 'staff') {
-    stats = staffStats;
+    stats = [
+      ...commonStatsBase,
+      { title: "Students Taught", value: 45, icon: Users, description: "Across all courses" },
+      { title: "Mark Attendance", value: "Today", icon: CalendarCheck, description: "For CS101", link: "/dashboard/attendance", linkText: "Mark Now" },
+    ];
   } else { // admin
-    stats = adminStats;
+    stats = [
+      ...commonStatsBase,
+      { title: "Total Users", value: 150, icon: Users, description: "Students & Staff" },
+      { title: "System Status", value: "Operational", icon: ShieldCheck, description: "All systems nominal" },
+      { title: "Add New User", value: "Student/Staff", icon: UserPlus, description: "Register new members", link: "/dashboard/admin/manage-users", linkText: "Add User"},
+    ];
   }
 
 
   return (
     <div className="space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Welcome, {userInfo.name}!</h1>
-        <p className="text-muted-foreground">
-          {userInfo.role === 'admin' 
-            ? "Welcome to the Admin Dashboard of ANNAJIHUN ACADEMY ZARIA."
-            : "Here's an overview of your CampusConnect portal."
-          }
-        </p>
-      </header>
+      <Card className="shadow-md">
+        <CardHeader className="flex flex-col sm:flex-row items-center gap-4 p-6">
+            <Avatar className="w-20 h-20 border-2 border-primary">
+              <AvatarImage src={userInfo.avatarUrl} alt={userInfo.name} data-ai-hint="user avatar passport" />
+              <AvatarFallback className="text-2xl">{userInitials}</AvatarFallback>
+            </Avatar>
+            <div className="text-center sm:text-left">
+                <h1 className="text-3xl font-bold font-headline text-foreground">Welcome, {userInfo.name}!</h1>
+                <p className="text-muted-foreground">
+                {userInfo.role === 'admin' 
+                    ? "Admin Dashboard for ANNAJIHUN ACADEMY ZARIA."
+                    : `Your ${userInfo.role.charAt(0).toUpperCase() + userInfo.role.slice(1)} portal.`
+                }
+                </p>
+                {userInfo.schoolLevel && <p className="text-sm text-primary flex items-center justify-center sm:justify-start mt-1"><School className="h-4 w-4 mr-1"/> {userInfo.schoolLevel} Level</p>}
+            </div>
+        </CardHeader>
+      </Card>
+      
 
       <section>
-        <h2 className="text-xl font-semibold mb-4 text-foreground">Quick Stats</h2>
+        <h2 className="text-xl font-semibold mb-4 text-foreground">Quick Access</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <StatCard key={stat.title} title={stat.title} value={stat.value} icon={stat.icon} description={stat.description} />
+            <StatCard key={stat.title} title={stat.title} value={stat.value} icon={stat.icon} description={stat.description} link={stat.link} linkText={stat.linkText} />
           ))}
         </div>
       </section>
@@ -102,8 +130,9 @@ export default function DashboardPage() {
           <CardContent className="space-y-3">
             {[
               { title: "System Maintenance Alert", date: "Nov 05, 2023", content: "Scheduled system maintenance on Nov 10th, 2 AM - 4 AM. Expect brief downtime.", forRoles: ['admin'] },
-              { title: "Mid-term Exams Schedule", date: "Oct 15, 2023", content: "The schedule for mid-term exams has been published. Please check the notice board.", forRoles: ['student', 'staff'] },
-              { title: "Holiday Notification", date: "Oct 10, 2023", content: "The institution will be closed on October 20th for a public holiday.", forRoles: ['student', 'staff', 'admin'] },
+              { title: "Mid-term Exams Schedule (All Levels)", date: "Oct 15, 2023", content: "The schedule for mid-term exams has been published. Please check the notice board.", forRoles: ['student', 'staff', 'admin'] },
+              { title: "School Reopens (Primary & Secondary)", date: "Oct 10, 2023", content: "Primary and Secondary sections will reopen on Jan 8th. Kindergarten resumes Jan 15th.", forRoles: ['student', 'staff', 'admin'] },
+              { title: "Science Fair Submissions", date: "Oct 01, 2023", content: "Secondary school students: Science fair project submissions are due Nov 1st.", forRoles: ['student', 'staff'] },
             ].filter(ann => ann.forRoles.includes(userInfo.role)).map((announcement, index) => (
               <div key={index} className="p-3 border rounded-md bg-secondary/30">
                 <h3 className="font-semibold text-secondary-foreground">{announcement.title}</h3>
@@ -111,6 +140,12 @@ export default function DashboardPage() {
                 <p className="text-sm mt-1">{announcement.content}</p>
               </div>
             ))}
+             {userInfo.role === 'student' && !mockStudentResults.termResults.some(tr => tr.results.length > 0) && (
+                <div className="p-3 border rounded-md bg-yellow-100 border-yellow-300">
+                    <h3 className="font-semibold text-yellow-800">No Results Yet!</h3>
+                    <p className="text-sm text-yellow-700 mt-1">Your results for the current term are not yet available. Please check back later.</p>
+                </div>
+             )}
           </CardContent>
         </Card>
       </section>
