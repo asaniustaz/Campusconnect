@@ -2,10 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building, Users, HelpCircle, Eye } from "lucide-react";
+import { Building, Users, HelpCircle, Eye, UserCircle as UserIcon } from "lucide-react"; // Added UserIcon
 import type { UserRole, SchoolClass, Student } from "@/lib/constants"; 
 import { mockSchoolClasses } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -38,11 +39,15 @@ export default function SchoolOverviewPage() {
         try {
           const allManagedUsers: (ManagedUserForDisplay | Student)[] = JSON.parse(storedUsersString);
           const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin') as ManagedUserForDisplay[];
-          // Ensure students also get avatarUrl if present
-          const studentUsers = allManagedUsers.filter(u => u.role === 'student').map(u => ({
-            ...u,
-            avatarUrl: (u as Student).avatarUrl || `https://placehold.co/40x40.png?text=${u.name[0]}`,
-          })) as Student[];
+          
+          const studentUsers = allManagedUsers.filter(u => u.role === 'student').map(u => {
+            const student = u as Student; // Type assertion
+            return {
+              ...student,
+              avatarUrl: student.avatarUrl || `https://placehold.co/40x40.png?text=${student.name[0]}`,
+            };
+          }) as Student[];
+
           setAllStaff(staffUsers);
           setAllStudents(studentUsers);
         } catch (e) {
@@ -169,20 +174,27 @@ export default function SchoolOverviewPage() {
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] mt-4">
             {studentsInSelectedClass.length > 0 ? (
-              <div className="space-y-3 pr-2">
+              <div className="space-y-2 pr-2">
                 {studentsInSelectedClass.map(student => {
                   const studentInitials = student.name.split(' ').map(n=>n[0]).join('').toUpperCase() || 'S';
                   const studentAvatar = student.avatarUrl || `https://placehold.co/40x40.png?text=${studentInitials}`;
                   return (
-                    <div key={student.id} className="flex items-center gap-3 p-3 border rounded-md bg-secondary/30 hover:bg-secondary/50">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={studentAvatar} alt={student.name} data-ai-hint="student avatar" />
-                        <AvatarFallback>{studentInitials}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium text-foreground">{student.name}</p>
-                        <p className="text-xs text-muted-foreground">{student.email}</p>
+                    <div key={student.id} className="flex items-center justify-between gap-3 p-3 border rounded-md bg-secondary/30 hover:bg-secondary/50">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={studentAvatar} alt={student.name} data-ai-hint="student avatar" />
+                          <AvatarFallback>{studentInitials}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-medium text-foreground">{student.name}</p>
+                          <p className="text-xs text-muted-foreground">{student.email}</p>
+                        </div>
                       </div>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/dashboard/student/${student.id}/profile`}>
+                          <UserIcon className="mr-2 h-4 w-4" /> Profile
+                        </Link>
+                      </Button>
                     </div>
                   );
                 })}
@@ -192,7 +204,7 @@ export default function SchoolOverviewPage() {
             )}
           </ScrollArea>
           <DialogClose asChild>
-            <Button type="button" variant="outline" className="mt-4">
+            <Button type="button" variant="outline" className="mt-4 w-full">
               Close
             </Button>
           </DialogClose>
@@ -201,3 +213,4 @@ export default function SchoolOverviewPage() {
     </div>
   );
 }
+
