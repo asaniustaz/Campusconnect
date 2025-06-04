@@ -8,58 +8,62 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, BookOpen, CalendarCheck, FileText, Presentation, AlertTriangle } from "lucide-react";
 import type { UserRole, SchoolClass } from "@/lib/constants";
-import { mockSchoolClasses, mockStaffListSimpleForClassMaster } from "@/lib/constants";
+import { mockSchoolClasses } from "@/lib/constants";
 
-interface StaffMemberSimple {
+interface ManagedUserForDisplay {
   id: string;
   name: string;
   avatarUrl?: string;
+  role: UserRole;
 }
 
 export default function MyClassesPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [userId, setUserId] = useState<string | null>(null); // Assuming staff ID is stored
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [assignedClasses, setAssignedClasses] = useState<SchoolClass[]>([]);
-  const [staffDetails, setStaffDetails] = useState<StaffMemberSimple | null>(null);
+  const [staffDetails, setStaffDetails] = useState<ManagedUserForDisplay | null>(null);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
+    const storedUserName = localStorage.getItem("userName"); // This is the logged-in user's name
+    // We need the ID of the logged-in user. Assuming email is used as ID for simplicity from AuthForm.
+    const storedUserEmailAsId = localStorage.getItem("userId"); 
+
     setUserRole(role);
 
-    // Mocking staff ID. In a real app, this would come from auth context.
-    // For demo, if user is "Test Staff", use staff001, else try to find a staff member from mock list
-    const userName = localStorage.getItem("userName");
-    let currentUserId: string | undefined;
-    let currentStaffDetails: StaffMemberSimple | undefined;
+    if (typeof window !== 'undefined' && (role === 'staff' || role === 'admin')) {
+      const storedUsersString = localStorage.getItem('managedUsers');
+      if (storedUsersString) {
+        try {
+          const allManagedUsers: ManagedUserForDisplay[] = JSON.parse(storedUsersString);
+          
+          let foundStaff: ManagedUserForDisplay | undefined;
+          if (storedUserEmailAsId) { // Prioritize ID if available
+            foundStaff = allManagedUsers.find(u => u.id === storedUserEmailAsId && (u.role === 'staff' || u.role === 'admin'));
+          } else if (storedUserName) { // Fallback to name match if ID not found (less reliable)
+             foundStaff = allManagedUsers.find(u => u.name === storedUserName && (u.role === 'staff' || u.role === 'admin'));
+          }
 
-    if (userName === "Test Staff") {
-        currentUserId = "staff001"; // Default for Test Staff
-    } else if (role === 'staff' && userName) {
-        const matchedStaff = mockStaffListSimpleForClassMaster.find(s => s.name === userName);
-        if (matchedStaff) {
-            currentUserId = matchedStaff.id;
-        } else {
-            // Fallback if name doesn't match, assign a default for demo if no direct match
-            // This part is tricky with mock data, ideally IDs are consistent
-            const staffIndex = mockStaffListSimpleForClassMaster.findIndex(s => s.name.includes("Teacher") || s.name.includes("Staff"));
-            currentUserId = mockStaffListSimpleForClassMaster[staffIndex > -1 ? staffIndex : 0]?.id;
+          if (foundStaff) {
+            setCurrentUserId(foundStaff.id);
+            setStaffDetails(foundStaff);
+            const classesForStaff = mockSchoolClasses.filter(
+              (cls) => cls.classMasterId === foundStaff!.id // Use the ID of the found staff
+            );
+            setAssignedClasses(classesForStaff);
+          } else if (role === 'admin' && !foundStaff) {
+            // Admin might not have a specific "staff" entry for themselves if they are the super admin
+            // But they can still view this page. Classes assigned to an "admin ID" might not be typical.
+            // For now, if admin and no direct match, they'll see the "no classes assigned" message unless
+            // some mockSchoolClasses.classMasterId matches an admin's ID.
+            setStaffDetails({id: storedUserEmailAsId || "admin_user", name: storedUserName || "Admin", role: "admin"});
+          }
+
+        } catch (e) {
+          console.error("Failed to parse users from localStorage for staff list", e);
         }
+      }
     }
-     // If admin, they don't have specific "assigned" classes in this view, but could see all.
-     // For now, if admin and no specific staff ID context, show no classes or a message.
-
-    if (currentUserId) {
-        setUserId(currentUserId);
-        currentStaffDetails = mockStaffListSimpleForClassMaster.find(s => s.id === currentUserId);
-        if(currentStaffDetails) setStaffDetails(currentStaffDetails);
-
-        const classesForStaff = mockSchoolClasses.filter(
-        (cls) => cls.classMasterId === currentUserId
-        );
-        setAssignedClasses(classesForStaff);
-    }
-
-
   }, []);
 
   if (userRole !== 'staff' && userRole !== 'admin') {
@@ -73,25 +77,24 @@ export default function MyClassesPage() {
     );
   }
   
-  if (userRole === 'staff' && !userId) {
+  if (userRole === 'staff' && !currentUserId && !staffDetails) { // Check both to avoid brief "Loading" if admin
      return <div className="text-center p-10">Loading class master information...</div>;
   }
 
-  const staffName = staffDetails?.name || "Staff Member";
-  const staffInitials = staffDetails?.name.split(' ').map(n => n[0]).join('').toUpperCase() || 'S';
+  const displayName = staffDetails?.name || "Staff Member";
+  const displayInitials = staffDetails?.name.split(' ').map(n => n[0]).join('').toUpperCase() || 'S';
+  const displayAvatar = staffDetails?.avatarUrl || `https://placehold.co/100x100.png?text=${displayInitials}`;
 
   return (
     <div className="space-y-8">
       <header className="flex items-center gap-4">
-        {staffDetails && (
-             <Avatar className="w-16 h-16 border-2 border-primary">
-              <AvatarImage src={staffDetails.avatarUrl || `https://placehold.co/100x100.png?text=${staffInitials}`} alt={staffDetails.name} data-ai-hint="teacher avatar" />
-              <AvatarFallback className="text-xl">{staffInitials}</AvatarFallback>
-            </Avatar>
-        )}
+        <Avatar className="w-16 h-16 border-2 border-primary">
+          <AvatarImage src={displayAvatar} alt={displayName} data-ai-hint="teacher avatar" />
+          <AvatarFallback className="text-xl">{displayInitials}</AvatarFallback>
+        </Avatar>
         <div>
             <h1 className="text-3xl font-bold font-headline text-foreground">My Assigned Classes</h1>
-            <p className="text-muted-foreground">Overview of classes managed by {staffName}.</p>
+            <p className="text-muted-foreground">Overview of classes managed by {displayName}.</p>
         </div>
       </header>
 
@@ -110,9 +113,8 @@ export default function MyClassesPage() {
                   <Users className="mr-2 h-5 w-5" /> 
                   <span>{cls.studentCount} Students</span>
                 </div>
-                {/* Placeholder for student list or other class details */}
                 <p className="text-sm text-muted-foreground italic">
-                  Further class details and student lists will be available here.
+                  Manage attendance and results for this class.
                 </p>
               </CardContent>
               <CardFooter className="flex flex-col sm:flex-row gap-2">
@@ -136,12 +138,15 @@ export default function MyClassesPage() {
              <AlertTriangle className="h-12 w-12 text-yellow-500 mb-2" />
             <CardTitle>No Classes Assigned</CardTitle>
             <CardDescription>
-                {userRole === 'admin' ? "As an admin, you can view all classes via 'School Overview'. This page is for specific class master assignments." : "You are not currently assigned as a class master to any classes."}
+                {userRole === 'admin' ? "As an admin, you can view all classes via 'School Overview'. Staff subject allocations are managed separately." : "You are not currently assigned as a class master to any classes. Contact an administrator."}
             </CardDescription>
           </CardHeader>
            {userRole === 'admin' && (
              <CardContent className="text-center">
                 <Button asChild>
+                    <Link href="/dashboard/admin/manage-staff-allocations">Manage Staff Allocations</Link>
+                </Button>
+                 <Button asChild className="ml-2">
                     <Link href="/dashboard/school-overview">Go to School Overview</Link>
                 </Button>
              </CardContent>

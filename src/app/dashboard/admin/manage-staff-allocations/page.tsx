@@ -11,33 +11,24 @@ import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { BookUser, Save } from "lucide-react";
 
-interface StaffMember {
+// ManagedStaffMember is a user from localStorage, could be student, staff, or admin
+interface ManagedUser {
   id: string;
   name: string;
+  email: string;
+  role: UserRole;
+  // other fields like department, title might exist for staff
+  department?: string;
+  title?: string;
 }
+
 
 interface CourseForAllocation {
   id: string;
   name: string;
   schoolLevel: SchoolLevel;
-  subjectCategory: SubjectCategory; 
+  subjectCategory: SubjectCategory;
 }
-
-// K-12 Focused Mock Staff List
-const mockStaffList: StaffMember[] = [
-  { id: "staff001", name: "Mrs. Eleanor Vance (Senior Science Teacher)" },
-  { id: "staff002", name: "Mr. Samuel Green (Admin Officer)" },
-  { id: "staff003", name: "Ms. Olivia Chen (Librarian)" },
-  { id: "staff004", name: "Mr. Robert Adewale (Math Teacher)" },
-  { id: "staff005", name: "Mrs. Daisy Fields (KG Teacher)" },
-  { id: "staff006", name: "Ms. Bola Aderibigbe (Nursery Teacher)"},
-  { id: "staff007", name: "Mr. David Okon (Primary English Teacher)"},
-  { id: "staff008", name: "Mrs. Esther Musa (Primary Math Teacher)"},
-  { id: "staff009", name: "Ms. Johnson Chioma (JSS English Teacher)"},
-  { id: "staff010", name: "Mr. Adebayo Bello (JSS Math Teacher)"},
-  { id: "staff011", name: "Mr. Wole Soyinka (SSS English Teacher)"}, // Placeholder famous name
-  { id: "staff012", name: "Dr. Funmi Kuti (SSS Math Teacher)"}, // Placeholder
-];
 
 // This list should ideally be dynamically fetched or consistent with courses page
 // For now, a representative subset from the nigerianCurriculumCourses
@@ -73,15 +64,43 @@ interface StaffAllocation {
 export default function ManageStaffAllocationsPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [selectedStaff, setSelectedStaff] = useState<string | undefined>();
+  const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>();
   const [allocations, setAllocations] = useState<StaffAllocation>({});
   const [filteredCourses, setFilteredCourses] = useState<CourseForAllocation[]>(mockCourseListForAllocation);
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<SchoolLevel | "all">("all");
+  const [availableStaff, setAvailableStaff] = useState<ManagedUser[]>([]);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
-    setAllocations({ "staff001": ["SSS_CHM_S"] }); // Example allocation
+
+    // Load staff from localStorage
+    if (typeof window !== 'undefined') {
+      const storedUsersString = localStorage.getItem('managedUsers');
+      if (storedUsersString) {
+        try {
+          const allStoredUsers: ManagedUser[] = JSON.parse(storedUsersString);
+          const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin');
+          setAvailableStaff(staffUsers);
+        } catch (e) {
+          console.error("Failed to parse users from localStorage", e);
+          setAvailableStaff([]);
+        }
+      }
+       // Load allocations from localStorage
+      const storedAllocations = localStorage.getItem('staffCourseAllocations');
+      if (storedAllocations) {
+        try {
+          setAllocations(JSON.parse(storedAllocations));
+        } catch (e) {
+          console.error("Failed to parse allocations from localStorage", e);
+          setAllocations({});
+        }
+      } else {
+        // Example initial allocation if nothing in localStorage
+        // setAllocations({ "staff-1699880000000": ["SSS_CHM_S"] }); // Replace with a real ID if needed for testing
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -93,25 +112,30 @@ export default function ManageStaffAllocationsPage() {
   }, [selectedLevelFilter]);
 
   const handleCourseToggle = (courseId: string) => {
-    if (!selectedStaff) return;
+    if (!selectedStaffId) return;
     setAllocations(prev => {
-      const currentCourses = prev[selectedStaff] || [];
+      const currentCourses = prev[selectedStaffId] || [];
       const newCourses = currentCourses.includes(courseId)
         ? currentCourses.filter(id => id !== courseId)
         : [...currentCourses, courseId];
-      return { ...prev, [selectedStaff]: newCourses };
+      return { ...prev, [selectedStaffId]: newCourses };
     });
   };
 
   const handleSaveChanges = () => {
-    if (!selectedStaff) {
+    if (!selectedStaffId) {
       toast({ variant: "destructive", title: "Error", description: "Please select a staff member." });
       return;
     }
-    console.log("Saving allocations for", selectedStaff, ":", allocations[selectedStaff]);
+    // Save to localStorage
+     if (typeof window !== 'undefined') {
+        localStorage.setItem('staffCourseAllocations', JSON.stringify(allocations));
+     }
+    const staffMemberName = availableStaff.find(s => s.id === selectedStaffId)?.name || "Selected Staff";
+    console.log("Saving allocations for", staffMemberName, ":", allocations[selectedStaffId]);
     toast({
       title: "Allocations Saved",
-      description: `Subject allocations for ${mockStaffList.find(s => s.id === selectedStaff)?.name} have been updated.`,
+      description: `Subject allocations for ${staffMemberName} have been updated.`,
     });
   };
 
@@ -126,8 +150,8 @@ export default function ManageStaffAllocationsPage() {
     );
   }
 
-  const staffCourses = selectedStaff ? (allocations[selectedStaff] || []) : [];
-  const staffMemberDetails = mockStaffList.find(s => s.id === selectedStaff);
+  const staffCourses = selectedStaffId ? (allocations[selectedStaffId] || []) : [];
+  const staffMemberDetails = availableStaff.find(s => s.id === selectedStaffId);
 
   return (
     <div className="space-y-6">
@@ -142,14 +166,14 @@ export default function ManageStaffAllocationsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div>
               <Label htmlFor="staffSelect">Select Staff Member</Label>
-              <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+              <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
                 <SelectTrigger id="staffSelect" className="w-full">
                   <SelectValue placeholder="Select a staff member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockStaffList.map(staff => (
-                    <SelectItem key={staff.id} value={staff.id}>{staff.name}</SelectItem>
-                  ))}
+                  {availableStaff.length > 0 ? availableStaff.map(staff => (
+                    <SelectItem key={staff.id} value={staff.id}>{staff.name} ({staff.title || staff.role})</SelectItem>
+                  )) : <SelectItem value="no-staff" disabled>No staff available</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -170,7 +194,7 @@ export default function ManageStaffAllocationsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {selectedStaff && staffMemberDetails ? (
+          {selectedStaffId && staffMemberDetails ? (
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Available Subjects for {staffMemberDetails.name}:</h3>
               {filteredCourses.length > 0 ? (
@@ -207,5 +231,4 @@ export default function ManageStaffAllocationsPage() {
     </div>
   );
 }
-
     

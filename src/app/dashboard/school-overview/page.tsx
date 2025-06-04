@@ -8,38 +8,36 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Building, Users, UserCheck, HelpCircle } from "lucide-react";
 import type { UserRole, SchoolClass } from "@/lib/constants";
 import { mockSchoolClasses } from "@/lib/constants";
-// Assuming mockStaff is available or can be imported if needed for full details
-// For now, we'll just use the classMasterId and try to find the name from a staff list if available
-// We need the staff list to get names
-// Let's import staff list similar to how staff directory page does it for consistency
-// This is a simplified mock staff list for this page's purpose
-interface StaffMemberSimple {
+
+interface ManagedUserForDisplay {
   id: string;
   name: string;
-  avatarUrl?: string;
+  avatarUrl?: string; // Assuming avatar might be set via profile page
+  role: UserRole;
 }
-const mockStaffListSimple: StaffMemberSimple[] = [
-  { id: "staff001", name: "Dr. Eleanor Vance", avatarUrl: "https://placehold.co/40x40.png" },
-  { id: "staff002", name: "Mr. Samuel Green", avatarUrl: "https://placehold.co/40x40.png" },
-  { id: "staff003", name: "Ms. Olivia Chen", avatarUrl: "https://placehold.co/40x40.png" },
-  { id: "staff004", name: "Prof. Robert Downy", avatarUrl: "https://placehold.co/40x40.png" },
-  { id: "staff005", name: "Mrs. Daisy Fields", avatarUrl: "https://placehold.co/40x40.png" },
-  { id: "staff006", name: "Ms. Bola (Nursery Eng/Math)", avatarUrl: "https://placehold.co/40x40.png"},
-  { id: "staff007", name: "Mr. David (Primary Eng)", avatarUrl: "https://placehold.co/40x40.png"},
-  { id: "staff008", name: "Mrs. Esther (Primary Math)", avatarUrl: "https://placehold.co/40x40.png"},
-  { id: "staff009", name: "Ms. Johnson (JSS Eng)", avatarUrl: "https://placehold.co/40x40.png"},
-  { id: "staff010", name: "Mr. Adebayo (JSS Math)", avatarUrl: "https://placehold.co/40x40.png"},
-  { id: "staff011", name: "Prof. Wole (SSS Eng)", avatarUrl: "https://placehold.co/40x40.png"},
-  { id: "staff012", name: "Dr. Funmi (SSS Math)", avatarUrl: "https://placehold.co/40x40.png"},
-];
-
 
 export default function SchoolOverviewPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [allStaff, setAllStaff] = useState<ManagedUserForDisplay[]>([]);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
+
+    if (typeof window !== 'undefined') {
+      const storedUsersString = localStorage.getItem('managedUsers');
+      if (storedUsersString) {
+        try {
+          const allManagedUsers: ManagedUserForDisplay[] = JSON.parse(storedUsersString);
+          // Filter for staff or admin roles to be considered as potential class masters
+          const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin');
+          setAllStaff(staffUsers);
+        } catch (e) {
+          console.error("Failed to parse users from localStorage for staff list", e);
+          setAllStaff([]);
+        }
+      }
+    }
   }, []);
 
   if (userRole !== 'admin' && userRole !== 'staff') {
@@ -53,8 +51,8 @@ export default function SchoolOverviewPage() {
     );
   }
 
-  const getStaffMemberById = (staffId: string): StaffMemberSimple | undefined => {
-    return mockStaffListSimple.find(staff => staff.id === staffId);
+  const getStaffMemberById = (staffId: string): ManagedUserForDisplay | undefined => {
+    return allStaff.find(staff => staff.id === staffId);
   };
 
   const displayLevels: SchoolClass['displayLevel'][] = ['Nursery', 'Primary', 'Junior Secondary', 'Senior Secondary'];
@@ -90,6 +88,9 @@ export default function SchoolOverviewPage() {
                   {classesForLevel.map((cls) => {
                     const classMaster = cls.classMasterId ? getStaffMemberById(cls.classMasterId) : undefined;
                     const masterInitials = classMaster ? classMaster.name.split(' ').map(n=>n[0]).join('') : '?';
+                    // Attempt to get avatar from localStorage or fallback
+                    const avatar = classMaster?.avatarUrl || `https://placehold.co/40x40.png?text=${masterInitials}`;
+
                     return (
                       <TableRow key={cls.id}>
                         <TableCell className="font-medium">{cls.name}</TableCell>
@@ -103,7 +104,7 @@ export default function SchoolOverviewPage() {
                           {classMaster ? (
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={classMaster.avatarUrl || `https://placehold.co/40x40.png?text=${masterInitials}`} alt={classMaster.name} data-ai-hint="teacher avatar" />
+                                <AvatarImage src={avatar} alt={classMaster.name} data-ai-hint="teacher avatar" />
                                 <AvatarFallback>{masterInitials}</AvatarFallback>
                               </Avatar>
                               <span>{classMaster.name}</span>
