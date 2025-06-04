@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
+// import Image from "next/image"; // Image component no longer needed
 import { BookText, Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons } from "@/lib/constants";
@@ -26,8 +26,8 @@ interface Subject {
   description: string;
   instructor: string;
   schedule: string;
-  imageUrl: string;
-  aiHint: string;
+  // imageUrl: string; // No longer needed for display, but keep for data consistency if used elsewhere
+  // aiHint: string; // No longer needed for display
   schoolLevel: SchoolLevel;
   subjectCategory: SubjectCategory;
   sssStream?: 'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade';
@@ -39,8 +39,8 @@ const subjectSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   instructor: z.string().min(2, "Instructor name is required"),
   schedule: z.string().min(3, "Schedule is required"),
-  imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  aiHint: z.string().optional(),
+  // imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")), // Keep in schema if data is stored
+  // aiHint: z.string().optional(), // Keep in schema if data is stored
   schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
   subjectCategory: z.custom<SubjectCategory>((val) => SUBJECT_CATEGORIES.includes(val as SubjectCategory), "Please select a subject category"),
   sssStream: z.enum(['Core', 'Science', 'Art', 'Commercial', 'Trade']).optional(),
@@ -49,57 +49,48 @@ const subjectSchema = z.object({
 type SubjectFormData = z.infer<typeof subjectSchema>;
 
 
-let subjectCounter = 0; // This counter might lead to non-unique codes if subjects are deleted and then new ones added with old counter values.
-                        // For a robust system, code generation/validation needs more sophistication.
-const generateSubjectCode = (level: SchoolLevel, category: SubjectCategory, title: string) => {
-  subjectCounter++;
-  const levelPrefix = level.substring(0, 1);
-  const catPrefix = category.substring(0, 3).toUpperCase();
-  return `${levelPrefix}${catPrefix}${String(subjectCounter).padStart(3, '0')}`;
-};
-
 // Default subjects if localStorage is empty
 const defaultNigerianCurriculumSubjects: Subject[] = [
   // Kindergarten (KG)
   {
     id: "KG_LIT", title: "Literacy (Pre-Reading & Pre-Writing)", schoolLevel: "Kindergarten", subjectCategory: "Languages",
-    code: "KGLAN001", description: "Developing pre-reading and pre-writing skills.", instructor: "Mrs. Adaobi", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "alphabet blocks"
+    code: "KGLAN001", description: "Developing pre-reading and pre-writing skills.", instructor: "Mrs. Adaobi", schedule: "Daily 9:00 AM", 
   },
   {
     id: "KG_NUM", title: "Numeracy (Basic Numbers & Counting)", schoolLevel: "Kindergarten", subjectCategory: "Mathematics",
-    code: "KMAT002", description: "Introduction to numbers and counting.", instructor: "Mrs. Adaobi", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "counting bears"
+    code: "KMAT002", description: "Introduction to numbers and counting.", instructor: "Mrs. Adaobi", schedule: "Daily 10:00 AM", 
   },
   // Nursery
   {
     id: "NUR_ENG", title: "English Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
-    code: "NLAN001", description: "Foundational English skills for nursery.", instructor: "Ms. Bola", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "abc book"
+    code: "NLAN001", description: "Foundational English skills for nursery.", instructor: "Ms. Bola", schedule: "Daily 9:00 AM", 
   },
   {
     id: "NUR_MTH", title: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics",
-    code: "NMAT002", description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "number blocks"
+    code: "NMAT002", description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM", 
   },
   // Primary
   {
     id: "PRI_ENG", title: "English Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: "PLAN001", description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "english textbook"
+    code: "PLAN001", description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM", 
   },
   {
     id: "PRI_MTH", title: "Mathematics (Primary)", schoolLevel: "Primary", subjectCategory: "Mathematics",
-    code: "PMAT002", description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "math symbols"
+    code: "PMAT002", description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM", 
   },
   // JSS
   {
     id: "JSS_ENG", title: "English Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
-    code: "SLAN001", description: "Advanced English language and literature.", instructor: "Ms. Johnson", schedule: "Daily 8:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "shakespeare book", sssStream: "Core" // Example, JSS usually doesn't have SSS streams
+    code: "SLAN001", description: "Advanced English language and literature.", instructor: "Ms. Johnson", schedule: "Daily 8:00 AM", sssStream: "Core"
   },
   {
     id: "JSS_MTH", title: "Mathematics (JSS)", schoolLevel: "Secondary", subjectCategory: "Mathematics",
-    code: "SMAT002", description: "Core mathematics for junior secondary.", instructor: "Mr. Adebayo", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "geometry tools", sssStream: "Core"
+    code: "SMAT002", description: "Core mathematics for junior secondary.", instructor: "Mr. Adebayo", schedule: "Daily 9:00 AM", sssStream: "Core"
   },
   // SSS
   {
     id: "SSS_BIO_S", title: "Biology (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: "SSCI001", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "dna strand"
+    code: "SSCI001", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM", 
   },
 ];
 
@@ -126,7 +117,8 @@ export default function SubjectsPage() {
     resolver: zodResolver(subjectSchema),
     defaultValues: {
       title: "", code: "", description: "", instructor: "", schedule: "",
-      imageUrl: "", aiHint: "", schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
+      // imageUrl: "", aiHint: "", // Not needed for form if not displayed
+      schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
     },
   });
 
@@ -135,7 +127,6 @@ export default function SubjectsPage() {
     const userId = localStorage.getItem("userId");
     setUserRole(role);
 
-    // Load subjects from localStorage or use defaults
     const storedSubjects = localStorage.getItem('schoolSubjectsData');
     if (storedSubjects) {
       try {
@@ -174,7 +165,7 @@ export default function SubjectsPage() {
     } else if (role === 'student' || role === 'admin') {
        setPageDescription("Browse available subjects. Filter by school level, subject category, and SSS stream.");
     }
-  }, [userRole]); // Rerun if userRole changes, e.g., after login.
+  }, [userRole]); 
 
   const saveSubjectsToLocalStorage = (subjects: Subject[]) => {
     localStorage.setItem('schoolSubjectsData', JSON.stringify(subjects));
@@ -186,30 +177,31 @@ export default function SubjectsPage() {
     if (subject) {
       subjectForm.reset({
         ...subject,
-        imageUrl: subject.imageUrl || "", // Ensure URL is not null
-        aiHint: subject.aiHint || "",
+        // imageUrl: subject.imageUrl || "", 
+        // aiHint: subject.aiHint || "",
       });
     } else {
       subjectForm.reset({
         title: "", code: "", description: "", instructor: "", schedule: "",
-        imageUrl: "", aiHint: "", schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
+        // imageUrl: "", aiHint: "", 
+        schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
       });
     }
     setIsDialogOpen(true);
   };
 
   const onSubjectSubmit: SubmitHandler<SubjectFormData> = (data) => {
-    if (editingSubject) { // Editing existing subject
+    if (editingSubject) { 
       const updatedSubjects = allSubjects.map(sub => 
         sub.id === editingSubject.id ? { ...editingSubject, ...data } : sub
       );
       saveSubjectsToLocalStorage(updatedSubjects);
       toast({ title: "Subject Updated", description: `${data.title} has been updated.` });
-    } else { // Adding new subject
+    } else { 
       const newSubject: Subject = {
-        id: `sub-${Date.now()}`, // Simple unique ID
+        id: `sub-${Date.now()}`, 
         ...data,
-        imageUrl: data.imageUrl || "https://placehold.co/600x400.png", // Default image if empty
+        // imageUrl: data.imageUrl || "https://placehold.co/600x400.png", 
       };
       saveSubjectsToLocalStorage([...allSubjects, newSubject]);
       toast({ title: "Subject Added", description: `${data.title} has been added.` });
@@ -222,7 +214,6 @@ export default function SubjectsPage() {
     if (window.confirm("Are you sure you want to delete this subject? This action cannot be undone.")) {
       const updatedSubjects = allSubjects.filter(sub => sub.id !== subjectId);
       saveSubjectsToLocalStorage(updatedSubjects);
-      // Also remove from staff allocations
       const storedAllocations = localStorage.getItem('staffCourseAllocations');
       if (storedAllocations) {
         try {
@@ -331,15 +322,7 @@ export default function SubjectsPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredSubjects.map((subject) => (
             <Card key={subject.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <div className="relative w-full h-48">
-                <Image 
-                  src={subject.imageUrl || "https://placehold.co/600x400.png"} 
-                  alt={subject.title} 
-                  layout="fill" 
-                  objectFit="cover"
-                  data-ai-hint={subject.aiHint} 
-                />
-              </div>
+              {/* Image section removed */}
               <CardHeader>
                 <CardTitle className="font-headline text-xl text-primary">{subject.title}</CardTitle>
                 <div className="flex flex-wrap gap-2 mt-1">
@@ -428,17 +411,7 @@ export default function SubjectsPage() {
                     {subjectForm.formState.errors.schedule && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.schedule.message}</p>}
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="imageUrl">Image URL (Optional)</Label>
-                    <Input id="imageUrl" {...subjectForm.register("imageUrl")} placeholder="https://placehold.co/600x400.png" />
-                    {subjectForm.formState.errors.imageUrl && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.imageUrl.message}</p>}
-                </div>
-                <div>
-                    <Label htmlFor="aiHint">AI Hint for Image (Optional)</Label>
-                    <Input id="aiHint" {...subjectForm.register("aiHint")} placeholder="e.g., textbook books" />
-                </div>
-            </div>
+            {/* Image URL and AI Hint fields removed from form */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="schoolLevel">School Level</Label>
