@@ -321,7 +321,7 @@ export default function ManageUsersPage() {
               <CardContent>
                 {studentList.length > 0 ? (
                   <ScrollArea className="max-h-[500px]">
-                    <Accordion type="multiple" collapsible className="w-full">
+                    <Accordion type="multiple" className="w-full">
                       {mockSchoolClasses.map(cls => {
                         const studentsInThisClass = studentList.filter(s => s.classId === cls.id);
                         if (studentsInThisClass.length === 0) return null;
@@ -530,7 +530,7 @@ export default function ManageUsersPage() {
               <CardContent>
                 {staffList.length > 0 ? (
                    <ScrollArea className="max-h-[500px]">
-                     <Accordion type="multiple" collapsible className="w-full">
+                     <Accordion type="multiple" className="w-full">
                         {Object.entries(groupedStaff).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([department, members]) => {
                             if (members.length === 0) return null;
                             return (
