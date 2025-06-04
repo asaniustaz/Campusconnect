@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-// import Image from "next/image"; // Image component no longer needed
 import { BookText, Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons } from "@/lib/constants";
@@ -24,10 +23,8 @@ interface Subject {
   title: string;
   code: string;
   description: string;
-  instructor: string;
+  instructor: string; // Default/Coordinating Instructor
   schedule: string;
-  // imageUrl: string; // No longer needed for display, but keep for data consistency if used elsewhere
-  // aiHint: string; // No longer needed for display
   schoolLevel: SchoolLevel;
   subjectCategory: SubjectCategory;
   sssStream?: 'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade';
@@ -39,8 +36,6 @@ const subjectSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   instructor: z.string().min(2, "Instructor name is required"),
   schedule: z.string().min(3, "Schedule is required"),
-  // imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")), // Keep in schema if data is stored
-  // aiHint: z.string().optional(), // Keep in schema if data is stored
   schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
   subjectCategory: z.custom<SubjectCategory>((val) => SUBJECT_CATEGORIES.includes(val as SubjectCategory), "Please select a subject category"),
   sssStream: z.enum(['Core', 'Science', 'Art', 'Commercial', 'Trade']).optional(),
@@ -48,37 +43,31 @@ const subjectSchema = z.object({
 
 type SubjectFormData = z.infer<typeof subjectSchema>;
 
-
-// Default subjects if localStorage is empty
 const defaultNigerianCurriculumSubjects: Subject[] = [
-  // Kindergarten (KG)
   {
     id: "KG_LIT", title: "Literacy (Pre-Reading & Pre-Writing)", schoolLevel: "Kindergarten", subjectCategory: "Languages",
-    code: "KGLAN001", description: "Developing pre-reading and pre-writing skills.", instructor: "Mrs. Adaobi", schedule: "Daily 9:00 AM", 
+    code: "KGLAN001", description: "Developing pre-reading and pre-writing skills.", instructor: "Mrs. Adaobi", schedule: "Daily 9:00 AM",
   },
   {
     id: "KG_NUM", title: "Numeracy (Basic Numbers & Counting)", schoolLevel: "Kindergarten", subjectCategory: "Mathematics",
-    code: "KMAT002", description: "Introduction to numbers and counting.", instructor: "Mrs. Adaobi", schedule: "Daily 10:00 AM", 
+    code: "KMAT002", description: "Introduction to numbers and counting.", instructor: "Mrs. Adaobi", schedule: "Daily 10:00 AM",
   },
-  // Nursery
   {
     id: "NUR_ENG", title: "English Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
-    code: "NLAN001", description: "Foundational English skills for nursery.", instructor: "Ms. Bola", schedule: "Daily 9:00 AM", 
+    code: "NLAN001", description: "Foundational English skills for nursery.", instructor: "Ms. Bola", schedule: "Daily 9:00 AM",
   },
   {
     id: "NUR_MTH", title: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics",
-    code: "NMAT002", description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM", 
+    code: "NMAT002", description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM",
   },
-  // Primary
   {
     id: "PRI_ENG", title: "English Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: "PLAN001", description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM", 
+    code: "PLAN001", description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM",
   },
   {
     id: "PRI_MTH", title: "Mathematics (Primary)", schoolLevel: "Primary", subjectCategory: "Mathematics",
-    code: "PMAT002", description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM", 
+    code: "PMAT002", description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM",
   },
-  // JSS
   {
     id: "JSS_ENG", title: "English Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
     code: "SLAN001", description: "Advanced English language and literature.", instructor: "Ms. Johnson", schedule: "Daily 8:00 AM", sssStream: "Core"
@@ -87,16 +76,19 @@ const defaultNigerianCurriculumSubjects: Subject[] = [
     id: "JSS_MTH", title: "Mathematics (JSS)", schoolLevel: "Secondary", subjectCategory: "Mathematics",
     code: "SMAT002", description: "Core mathematics for junior secondary.", instructor: "Mr. Adebayo", schedule: "Daily 9:00 AM", sssStream: "Core"
   },
-  // SSS
   {
     id: "SSS_BIO_S", title: "Biology (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: "SSCI001", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM", 
+    code: "SSCI001", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM",
   },
 ];
 
-
 interface StaffAllocation {
-  [staffId: string]: string[];
+  [staffId: string]: string[]; // Array of subject IDs
+}
+
+interface StaffDetail { // Simplified for fetching names
+  id: string;
+  name: string;
 }
 
 export default function SubjectsPage() {
@@ -107,6 +99,8 @@ export default function SubjectsPage() {
   
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [allocatedSubjectIdsForStaff, setAllocatedSubjectIdsForStaff] = useState<string[]>([]);
+  const [allStaffAllocations, setAllStaffAllocations] = useState<StaffAllocation>({});
+  const [allStaffDetails, setAllStaffDetails] = useState<StaffDetail[]>([]);
   const [pageDescription, setPageDescription] = useState("Browse available subjects. Filter by school level, subject category, and SSS stream.");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -117,7 +111,6 @@ export default function SubjectsPage() {
     resolver: zodResolver(subjectSchema),
     defaultValues: {
       title: "", code: "", description: "", instructor: "", schedule: "",
-      // imageUrl: "", aiHint: "", // Not needed for form if not displayed
       schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
     },
   });
@@ -127,6 +120,7 @@ export default function SubjectsPage() {
     const userId = localStorage.getItem("userId");
     setUserRole(role);
 
+    // Load subjects
     const storedSubjects = localStorage.getItem('schoolSubjectsData');
     if (storedSubjects) {
       try {
@@ -141,27 +135,51 @@ export default function SubjectsPage() {
       localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
     }
 
-    if (role === 'staff' && userId) {
-      const storedAllocations = localStorage.getItem('staffCourseAllocations');
-      if (storedAllocations) {
+    // Load all staff allocations
+    const storedAllocationsStr = localStorage.getItem('staffCourseAllocations');
+    if (storedAllocationsStr) {
         try {
-          const allocations: StaffAllocation = JSON.parse(storedAllocations);
-          if (allocations[userId] && allocations[userId].length > 0) {
-            setAllocatedSubjectIdsForStaff(allocations[userId]);
-            setPageDescription("Browse your allocated subjects. Filter by school level, subject category, and SSS stream.");
-          } else {
-            setPageDescription("You currently have no subjects allocated. Contact an administrator.");
-            setAllocatedSubjectIdsForStaff([]); 
-          }
+            setAllStaffAllocations(JSON.parse(storedAllocationsStr));
         } catch (e) {
-          console.error("Failed to parse staff allocations from localStorage", e);
-          setAllocatedSubjectIdsForStaff([]);
-          setPageDescription("Could not load your allocated subjects. Contact an administrator.");
+            console.error("Failed to parse staff allocations from localStorage", e);
+            setAllStaffAllocations({});
         }
-      } else {
+    }
+
+    // Load all staff details for names
+    const storedUsersString = localStorage.getItem('managedUsers');
+    if (storedUsersString) {
+        try {
+            const allManagedUsers: Array<{ id: string; name: string; role: UserRole }> = JSON.parse(storedUsersString);
+            const staffUsers = allManagedUsers
+                .filter(u => u.role === 'staff' || u.role === 'admin')
+                .map(u => ({ id: u.id, name: u.name }));
+            setAllStaffDetails(staffUsers);
+        } catch (e) {
+            console.error("Failed to parse managed users for staff names", e);
+            setAllStaffDetails([]);
+        }
+    }
+
+
+    if (role === 'staff' && userId && storedAllocationsStr) { // Check storedAllocationsStr to ensure allStaffAllocations is populated
+      try {
+        const allocations: StaffAllocation = JSON.parse(storedAllocationsStr); // Re-parse for this specific logic part
+        if (allocations[userId] && allocations[userId].length > 0) {
+          setAllocatedSubjectIdsForStaff(allocations[userId]);
+          setPageDescription("Browse your allocated subjects. Filter by school level, subject category, and SSS stream.");
+        } else {
+          setPageDescription("You currently have no subjects allocated. Contact an administrator.");
+          setAllocatedSubjectIdsForStaff([]); 
+        }
+      } catch (e) {
+        console.error("Failed to parse staff allocations for current staff member", e);
+        setAllocatedSubjectIdsForStaff([]);
+        setPageDescription("Could not load your allocated subjects. Contact an administrator.");
+      }
+    } else if (role === 'staff' && userId && !storedAllocationsStr) { // No allocations file yet
         setPageDescription("You currently have no subjects allocated. Contact an administrator.");
         setAllocatedSubjectIdsForStaff([]);
-      }
     } else if (role === 'student' || role === 'admin') {
        setPageDescription("Browse available subjects. Filter by school level, subject category, and SSS stream.");
     }
@@ -177,13 +195,10 @@ export default function SubjectsPage() {
     if (subject) {
       subjectForm.reset({
         ...subject,
-        // imageUrl: subject.imageUrl || "", 
-        // aiHint: subject.aiHint || "",
       });
     } else {
       subjectForm.reset({
         title: "", code: "", description: "", instructor: "", schedule: "",
-        // imageUrl: "", aiHint: "", 
         schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
       });
     }
@@ -201,7 +216,6 @@ export default function SubjectsPage() {
       const newSubject: Subject = {
         id: `sub-${Date.now()}`, 
         ...data,
-        // imageUrl: data.imageUrl || "https://placehold.co/600x400.png", 
       };
       saveSubjectsToLocalStorage([...allSubjects, newSubject]);
       toast({ title: "Subject Added", description: `${data.title} has been added.` });
@@ -223,6 +237,7 @@ export default function SubjectsPage() {
             newAllocations[staffId] = allocations[staffId].filter(subId => subId !== subjectId);
           }
           localStorage.setItem('staffCourseAllocations', JSON.stringify(newAllocations));
+          setAllStaffAllocations(newAllocations); // Update state as well
         } catch (e) {
           console.error("Error updating staff allocations after subject deletion:", e);
         }
@@ -264,6 +279,30 @@ export default function SubjectsPage() {
     return <Icon className="h-4 w-4 mr-1" />;
   };
   
+  const getInstructorNamesForSubject = (subjectId: string): string => {
+    const assignedStaffIds: string[] = [];
+    for (const staffId in allStaffAllocations) {
+      if (allStaffAllocations[staffId].includes(subjectId)) {
+        assignedStaffIds.push(staffId);
+      }
+    }
+
+    if (assignedStaffIds.length === 0) {
+      const subject = allSubjects.find(s => s.id === subjectId);
+      return subject?.instructor || "Not Assigned"; // Fallback to default instructor if none allocated
+    }
+
+    const instructorNames = assignedStaffIds
+      .map(staffId => {
+        const staffMember = allStaffDetails.find(staff => staff.id === staffId);
+        return staffMember ? staffMember.name : null; // Return null if not found
+      })
+      .filter(name => name !== null) // Filter out nulls
+      .join(', ');
+
+    return instructorNames || "Not Assigned"; // If all lookups failed but IDs were present
+  };
+
   const sssStreams: Array<'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade'> = ['Core', 'Science', 'Art', 'Commercial', 'Trade'];
 
   return (
@@ -322,7 +361,6 @@ export default function SubjectsPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredSubjects.map((subject) => (
             <Card key={subject.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {/* Image section removed */}
               <CardHeader>
                 <CardTitle className="font-headline text-xl text-primary">{subject.title}</CardTitle>
                 <div className="flex flex-wrap gap-2 mt-1">
@@ -342,7 +380,7 @@ export default function SubjectsPage() {
                 <p className="text-sm text-foreground mb-3">{subject.description}</p>
                 <div className="space-y-1 text-sm text-muted-foreground">
                   <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-2" /> Instructor: {subject.instructor}
+                    <Users className="h-4 w-4 mr-2" /> Instructor(s): {getInstructorNamesForSubject(subject.id)}
                   </div>
                   <div className="flex items-center">
                     <CalendarDays className="h-4 w-4 mr-2" /> Schedule: {subject.schedule}
@@ -376,7 +414,6 @@ export default function SubjectsPage() {
         </p>
       )}
 
-      {/* Dialog for Add/Edit Subject */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -401,7 +438,7 @@ export default function SubjectsPage() {
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="instructor">Instructor</Label>
+                    <Label htmlFor="instructor">Default/Coordinating Instructor</Label>
                     <Input id="instructor" {...subjectForm.register("instructor")} />
                     {subjectForm.formState.errors.instructor && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.instructor.message}</p>}
                 </div>
@@ -411,7 +448,6 @@ export default function SubjectsPage() {
                     {subjectForm.formState.errors.schedule && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.schedule.message}</p>}
                 </div>
             </div>
-            {/* Image URL and AI Hint fields removed from form */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <Label htmlFor="schoolLevel">School Level</Label>
@@ -476,5 +512,3 @@ export default function SubjectsPage() {
     </div>
   );
 }
-
-    
