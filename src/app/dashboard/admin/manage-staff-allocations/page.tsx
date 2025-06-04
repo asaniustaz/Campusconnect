@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
-import { SCHOOL_LEVELS } from "@/lib/constants"; // Import SCHOOL_LEVELS
+import { SCHOOL_LEVELS } from "@/lib/constants"; 
 import { BookUser, Save } from "lucide-react";
 
 // ManagedUser is a user from localStorage, could be student, staff, or admin
@@ -18,7 +18,6 @@ interface ManagedUser {
   name: string;
   email: string;
   role: UserRole;
-  // Staff-specific fields, might be optional if user is admin without these set
   department?: string;
   title?: string;
 }
@@ -31,8 +30,6 @@ interface CourseForAllocation {
   subjectCategory: SubjectCategory;
 }
 
-// This list should ideally be dynamically fetched or consistent with courses page
-// For now, a representative subset from the nigerianCurriculumCourses
 const mockCourseListForAllocation: CourseForAllocation[] = [
   // Kindergarten
   { id: "KG_LIT", name: "Literacy (KG)", schoolLevel: "Kindergarten", subjectCategory: "Languages" },
@@ -85,7 +82,7 @@ export default function ManageStaffAllocationsPage() {
           const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin');
           setAvailableStaff(staffUsers);
         } catch (e) {
-          console.error("Failed to parse users from localStorage", e);
+          console.error("Failed to parse users from localStorage for staff allocations:", e);
           setAvailableStaff([]); // Fallback to empty if parsing fails
         }
       } else {
@@ -235,6 +232,8 @@ export default function ManageStaffAllocationsPage() {
     </div>
   );
 }
+    
+
     
 
     
