@@ -187,6 +187,7 @@ export interface Student {
   // Added for localStorage user management
   role?: UserRole; 
   password?: string; // Storing password directly for prototype login - NOT SECURE
+  avatarUrl?: string; // Added for student avatar
 }
 
 // Global mock student list, can be imported by pages that need it.

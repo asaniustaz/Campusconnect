@@ -5,9 +5,12 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building, Users, UserCheck, HelpCircle } from "lucide-react";
-import type { UserRole, SchoolClass, Student, SchoolLevel } from "@/lib/constants"; 
+import { Building, Users, HelpCircle, Eye } from "lucide-react";
+import type { UserRole, SchoolClass, Student } from "@/lib/constants"; 
 import { mockSchoolClasses } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ManagedUserForDisplay {
   id: string;
@@ -22,6 +25,9 @@ export default function SchoolOverviewPage() {
   const [allStaff, setAllStaff] = useState<ManagedUserForDisplay[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]); 
 
+  const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
+  const [selectedClassForStudentList, setSelectedClassForStudentList] = useState<SchoolClass | null>(null);
+
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
@@ -32,7 +38,11 @@ export default function SchoolOverviewPage() {
         try {
           const allManagedUsers: (ManagedUserForDisplay | Student)[] = JSON.parse(storedUsersString);
           const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin') as ManagedUserForDisplay[];
-          const studentUsers = allManagedUsers.filter(u => u.role === 'student') as Student[];
+          // Ensure students also get avatarUrl if present
+          const studentUsers = allManagedUsers.filter(u => u.role === 'student').map(u => ({
+            ...u,
+            avatarUrl: (u as Student).avatarUrl || `https://placehold.co/40x40.png?text=${u.name[0]}`,
+          })) as Student[];
           setAllStaff(staffUsers);
           setAllStudents(studentUsers);
         } catch (e) {
@@ -63,13 +73,23 @@ export default function SchoolOverviewPage() {
     return allStudents.filter(student => student.classId === classId).length;
   };
 
+  const handleOpenStudentDialog = (classItem: SchoolClass) => {
+    setSelectedClassForStudentList(classItem);
+    setIsStudentDialogOpen(true);
+  };
+
+  const studentsInSelectedClass = selectedClassForStudentList 
+    ? allStudents.filter(student => student.classId === selectedClassForStudentList.id)
+    : [];
+
+
   const displayLevels: SchoolClass['displayLevel'][] = ['Kindergarten', 'Nursery', 'Primary', 'Junior Secondary', 'Senior Secondary'];
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">School Overview</h1>
-        <p className="text-muted-foreground">View class distributions, student counts, and assigned class masters.</p>
+        <p className="text-muted-foreground">View class distributions, student counts, assigned class masters, and student details.</p>
       </header>
 
       {displayLevels.map((displayLevel) => {
@@ -90,6 +110,7 @@ export default function SchoolOverviewPage() {
                     <TableHead>Class Name</TableHead>
                     <TableHead className="text-center">Student Count</TableHead>
                     <TableHead>Class Master</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -97,7 +118,7 @@ export default function SchoolOverviewPage() {
                     const classMaster = getClassMasterForClass(cls.id);
                     const studentCount = getStudentCountForClass(cls.id);
                     const masterInitials = classMaster ? classMaster.name.split(' ').map(n=>n[0]).join('') : '?';
-                    const avatar = classMaster?.avatarUrl || `https://placehold.co/40x40.png?text=${masterInitials}`;
+                    const masterAvatar = classMaster?.avatarUrl || `https://placehold.co/40x40.png?text=${masterInitials}`;
 
                     return (
                       <TableRow key={cls.id}>
@@ -112,7 +133,7 @@ export default function SchoolOverviewPage() {
                           {classMaster ? (
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={avatar} alt={classMaster.name} data-ai-hint="teacher avatar" />
+                                <AvatarImage src={masterAvatar} alt={classMaster.name} data-ai-hint="teacher avatar" />
                                 <AvatarFallback>{masterInitials}</AvatarFallback>
                               </Avatar>
                               <span>{classMaster.name}</span>
@@ -123,6 +144,11 @@ export default function SchoolOverviewPage() {
                             </div>
                           )}
                         </TableCell>
+                        <TableCell className="text-center">
+                          <Button variant="outline" size="sm" onClick={() => handleOpenStudentDialog(cls)}>
+                            <Eye className="mr-2 h-4 w-4" /> View Students
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -132,8 +158,46 @@ export default function SchoolOverviewPage() {
           </Card>
         );
       })}
+
+      <Dialog open={isStudentDialogOpen} onOpenChange={setIsStudentDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Students in {selectedClassForStudentList?.name || "Class"}</DialogTitle>
+            <DialogDescription>
+              List of students enrolled in {selectedClassForStudentList?.displayLevel} - {selectedClassForStudentList?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] mt-4">
+            {studentsInSelectedClass.length > 0 ? (
+              <div className="space-y-3 pr-2">
+                {studentsInSelectedClass.map(student => {
+                  const studentInitials = student.name.split(' ').map(n=>n[0]).join('').toUpperCase() || 'S';
+                  const studentAvatar = student.avatarUrl || `https://placehold.co/40x40.png?text=${studentInitials}`;
+                  return (
+                    <div key={student.id} className="flex items-center gap-3 p-3 border rounded-md bg-secondary/30 hover:bg-secondary/50">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={studentAvatar} alt={student.name} data-ai-hint="student avatar" />
+                        <AvatarFallback>{studentInitials}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-foreground">{student.name}</p>
+                        <p className="text-xs text-muted-foreground">{student.email}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-center py-6">No students found in this class.</p>
+            )}
+          </ScrollArea>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" className="mt-4">
+              Close
+            </Button>
+          </DialogClose>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-    
