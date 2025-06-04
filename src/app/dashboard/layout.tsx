@@ -25,25 +25,51 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const mockUserRole = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole | null : null;
     const mockUserName = typeof window !== "undefined" ? localStorage.getItem('userName') : null;
+    const currentUserId = typeof window !== "undefined" ? localStorage.getItem('userId') : null;
 
-    if (mockUserRole && mockUserName) {
+    if (mockUserRole && mockUserName && currentUserId) {
+      let userAvatarUrl: string | undefined = undefined;
+      let userEmail = `${mockUserName.toLowerCase().replace(' ', '.').replace(/[^a-z0-9.]/g, '')}@campus.edu`; // Default email
+
+      if (typeof window !== "undefined") {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+          try {
+            // Define a more specific type for users from managedUsers for clarity
+            type StoredUser = { id: string; name: string; email: string; role: UserRole; avatarUrl?: string; [key: string]: any };
+            const allManagedUsers: StoredUser[] = JSON.parse(storedUsersString);
+            const foundUser = allManagedUsers.find(u => u.id === currentUserId);
+            
+            if (foundUser) {
+              userAvatarUrl = foundUser.avatarUrl;
+              userEmail = foundUser.email; // Use email from managedUsers if available
+            }
+          } catch (e) {
+            console.error("Failed to parse managedUsers for layout:", e);
+            // Keep default avatar and email if parsing fails
+          }
+        }
+      }
+
       setUser({ 
         name: mockUserName, 
-        email: `${mockUserName.toLowerCase().replace(' ', '.').replace(/[^a-z0-9.]/g, '')}@campus.edu`, 
+        email: userEmail, 
         role: mockUserRole, 
+        avatarUrl: userAvatarUrl, // Pass the loaded or default avatarUrl
       });
     } else {
       router.push('/');
-      return; // Important to prevent further execution before redirect
+      return; 
     }
     setIsLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]); // router dependency is fine here
+  }, [router]); 
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
+      localStorage.removeItem('userId'); // Also remove userId on logout
     }
     setUser(null);
     router.push('/');
