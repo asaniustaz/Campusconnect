@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
-import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons } from "@/lib/constants";
+import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons, mockSchoolClasses as defaultMockSchoolClasses } from "@/lib/constants"; // Renamed to avoid conflict
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -60,6 +60,10 @@ const defaultNigerianCurriculumSubjects: Subject[] = [
     id: "NUR_MTH", title: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics",
     code: "NMAT002", description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM",
   },
+   {
+    id: "NUR_BSC", title: "Basic Science (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences",
+    code: "NSCI003", description: "Introduction to science concepts.", instructor: "Ms. Bola", schedule: "Mon/Wed 11:00 AM",
+  },
   {
     id: "PRI_ENG", title: "English Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
     code: "PLAN001", description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM",
@@ -67,6 +71,10 @@ const defaultNigerianCurriculumSubjects: Subject[] = [
   {
     id: "PRI_MTH", title: "Mathematics (Primary)", schoolLevel: "Primary", subjectCategory: "Mathematics",
     code: "PMAT002", description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM",
+  },
+  {
+    id: "PRI_BST", title: "Basic Science & Tech (Primary)", schoolLevel: "Primary", subjectCategory: "Sciences",
+    code: "PSCI003", description: "Exploring science and technology.", instructor: "Mr. Felix", schedule: "Tue/Thu 11:00 AM",
   },
   {
     id: "JSS_ENG", title: "English Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
@@ -77,8 +85,24 @@ const defaultNigerianCurriculumSubjects: Subject[] = [
     code: "SMAT002", description: "Core mathematics for junior secondary.", instructor: "Mr. Adebayo", schedule: "Daily 9:00 AM", sssStream: "Core"
   },
   {
+    id: "JSS_BSC", title: "Basic Science (JSS)", schoolLevel: "Secondary", subjectCategory: "Sciences",
+    code: "SSCI003", description: "Integrated science for JSS.", instructor: "Mrs. Chioma", schedule: "Mon/Wed/Fri 10:00 AM", sssStream: "Core"
+  },
+  {
+    id: "SSS_ENG_C", title: "English Language (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core",
+    code: "SSSLAN_CORE", description: "Compulsory English for SSS.", instructor: "Mr. Ibrahim", schedule: "Daily 8:00 AM"
+  },
+  {
+    id: "SSS_MTH_C", title: "Mathematics (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Mathematics", sssStream: "Core",
+    code: "SSSMATH_CORE", description: "Compulsory Mathematics for SSS.", instructor: "Mrs. Fatima", schedule: "Daily 9:00 AM"
+  },
+  {
     id: "SSS_BIO_S", title: "Biology (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: "SSCI001", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM",
+    code: "SSSCI_BIO", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM",
+  },
+  {
+    id: "SSS_CHM_S", title: "Chemistry (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
+    code: "SSSCI_CHM", description: "Advanced chemistry for science students.", instructor: "Mr. Paul", schedule: "Tue/Thu 11:00 AM",
   },
 ];
 
@@ -86,7 +110,7 @@ interface StaffAllocation {
   [staffId: string]: string[]; // Array of subject IDs
 }
 
-interface StaffDetail { // Simplified for fetching names
+interface StaffDetail {
   id: string;
   name: string;
 }
@@ -120,82 +144,76 @@ export default function SubjectsPage() {
     const userId = localStorage.getItem("userId");
     setUserRole(role);
 
-    // Load subjects
-    const storedSubjects = localStorage.getItem('schoolSubjectsData');
-    if (storedSubjects) {
-      try {
-        setAllSubjects(JSON.parse(storedSubjects));
-      } catch (e) {
-        console.error("Failed to parse subjects from localStorage, using defaults.", e);
-        setAllSubjects(defaultNigerianCurriculumSubjects);
-        localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
-      }
-    } else {
-      setAllSubjects(defaultNigerianCurriculumSubjects);
-      localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
-    }
-
-    // Load all staff allocations
-    const storedAllocationsStr = localStorage.getItem('staffCourseAllocations');
-    if (storedAllocationsStr) {
-        try {
-            setAllStaffAllocations(JSON.parse(storedAllocationsStr));
-        } catch (e) {
-            console.error("Failed to parse staff allocations from localStorage", e);
-            setAllStaffAllocations({});
-        }
-    }
-
-    // Load all staff details for names
-    const storedUsersString = localStorage.getItem('managedUsers');
-    if (storedUsersString) {
-        try {
-            const allManagedUsers: Array<{ id: string; name: string; role: UserRole }> = JSON.parse(storedUsersString);
-            const staffUsers = allManagedUsers
-                .filter(u => u.role === 'staff' || u.role === 'admin')
-                .map(u => ({ id: u.id, name: u.name }));
-            setAllStaffDetails(staffUsers);
-        } catch (e) {
-            console.error("Failed to parse managed users for staff names", e);
-            setAllStaffDetails([]);
-        }
-    }
-
-
-    if (role === 'staff' && userId && storedAllocationsStr) { // Check storedAllocationsStr to ensure allStaffAllocations is populated
-      try {
-        const allocations: StaffAllocation = JSON.parse(storedAllocationsStr); // Re-parse for this specific logic part
-        if (allocations[userId] && allocations[userId].length > 0) {
-          setAllocatedSubjectIdsForStaff(allocations[userId]);
-          setPageDescription("Browse your allocated subjects. Filter by school level, subject category, and SSS stream.");
+    let currentSubjects = defaultNigerianCurriculumSubjects;
+    if (typeof window !== 'undefined') {
+        const storedSubjects = localStorage.getItem('schoolSubjectsData');
+        if (storedSubjects) {
+            try {
+                currentSubjects = JSON.parse(storedSubjects);
+            } catch (e) {
+                console.error("Failed to parse subjects from localStorage, using defaults.", e);
+                localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
+            }
         } else {
-          setPageDescription("You currently have no subjects allocated. Contact an administrator.");
-          setAllocatedSubjectIdsForStaff([]); 
+            localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
         }
-      } catch (e) {
-        console.error("Failed to parse staff allocations for current staff member", e);
-        setAllocatedSubjectIdsForStaff([]);
-        setPageDescription("Could not load your allocated subjects. Contact an administrator.");
-      }
-    } else if (role === 'staff' && userId && !storedAllocationsStr) { // No allocations file yet
-        setPageDescription("You currently have no subjects allocated. Contact an administrator.");
-        setAllocatedSubjectIdsForStaff([]);
+    }
+    setAllSubjects(currentSubjects);
+
+    let currentStaffAllocations: StaffAllocation = {};
+    if (typeof window !== 'undefined') {
+        const storedAllocationsStr = localStorage.getItem('staffCourseAllocations');
+        if (storedAllocationsStr) {
+            try {
+                currentStaffAllocations = JSON.parse(storedAllocationsStr);
+            } catch (e) {
+                console.error("Failed to parse staff allocations from localStorage", e);
+            }
+        }
+    }
+    setAllStaffAllocations(currentStaffAllocations);
+    
+    let currentStaffDetails: StaffDetail[] = [];
+    if (typeof window !== 'undefined') {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+            try {
+                const allManagedUsers: Array<{ id: string; name: string; role: UserRole }> = JSON.parse(storedUsersString);
+                currentStaffDetails = allManagedUsers
+                    .filter(u => u.role === 'staff' || u.role === 'admin')
+                    .map(u => ({ id: u.id, name: u.name }));
+            } catch (e) {
+                console.error("Failed to parse managed users for staff names", e);
+            }
+        }
+    }
+    setAllStaffDetails(currentStaffDetails);
+
+    if (role === 'staff' && userId) {
+        const staffAllocations = currentStaffAllocations[userId];
+        if (staffAllocations && staffAllocations.length > 0) {
+            setAllocatedSubjectIdsForStaff(staffAllocations);
+            setPageDescription("Browse your allocated subjects. Filter by school level, subject category, and SSS stream.");
+        } else {
+            setPageDescription("You currently have no subjects allocated. Contact an administrator.");
+            setAllocatedSubjectIdsForStaff([]); 
+        }
     } else if (role === 'student' || role === 'admin') {
        setPageDescription("Browse available subjects. Filter by school level, subject category, and SSS stream.");
     }
   }, [userRole]); 
 
   const saveSubjectsToLocalStorage = (subjects: Subject[]) => {
-    localStorage.setItem('schoolSubjectsData', JSON.stringify(subjects));
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('schoolSubjectsData', JSON.stringify(subjects));
+    }
     setAllSubjects(subjects);
   };
 
   const handleOpenDialog = (subject: Subject | null = null) => {
     setEditingSubject(subject);
     if (subject) {
-      subjectForm.reset({
-        ...subject,
-      });
+      subjectForm.reset({ ...subject });
     } else {
       subjectForm.reset({
         title: "", code: "", description: "", instructor: "", schedule: "",
@@ -225,21 +243,24 @@ export default function SubjectsPage() {
   };
 
   const handleDeleteSubject = (subjectId: string) => {
-    if (window.confirm("Are you sure you want to delete this subject? This action cannot be undone.")) {
+    if (typeof window !== 'undefined' && window.confirm("Are you sure you want to delete this subject? This action cannot be undone.")) {
       const updatedSubjects = allSubjects.filter(sub => sub.id !== subjectId);
       saveSubjectsToLocalStorage(updatedSubjects);
-      const storedAllocations = localStorage.getItem('staffCourseAllocations');
-      if (storedAllocations) {
-        try {
-          const allocations: StaffAllocation = JSON.parse(storedAllocations);
-          const newAllocations: StaffAllocation = {};
-          for (const staffId in allocations) {
-            newAllocations[staffId] = allocations[staffId].filter(subId => subId !== subjectId);
+      
+      if (typeof window !== 'undefined') {
+        const storedAllocations = localStorage.getItem('staffCourseAllocations');
+        if (storedAllocations) {
+          try {
+            const allocations: StaffAllocation = JSON.parse(storedAllocations);
+            const newAllocations: StaffAllocation = {};
+            for (const staffId in allocations) {
+              newAllocations[staffId] = allocations[staffId].filter(subId => subId !== subjectId);
+            }
+            localStorage.setItem('staffCourseAllocations', JSON.stringify(newAllocations));
+            setAllStaffAllocations(newAllocations); 
+          } catch (e) {
+            console.error("Error updating staff allocations after subject deletion:", e);
           }
-          localStorage.setItem('staffCourseAllocations', JSON.stringify(newAllocations));
-          setAllStaffAllocations(newAllocations); // Update state as well
-        } catch (e) {
-          console.error("Error updating staff allocations after subject deletion:", e);
         }
       }
       toast({ title: "Subject Deleted", variant: "destructive" });
@@ -265,11 +286,12 @@ export default function SubjectsPage() {
     
     if (selectedLevel === "Secondary" && selectedSssStream !== "all") {
       subjectsToDisplay = subjectsToDisplay.filter(subject => {
-        if (selectedSssStream === "Core") return subject.sssStream === "Core";
-        return subject.sssStream === selectedSssStream || subject.sssStream === "Core";
+        if (selectedSssStream === "Core") return subject.sssStream === "Core"; // Show only core if "Core" is selected
+        // For other streams, show subjects matching that stream OR core subjects
+        return subject.sssStream === selectedSssStream || subject.sssStream === "Core"; 
       });
     }
-    return subjectsToDisplay;
+    return subjectsToDisplay.sort((a,b) => a.title.localeCompare(b.title));
   };
 
   const filteredSubjects = getFilteredSubjects();
@@ -282,25 +304,27 @@ export default function SubjectsPage() {
   const getInstructorNamesForSubject = (subjectId: string): string => {
     const assignedStaffIds: string[] = [];
     for (const staffId in allStaffAllocations) {
-      if (allStaffAllocations[staffId].includes(subjectId)) {
+      if (allStaffAllocations[staffId] && allStaffAllocations[staffId].includes(subjectId)) {
         assignedStaffIds.push(staffId);
       }
     }
 
+    const subject = allSubjects.find(s => s.id === subjectId);
+    const defaultInstructor = subject?.instructor || "Not Assigned";
+
     if (assignedStaffIds.length === 0) {
-      const subject = allSubjects.find(s => s.id === subjectId);
-      return subject?.instructor || "Not Assigned"; // Fallback to default instructor if none allocated
+      return defaultInstructor;
     }
 
     const instructorNames = assignedStaffIds
       .map(staffId => {
         const staffMember = allStaffDetails.find(staff => staff.id === staffId);
-        return staffMember ? staffMember.name : null; // Return null if not found
+        return staffMember ? staffMember.name : null; 
       })
-      .filter(name => name !== null) // Filter out nulls
+      .filter(name => name !== null) 
       .join(', ');
 
-    return instructorNames || "Not Assigned"; // If all lookups failed but IDs were present
+    return instructorNames || defaultInstructor; 
   };
 
   const sssStreams: Array<'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade'> = ['Core', 'Science', 'Art', 'Commercial', 'Trade'];
@@ -390,10 +414,10 @@ export default function SubjectsPage() {
               <CardFooter className="flex flex-col sm:flex-row gap-2 justify-end">
                 {userRole === 'admin' && (
                     <div className="flex gap-2 w-full sm:w-auto justify-end">
-                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(subject)} className="flex-1 sm:flex-none">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(subject)} className="flex-1 sm:flex-none" aria-label={`Edit ${subject.title}`}>
                             <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSubject(subject.id)} className="flex-1 sm:flex-none">
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSubject(subject.id)} className="flex-1 sm:flex-none" aria-label={`Delete ${subject.title}`}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -403,9 +427,11 @@ export default function SubjectsPage() {
           ))}
         </div>
       ) : (
-         <p className="text-center text-muted-foreground col-span-full">
-            {userRole === 'staff' && allocatedSubjectIdsForStaff.length === 0
+         <p className="text-center text-muted-foreground col-span-full py-10">
+            {userRole === 'staff' && allocatedSubjectIdsForStaff.length === 0 && allSubjects.length > 0 
                 ? "You currently have no subjects allocated. Please contact an administrator."
+                : userRole === 'staff' && allocatedSubjectIdsForStaff.length > 0 && allSubjects.length > 0
+                ? "No allocated subjects match the current filters."
                 : "No subjects match the selected filters, or no subjects have been added yet."
             }
         </p>
@@ -481,7 +507,7 @@ export default function SubjectsPage() {
             </div>
             {subjectForm.watch("schoolLevel") === "Secondary" && (
                  <div>
-                    <Label htmlFor="sssStream">SSS Stream (Optional, for Secondary)</Label>
+                    <Label htmlFor="sssStream">SSS Stream (For Secondary: 'Core' for JSS & SSS core, specific for SSS electives)</Label>
                      <Controller
                         name="sssStream"
                         control={subjectForm.control}
@@ -489,12 +515,16 @@ export default function SubjectsPage() {
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                             <SelectTrigger id="sssStream"><SelectValue placeholder="Select SSS stream if applicable" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="">None (or general secondary)</SelectItem>
                                 {sssStreams.map(stream => (<SelectItem key={stream} value={stream}>{stream}</SelectItem>))}
                             </SelectContent>
                         </Select>
                         )}
                     />
+                     <p className="text-xs text-muted-foreground mt-1">
+                        Select 'Core' for subjects common to all JSS/SSS students or general secondary subjects.
+                        Select 'Science', 'Art', etc., for SSS elective streams.
+                    </p>
                 </div>
             )}
             <DialogFooter className="pt-4">
@@ -509,3 +539,4 @@ export default function SubjectsPage() {
     </div>
   );
 }
+
