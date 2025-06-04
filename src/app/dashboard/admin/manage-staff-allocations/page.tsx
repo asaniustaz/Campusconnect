@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
+import { SCHOOL_LEVELS } from "@/lib/constants"; // Import SCHOOL_LEVELS
 import { BookUser, Save } from "lucide-react";
 
 // ManagedStaffMember is a user from localStorage, could be student, staff, or admin
@@ -36,10 +37,10 @@ const mockCourseListForAllocation: CourseForAllocation[] = [
   // Kindergarten
   { id: "KG_LIT", name: "Literacy (KG)", schoolLevel: "Kindergarten", subjectCategory: "Languages" },
   { id: "KG_NUM", name: "Numeracy (KG)", schoolLevel: "Kindergarten", subjectCategory: "Mathematics" },
-  // Nursery (Primary Level)
-  { id: "NUR_ENG", name: "English Language (Nursery)", schoolLevel: "Primary", subjectCategory: "Languages" },
-  { id: "NUR_MTH", name: "Mathematics (Nursery)", schoolLevel: "Primary", subjectCategory: "Mathematics" },
-  { id: "NUR_BSC", name: "Basic Science (Nursery)", schoolLevel: "Primary", subjectCategory: "Sciences" },
+  // Nursery
+  { id: "NUR_ENG", name: "English Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages" },
+  { id: "NUR_MTH", name: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics" },
+  { id: "NUR_BSC", name: "Basic Science (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences" },
   // Primary
   { id: "PRI_ENG", name: "English Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages" },
   { id: "PRI_MTH", name: "Mathematics (Primary)", schoolLevel: "Primary", subjectCategory: "Mathematics" },
@@ -185,7 +186,7 @@ export default function ManageStaffAllocationsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Levels</SelectItem>
-                  {(["Kindergarten", "Primary", "Secondary"] as SchoolLevel[]).map(level => (
+                  {SCHOOL_LEVELS.map(level => (
                     <SelectItem key={level} value={level}>{level}</SelectItem>
                   ))}
                 </SelectContent>
@@ -231,4 +232,6 @@ export default function ManageStaffAllocationsPage() {
     </div>
   );
 }
+    
+
     
