@@ -6,19 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Building, Users, UserCheck, HelpCircle } from "lucide-react";
-import type { UserRole, SchoolClass } from "@/lib/constants";
+import type { UserRole, SchoolClass, Student } from "@/lib/constants"; // Added Student
 import { mockSchoolClasses } from "@/lib/constants";
 
 interface ManagedUserForDisplay {
   id: string;
   name: string;
-  avatarUrl?: string; // Assuming avatar might be set via profile page
+  avatarUrl?: string;
   role: UserRole;
+  assignedClasses?: string[]; // Staff member's assigned class IDs
 }
 
 export default function SchoolOverviewPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [allStaff, setAllStaff] = useState<ManagedUserForDisplay[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]); // To count students per class
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
@@ -28,13 +30,15 @@ export default function SchoolOverviewPage() {
       const storedUsersString = localStorage.getItem('managedUsers');
       if (storedUsersString) {
         try {
-          const allManagedUsers: ManagedUserForDisplay[] = JSON.parse(storedUsersString);
-          // Filter for staff or admin roles to be considered as potential class masters
-          const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin');
+          const allManagedUsers: (ManagedUserForDisplay | Student)[] = JSON.parse(storedUsersString);
+          const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin') as ManagedUserForDisplay[];
+          const studentUsers = allManagedUsers.filter(u => u.role === 'student') as Student[];
           setAllStaff(staffUsers);
+          setAllStudents(studentUsers);
         } catch (e) {
-          console.error("Failed to parse users from localStorage for staff list", e);
+          console.error("Failed to parse users from localStorage", e);
           setAllStaff([]);
+          setAllStudents([]);
         }
       }
     }
@@ -51,8 +55,13 @@ export default function SchoolOverviewPage() {
     );
   }
 
-  const getStaffMemberById = (staffId: string): ManagedUserForDisplay | undefined => {
-    return allStaff.find(staff => staff.id === staffId);
+  // Function to find the class master for a given class ID by checking staff's assignedClasses
+  const getClassMasterForClass = (classId: string): ManagedUserForDisplay | undefined => {
+    return allStaff.find(staff => staff.assignedClasses && staff.assignedClasses.includes(classId));
+  };
+
+  const getStudentCountForClass = (classId: string): number => {
+    return allStudents.filter(student => student.classId === classId).length;
   };
 
   const displayLevels: SchoolClass['displayLevel'][] = ['Nursery', 'Primary', 'Junior Secondary', 'Senior Secondary'];
@@ -86,9 +95,9 @@ export default function SchoolOverviewPage() {
                 </TableHeader>
                 <TableBody>
                   {classesForLevel.map((cls) => {
-                    const classMaster = cls.classMasterId ? getStaffMemberById(cls.classMasterId) : undefined;
+                    const classMaster = getClassMasterForClass(cls.id);
+                    const studentCount = getStudentCountForClass(cls.id);
                     const masterInitials = classMaster ? classMaster.name.split(' ').map(n=>n[0]).join('') : '?';
-                    // Attempt to get avatar from localStorage or fallback
                     const avatar = classMaster?.avatarUrl || `https://placehold.co/40x40.png?text=${masterInitials}`;
 
                     return (
@@ -97,7 +106,7 @@ export default function SchoolOverviewPage() {
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center">
                             <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-                            {cls.studentCount}
+                            {studentCount}
                           </div>
                         </TableCell>
                         <TableCell>

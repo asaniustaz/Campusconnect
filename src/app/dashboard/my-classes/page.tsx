@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, BookOpen, CalendarCheck, FileText, Presentation, AlertTriangle } from "lucide-react";
-import type { UserRole, SchoolClass } from "@/lib/constants";
+import type { UserRole, SchoolClass, Student } from "@/lib/constants"; // Added Student
 import { mockSchoolClasses } from "@/lib/constants";
 
 interface ManagedUserForDisplay {
@@ -15,18 +15,20 @@ interface ManagedUserForDisplay {
   name: string;
   avatarUrl?: string;
   role: UserRole;
+  assignedClasses?: string[]; // For staff: list of class IDs they are master of
 }
 
 export default function MyClassesPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // currentUserId is the ID of the logged-in staff member
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null); 
   const [assignedClasses, setAssignedClasses] = useState<SchoolClass[]>([]);
   const [staffDetails, setStaffDetails] = useState<ManagedUserForDisplay | null>(null);
+  const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
+
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
-    const storedUserName = localStorage.getItem("userName"); // This is the logged-in user's name
-    // We need the ID of the logged-in user. Assuming email is used as ID for simplicity from AuthForm.
     const storedUserEmailAsId = localStorage.getItem("userId"); 
 
     setUserRole(role);
@@ -36,31 +38,41 @@ export default function MyClassesPage() {
       if (storedUsersString) {
         try {
           const allManagedUsers: ManagedUserForDisplay[] = JSON.parse(storedUsersString);
+          const allStudents: Student[] = allManagedUsers.filter(u => u.role === 'student') as Student[];
+
+          // Calculate student counts for all classes
+          const counts: Record<string, number> = {};
+          mockSchoolClasses.forEach(cls => {
+            counts[cls.id] = allStudents.filter(s => s.classId === cls.id).length;
+          });
+          setStudentCounts(counts);
           
           let foundStaff: ManagedUserForDisplay | undefined;
-          if (storedUserEmailAsId) { // Prioritize ID if available
+          if (storedUserEmailAsId) {
             foundStaff = allManagedUsers.find(u => u.id === storedUserEmailAsId && (u.role === 'staff' || u.role === 'admin'));
-          } else if (storedUserName) { // Fallback to name match if ID not found (less reliable)
-             foundStaff = allManagedUsers.find(u => u.name === storedUserName && (u.role === 'staff' || u.role === 'admin'));
           }
-
+          
           if (foundStaff) {
             setCurrentUserId(foundStaff.id);
             setStaffDetails(foundStaff);
-            const classesForStaff = mockSchoolClasses.filter(
-              (cls) => cls.classMasterId === foundStaff!.id // Use the ID of the found staff
+            // Filter mockSchoolClasses to find classes assigned to this staff member
+            // A class is "assigned" if its ID is in the staff member's assignedClasses list
+            const staffAssignedClassIds = foundStaff.assignedClasses || [];
+            const classesForStaff = mockSchoolClasses.filter(cls => 
+              staffAssignedClassIds.includes(cls.id)
             );
             setAssignedClasses(classesForStaff);
+
           } else if (role === 'admin' && !foundStaff) {
-            // Admin might not have a specific "staff" entry for themselves if they are the super admin
-            // But they can still view this page. Classes assigned to an "admin ID" might not be typical.
-            // For now, if admin and no direct match, they'll see the "no classes assigned" message unless
-            // some mockSchoolClasses.classMasterId matches an admin's ID.
-            setStaffDetails({id: storedUserEmailAsId || "admin_user", name: storedUserName || "Admin", role: "admin"});
+            const adminName = localStorage.getItem("userName") || "Admin";
+            setStaffDetails({id: storedUserEmailAsId || "admin_user", name: adminName, role: "admin"});
+            // Admin might see all classes or a specific subset based on other logic not yet implemented.
+            // For now, if admin is not directly assigned, they see "no classes" or all classes if we change logic later.
+            setAssignedClasses([]); // Or set to mockSchoolClasses if admin should see all
           }
 
         } catch (e) {
-          console.error("Failed to parse users from localStorage for staff list", e);
+          console.error("Failed to parse users from localStorage", e);
         }
       }
     }
@@ -77,7 +89,7 @@ export default function MyClassesPage() {
     );
   }
   
-  if (userRole === 'staff' && !currentUserId && !staffDetails) { // Check both to avoid brief "Loading" if admin
+  if (userRole === 'staff' && !currentUserId && !staffDetails) {
      return <div className="text-center p-10">Loading class master information...</div>;
   }
 
@@ -111,7 +123,7 @@ export default function MyClassesPage() {
               <CardContent className="flex-grow">
                 <div className="flex items-center text-muted-foreground mb-4">
                   <Users className="mr-2 h-5 w-5" /> 
-                  <span>{cls.studentCount} Students</span>
+                  <span>{studentCounts[cls.id] || 0} Students</span>
                 </div>
                 <p className="text-sm text-muted-foreground italic">
                   Manage attendance and results for this class.
@@ -138,13 +150,13 @@ export default function MyClassesPage() {
              <AlertTriangle className="h-12 w-12 text-yellow-500 mb-2" />
             <CardTitle>No Classes Assigned</CardTitle>
             <CardDescription>
-                {userRole === 'admin' ? "As an admin, you can view all classes via 'School Overview'. Staff subject allocations are managed separately." : "You are not currently assigned as a class master to any classes. Contact an administrator."}
+                {userRole === 'admin' && (!staffDetails || staffDetails.id === "admin_user")  ? "As an admin, you can view all classes via 'School Overview'. Staff subject allocations and class master assignments are managed separately." : "You are not currently assigned as a class master to any classes. Contact an administrator."}
             </CardDescription>
           </CardHeader>
-           {userRole === 'admin' && (
+           {userRole === 'admin' && (!staffDetails || staffDetails.id === "admin_user") && (
              <CardContent className="text-center">
                 <Button asChild>
-                    <Link href="/dashboard/admin/manage-staff-allocations">Manage Staff Allocations</Link>
+                    <Link href="/dashboard/admin/manage-users">Manage Staff Assignments</Link>
                 </Button>
                  <Button asChild className="ml-2">
                     <Link href="/dashboard/school-overview">Go to School Overview</Link>
@@ -156,4 +168,3 @@ export default function MyClassesPage() {
     </div>
   );
 }
-
