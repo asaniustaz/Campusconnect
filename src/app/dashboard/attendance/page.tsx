@@ -9,14 +9,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Save, Users } from "lucide-react";
+import { CalendarIcon, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Student, SchoolClass } from "@/lib/constants";
-import { mockSchoolClasses, globalMockStudents, mockStaffListSimpleForClassMaster } from "@/lib/constants";
+import { mockSchoolClasses, globalMockStudents } from "@/lib/constants";
 
 interface AttendanceRecord {
   [studentId: string]: boolean; // true for present, false for absent
+}
+
+interface ManagedUserForAttendance { // Minimal interface for staff details
+  id: string;
+  name: string;
+  role: UserRole;
+  assignedClasses?: string[];
 }
 
 export default function AttendancePage() {
@@ -26,28 +33,69 @@ export default function AttendancePage() {
   const [studentsInClass, setStudentsInClass] = useState<Student[]>([]);
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [userId, setUserId] = useState<string | null>(null); // For staff to filter classes
+  const [currentStaff, setCurrentStaff] = useState<ManagedUserForAttendance | null>(null);
+  const [availableClassesForStaff, setAvailableClassesForStaff] = useState<SchoolClass[]>(mockSchoolClasses);
+
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
-    const storedUserId = localStorage.getItem("userId"); // Assuming userId is stored for staff
+    const storedUserId = localStorage.getItem("userId");
     setUserRole(role);
-    if (role === 'staff' && storedUserId) {
-        setUserId(storedUserId);
-    } else if (role === 'staff') {
-        // Fallback: try to get ID from username if `userId` not in localStorage
-        const staffName = localStorage.getItem("userName");
-        const matchedStaff = mockStaffListSimpleForClassMaster.find(s => s.name === staffName);
-        if (matchedStaff) setUserId(matchedStaff.id);
+
+    if (role === 'admin') {
+      setAvailableClassesForStaff(mockSchoolClasses);
+    } else if (role === 'staff' && storedUserId && typeof window !== 'undefined') {
+      const storedUsersString = localStorage.getItem('managedUsers');
+      if (storedUsersString) {
+        try {
+          const allManagedUsers: ManagedUserForAttendance[] = JSON.parse(storedUsersString);
+          const staffUser = allManagedUsers.find(u => u.id === storedUserId && u.role === 'staff');
+          if (staffUser) {
+            setCurrentStaff(staffUser);
+            const staffAssignedClassIds = staffUser.assignedClasses || [];
+            const classesForStaff = mockSchoolClasses.filter(cls => 
+              staffAssignedClassIds.includes(cls.id)
+            );
+            setAvailableClassesForStaff(classesForStaff);
+          } else {
+            setAvailableClassesForStaff([]); // Staff not found or no assigned classes
+          }
+        } catch (e) {
+          console.error("Failed to parse users from localStorage for attendance", e);
+          setAvailableClassesForStaff([]);
+        }
+      } else {
+         setAvailableClassesForStaff([]); // No managed users in local storage
+      }
+    } else {
+      setAvailableClassesForStaff([]); // Not admin or staff, or no user ID
     }
-  }, []);
+  }, [userRole]);
 
   useEffect(() => {
     if (selectedClassId) {
-      const students = globalMockStudents.filter(student => student.classId === selectedClassId);
-      setStudentsInClass(students);
+      // Fetch students from localStorage if available, otherwise use globalMockStudents as fallback
+      let currentStudents: Student[] = [];
+      if (typeof window !== 'undefined') {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+          try {
+            const allManagedUsers = JSON.parse(storedUsersString);
+            currentStudents = allManagedUsers.filter((u: any) => u.role === 'student' && u.classId === selectedClassId);
+          } catch (e) {
+            console.error("Failed to parse students from localStorage for attendance", e);
+            currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
+          }
+        } else {
+          currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
+        }
+      } else {
+         currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
+      }
+      
+      setStudentsInClass(currentStudents);
       const initialAttendance: AttendanceRecord = {};
-      students.forEach(student => initialAttendance[student.id] = true); // Default to present
+      currentStudents.forEach(student => initialAttendance[student.id] = true); // Default to present
       setAttendance(initialAttendance);
     } else {
       setStudentsInClass([]);
@@ -66,6 +114,7 @@ export default function AttendancePage() {
         return;
     }
     const className = mockSchoolClasses.find(c => c.id === selectedClassId)?.name;
+    // In a real app, this data would be sent to a backend
     console.log("Attendance for class:", className, "on", format(selectedDate, "PPP"), ":", attendance);
     toast({
       title: "Attendance Saved",
@@ -84,9 +133,6 @@ export default function AttendancePage() {
     );
   }
 
-  const availableClassesForStaff = userRole === 'admin' 
-    ? mockSchoolClasses 
-    : mockSchoolClasses.filter(cls => cls.classMasterId === userId);
 
   return (
     <div className="space-y-6">
@@ -125,7 +171,7 @@ export default function AttendancePage() {
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   initialFocus
-                  disabled={(date) => date.getDay() === 0 || date.getDay() === 6} // Disable weekends
+                  disabled={(date) => date.getDay() === 0 || date.getDay() === 6 || date > new Date()} // Disable weekends and future dates
                 />
               </PopoverContent>
             </Popover>
@@ -158,7 +204,7 @@ export default function AttendancePage() {
               </TableBody>
             </Table>
           ) : selectedClassId ? (
-             <p className="text-muted-foreground text-center py-10">No students found in the selected class.</p>
+             <p className="text-muted-foreground text-center py-10">No students found in the selected class. Ensure students are assigned to this class via 'Manage Users'.</p>
           ) : (
             <p className="text-muted-foreground text-center py-10">Please select a class to view the attendance sheet.</p>
           )}
@@ -174,5 +220,4 @@ export default function AttendancePage() {
     </div>
   );
 }
-
     
