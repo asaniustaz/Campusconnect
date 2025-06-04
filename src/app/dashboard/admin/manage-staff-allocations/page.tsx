@@ -12,13 +12,13 @@ import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { SCHOOL_LEVELS } from "@/lib/constants"; // Import SCHOOL_LEVELS
 import { BookUser, Save } from "lucide-react";
 
-// ManagedStaffMember is a user from localStorage, could be student, staff, or admin
+// ManagedUser is a user from localStorage, could be student, staff, or admin
 interface ManagedUser {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  // other fields like department, title might exist for staff
+  // Staff-specific fields, might be optional if user is admin without these set
   department?: string;
   title?: string;
 }
@@ -81,13 +81,17 @@ export default function ManageStaffAllocationsPage() {
       if (storedUsersString) {
         try {
           const allStoredUsers: ManagedUser[] = JSON.parse(storedUsersString);
+          // Filter for users who are staff or admin, as admins might also be assigned subjects
           const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin');
           setAvailableStaff(staffUsers);
         } catch (e) {
           console.error("Failed to parse users from localStorage", e);
-          setAvailableStaff([]);
+          setAvailableStaff([]); // Fallback to empty if parsing fails
         }
+      } else {
+        setAvailableStaff([]); // No users in localStorage
       }
+
        // Load allocations from localStorage
       const storedAllocations = localStorage.getItem('staffCourseAllocations');
       if (storedAllocations) {
@@ -95,11 +99,10 @@ export default function ManageStaffAllocationsPage() {
           setAllocations(JSON.parse(storedAllocations));
         } catch (e) {
           console.error("Failed to parse allocations from localStorage", e);
-          setAllocations({});
+          setAllocations({}); // Fallback to empty if parsing fails
         }
       } else {
-        // Example initial allocation if nothing in localStorage
-        // setAllocations({ "staff-1699880000000": ["SSS_CHM_S"] }); // Replace with a real ID if needed for testing
+        setAllocations({}); // No allocations in localStorage yet
       }
     }
   }, []);
