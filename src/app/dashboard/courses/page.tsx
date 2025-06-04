@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookText, Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
+import { Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -275,7 +275,7 @@ export default function SubjectsPage() {
   const filteredSubjects = getFilteredSubjects();
 
   const getCategoryIcon = (category: SubjectCategory) => {
-    const Icon = subjectCategoryIcons[category] || BookText; 
+    const Icon = subjectCategoryIcons[category] || Layers; 
     return <Icon className="h-4 w-4 mr-1" />;
   };
   
@@ -387,12 +387,9 @@ export default function SubjectsPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row gap-2 justify-between">
-                <Button variant="outline" className="w-full sm:w-auto">
-                  <BookText className="mr-2 h-4 w-4" /> View Details
-                </Button>
+              <CardFooter className="flex flex-col sm:flex-row gap-2 justify-end">
                 {userRole === 'admin' && (
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
                         <Button variant="outline" size="icon" onClick={() => handleOpenDialog(subject)} className="flex-1 sm:flex-none">
                             <Edit className="h-4 w-4" />
                         </Button>
