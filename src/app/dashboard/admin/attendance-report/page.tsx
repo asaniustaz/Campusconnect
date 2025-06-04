@@ -15,7 +15,7 @@ import { mockSchoolClasses } from "@/lib/constants"; // Using mockSchoolClasses
 import { Badge } from "@/components/ui/badge";
 
 interface AggregatedAttendanceRecord {
-  id: string; // Combination of classId and date
+  id: string; // Combination of classId, date, and index
   className: string;
   classId: string; 
   date: string;
@@ -45,7 +45,7 @@ const generateMockClassReport = (): AggregatedAttendanceRecord[] => {
       const attendanceRate = totalStudentsInClass > 0 ? parseFloat(((presentCount / totalStudentsInClass) * 100).toFixed(1)) : 0;
       
       reports.push({
-        id: `${cls.id}-${dateStr}`,
+        id: `${cls.id}-${dateStr}-${i}`, // Added index 'i' to ensure uniqueness
         className: `${cls.name} (${cls.displayLevel})`,
         classId: cls.id,
         date: dateStr,
