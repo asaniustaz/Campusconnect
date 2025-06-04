@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Student, SchoolClass } from "@/lib/constants";
 import { mockSchoolClasses, globalMockStudents } from "@/lib/constants";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AttendanceRecord {
   [studentId: string]: boolean; // true for present, false for absent
@@ -48,8 +49,8 @@ export default function AttendancePage() {
       const storedUsersString = localStorage.getItem('managedUsers');
       if (storedUsersString) {
         try {
-          const allManagedUsers: ManagedUserForAttendance[] = JSON.parse(storedUsersString);
-          const staffUser = allManagedUsers.find(u => u.id === storedUserId && u.role === 'staff');
+          const allManagedUsers: (ManagedUserForAttendance | Student)[] = JSON.parse(storedUsersString);
+          const staffUser = allManagedUsers.find(u => u.id === storedUserId && u.role === 'staff') as ManagedUserForAttendance | undefined;
           if (staffUser) {
             setCurrentStaff(staffUser);
             const staffAssignedClassIds = staffUser.assignedClasses || [];
@@ -74,20 +75,20 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (selectedClassId) {
-      // Fetch students from localStorage if available, otherwise use globalMockStudents as fallback
       let currentStudents: Student[] = [];
       if (typeof window !== 'undefined') {
         const storedUsersString = localStorage.getItem('managedUsers');
         if (storedUsersString) {
           try {
-            const allManagedUsers = JSON.parse(storedUsersString);
-            currentStudents = allManagedUsers.filter((u: any) => u.role === 'student' && u.classId === selectedClassId);
+            const allManagedUsers: Student[] = JSON.parse(storedUsersString);
+            currentStudents = allManagedUsers.filter((u: Student) => u.role === 'student' && u.classId === selectedClassId);
           } catch (e) {
             console.error("Failed to parse students from localStorage for attendance", e);
+            // Fallback to globalMockStudents if parsing fails or if no local storage
             currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
           }
         } else {
-          currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
+           currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
         }
       } else {
          currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
@@ -114,7 +115,6 @@ export default function AttendancePage() {
         return;
     }
     const className = mockSchoolClasses.find(c => c.id === selectedClassId)?.name;
-    // In a real app, this data would be sent to a backend
     console.log("Attendance for class:", className, "on", format(selectedDate, "PPP"), ":", attendance);
     toast({
       title: "Attendance Saved",
@@ -182,25 +182,36 @@ export default function AttendancePage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">Avatar</TableHead>
                   <TableHead>Roll Number</TableHead>
                   <TableHead>Student Name</TableHead>
                   <TableHead className="text-center">Present</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {studentsInClass.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                    <TableCell>{student.name}</TableCell>
-                    <TableCell className="text-center">
-                      <Checkbox
-                        checked={attendance[student.id] || false}
-                        onCheckedChange={(checked) => handleAttendanceChange(student.id, !!checked)}
-                        aria-label={`Mark ${student.name} as ${attendance[student.id] ? 'absent' : 'present'}`}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {studentsInClass.map((student) => {
+                  const initials = student.name.split(' ').map(n => n[0]).join('').toUpperCase() || 'S';
+                  const avatarSrc = student.avatarUrl || `https://placehold.co/40x40.png?text=${initials}`;
+                  return (
+                    <TableRow key={student.id}>
+                      <TableCell>
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={avatarSrc} alt={student.name} data-ai-hint="student avatar" />
+                          <AvatarFallback>{initials}</AvatarFallback>
+                        </Avatar>
+                      </TableCell>
+                      <TableCell>{student.rollNumber || 'N/A'}</TableCell>
+                      <TableCell>{student.name}</TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={attendance[student.id] || false}
+                          onCheckedChange={(checked) => handleAttendanceChange(student.id, !!checked)}
+                          aria-label={`Mark ${student.name} as ${attendance[student.id] ? 'absent' : 'present'}`}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : selectedClassId ? (
