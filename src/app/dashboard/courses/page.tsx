@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { BookText, Layers, Users, CalendarDays } from "lucide-react";
-import type { SchoolLevel, SubjectCategory } from "@/lib/constants";
+import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -385,26 +385,78 @@ const nigerianCurriculumCourses: Course[] = [
   },
 ];
 
+interface StaffAllocation {
+  [staffId: string]: string[]; // Array of course IDs
+}
 
 export default function CoursesPage() {
   const [selectedLevel, setSelectedLevel] = useState<SchoolLevel | "all">("all");
   const [selectedCategory, setSelectedCategory] = useState<SubjectCategory | "all">("all");
   const [selectedSssStream, setSelectedSssStream] = useState<'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade' | 'all'>("all");
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [allocatedCourseIdsForStaff, setAllocatedCourseIdsForStaff] = useState<string[]>([]);
+  const [pageDescription, setPageDescription] = useState("Browse available courses from the Nigerian curriculum. Filter by school level, subject category, and SSS stream.");
 
+  useEffect(() => {
+    const role = localStorage.getItem("userRole") as UserRole | null;
+    const userId = localStorage.getItem("userId");
+    setUserRole(role);
 
-  const filteredCourses = nigerianCurriculumCourses.filter(course => 
-    (selectedLevel === "all" || course.schoolLevel === selectedLevel) &&
-    (selectedCategory === "all" || course.subjectCategory === selectedCategory) &&
-    (selectedSssStream === "all" || course.schoolLevel !== "Secondary" || !course.sssStream || course.sssStream === selectedSssStream || (selectedSssStream === "Core" && course.sssStream === "Core") || (selectedSssStream !== "Core" && course.sssStream !== "Core" && course.subjectCategory === selectedCategory) ) // More complex SSS logic
-  ).filter(course => {
-    if (selectedLevel === "Secondary" && selectedSssStream !== "all") {
-      if (selectedSssStream === "Core") return course.sssStream === "Core";
-      // For Science, Art, Commercial streams, show their specific subjects + Core subjects
-      return course.sssStream === selectedSssStream || course.sssStream === "Core";
+    if (role === 'staff' && userId) {
+      const storedAllocations = localStorage.getItem('staffCourseAllocations');
+      if (storedAllocations) {
+        try {
+          const allocations: StaffAllocation = JSON.parse(storedAllocations);
+          if (allocations[userId] && allocations[userId].length > 0) {
+            setAllocatedCourseIdsForStaff(allocations[userId]);
+            setPageDescription("Browse your allocated subjects. Filter by school level, subject category, and SSS stream.");
+          } else {
+            setPageDescription("You currently have no subjects allocated. Contact an administrator.");
+            setAllocatedCourseIdsForStaff([]); // Ensure it's an empty array if no allocations
+          }
+        } catch (e) {
+          console.error("Failed to parse staff allocations from localStorage", e);
+          setAllocatedCourseIdsForStaff([]);
+           setPageDescription("Could not load your allocated subjects. Contact an administrator.");
+        }
+      } else {
+        setPageDescription("You currently have no subjects allocated. Contact an administrator.");
+        setAllocatedCourseIdsForStaff([]);
+      }
+    } else if (role === 'student' || role === 'admin') {
+       setPageDescription("Browse available courses from the Nigerian curriculum. Filter by school level, subject category, and SSS stream.");
     }
-    return true;
-  });
+  }, []);
 
+
+  const getFilteredCourses = () => {
+    let coursesToDisplay = nigerianCurriculumCourses;
+
+    // Filter by allocated courses for staff
+    if (userRole === 'staff' && allocatedCourseIdsForStaff.length > 0) {
+      coursesToDisplay = coursesToDisplay.filter(course => allocatedCourseIdsForStaff.includes(course.id));
+    } else if (userRole === 'staff' && allocatedCourseIdsForStaff.length === 0 && pageDescription.startsWith("You currently have no subjects allocated")) {
+        // If staff has no allocations, show no courses for them
+        return [];
+    }
+
+
+    // Apply general filters: level, category, SSS stream
+    coursesToDisplay = coursesToDisplay.filter(course => 
+      (selectedLevel === "all" || course.schoolLevel === selectedLevel) &&
+      (selectedCategory === "all" || course.subjectCategory === selectedCategory)
+    );
+    
+    if (selectedLevel === "Secondary" && selectedSssStream !== "all") {
+       coursesToDisplay = coursesToDisplay.filter(course => {
+         if (selectedSssStream === "Core") return course.sssStream === "Core";
+         return course.sssStream === selectedSssStream || course.sssStream === "Core";
+       });
+    }
+    return coursesToDisplay;
+  };
+
+  const filteredCourses = getFilteredCourses();
 
   const getCategoryIcon = (category: SubjectCategory) => {
     const Icon = subjectCategoryIcons[category] || BookText; // Default icon
@@ -417,8 +469,8 @@ export default function CoursesPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Courses</h1>
-        <p className="text-muted-foreground">Browse available courses from the Nigerian curriculum. Filter by school level, subject category, and SSS stream.</p>
+        <h1 className="text-3xl font-bold font-headline text-foreground">Subjects</h1>
+        <p className="text-muted-foreground">{pageDescription}</p>
       </header>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -507,10 +559,13 @@ export default function CoursesPage() {
           ))}
         </div>
       ) : (
-        <p className="text-center text-muted-foreground col-span-full">No courses match the selected filters.</p>
+        <p className="text-center text-muted-foreground col-span-full">
+            {userRole === 'staff' && pageDescription.startsWith("You currently have no subjects allocated")
+                ? "You have no subjects allocated to you. Please contact an administrator."
+                : "No subjects match the selected filters."
+            }
+        </p>
       )}
     </div>
   );
 }
-
-  
