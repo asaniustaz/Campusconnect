@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -101,3 +102,60 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Basic print styles */
+@media print {
+  body {
+    font-family: sans-serif; /* Use a common sans-serif font for printing */
+    color: #000; /* Ensure text is black for print */
+    background-color: #fff; /* Ensure background is white */
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide elements not meant for printing */
+  .no-print, .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Ensure printable area takes full width and has no print-specific styling interfering */
+  .printable-area {
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Reset padding/margins that might be from layout */
+  main.p-4, main.sm\:p-6, main.lg\:p-8 {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  header, footer, nav, aside { /* General selectors for common non-content elements */
+    display: none !important;
+  }
+
+  /* Table specific print styles */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-bottom: 1rem; /* Space after table */
+  }
+  th, td {
+    border: 1px solid #ccc !important; /* Add borders to table cells */
+    padding: 0.5rem !important;
+    text-align: left !important;
+  }
+  th {
+    background-color: #f0f0f0 !important; /* Light background for table headers */
+  }
+  /* Ensure links are just text, not blue and underlined if not desired */
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}
+
+    

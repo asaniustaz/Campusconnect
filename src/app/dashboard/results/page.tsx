@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/lib/constants";
-import { TERMS } from "@/lib/constants"; // Using TERMS from constants
-import { FileSpreadsheet, TrendingUp } from "lucide-react";
+import { TERMS, mockSchoolClasses } from "@/lib/constants"; 
+import { FileSpreadsheet, Printer, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SubjectResult {
   subjectCode: string;
@@ -19,25 +20,28 @@ interface SubjectResult {
 
 interface TermResult {
   term: string;
+  classId: string; 
+  className: string; 
   results: SubjectResult[];
-  termAverage?: number; // Optional term Average
+  termAverage?: number; 
 }
 
 interface StudentOverallResult {
   studentId: string;
   studentName: string;
-  overallAverage: number; // Changed from CGPA
+  overallAverage: number; 
   termResults: TermResult[];
 }
 
-// Mock Data (Expanded for terms, K-12 subjects)
 const mockStudentResults: StudentOverallResult = {
   studentId: "std001",
   studentName: "Alice Wonderland",
-  overallAverage: 88.5, // Example average
+  overallAverage: 88.5,
   termResults: [
     {
       term: "First Term",
+      classId: "pri5",
+      className: "Primary 5",
       termAverage: 88.5,
       results: [
         { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 92, totalMarks: 100 },
@@ -46,19 +50,44 @@ const mockStudentResults: StudentOverallResult = {
     },
     {
       term: "Second Term",
+      classId: "pri5",
+      className: "Primary 5",
       termAverage: 89,
       results: [
         { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A-", marks: 88, totalMarks: 100 },
         { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "A", marks: 90, totalMarks: 100 },
       ],
     },
+     {
+      term: "Third Term",
+      classId: "pri5",
+      className: "Primary 5",
+      termAverage: 87,
+      results: [
+        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B+", marks: 86, totalMarks: 100 },
+        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B+", marks: 88, totalMarks: 100 },
+      ],
+    },
+    {
+      term: "First Term", // New academic year
+      classId: "pri6",
+      className: "Primary 6",
+      termAverage: 90.5,
+      results: [
+        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 95, totalMarks: 100 },
+        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "A-", marks: 86, totalMarks: 100 },
+      ],
+    },
   ],
 };
 
-const mockStaffSubjectResults: { [subjectId: string]: { term: string, studentResults: Omit<StudentOverallResult, 'termResults' | 'overallAverage'> & { subjectResult: SubjectResult }[] }[] } = {
+// Adjusted to reflect K-12 subject structure and mock classes
+const mockStaffSubjectResults: { [subjectId: string]: { term: string, classId: string, className: string, studentResults: Omit<StudentOverallResult, 'termResults' | 'overallAverage'> & { subjectResult: SubjectResult }[] }[] } = {
   PRI_ENG: [
     {
       term: "First Term",
+      classId: "pri1", 
+      className: "Primary 1",
       studentResults: [
         { studentId: "std001", studentName: "Alice Wonderland", subjectResult: { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 92, totalMarks: 100 } },
         { studentId: "std002", studentName: "Bob The Builder", subjectResult: { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B", marks: 85, totalMarks: 100 } },
@@ -68,6 +97,8 @@ const mockStaffSubjectResults: { [subjectId: string]: { term: string, studentRes
   JSS_MTH: [
      {
       term: "Second Term",
+      classId: "jss1",
+      className: "JSS 1",
       studentResults: [
         { studentId: "std001", studentName: "Alice Wonderland", subjectResult: { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A-", marks: 88, totalMarks: 100 } },
         { studentId: "std003", studentName: "Charlie Brown", subjectResult: { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "C+", marks: 72, totalMarks: 100 } },
@@ -76,58 +107,149 @@ const mockStaffSubjectResults: { [subjectId: string]: { term: string, studentRes
   ],
 };
 
-const mockSubjectsForStaffView = [ // K-12 subjects
-  { id: "PRI_ENG", name: "English Language (Primary)" },
-  { id: "JSS_MTH", name: "Mathematics (JSS)" },
-  { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
-];
+// Staff now select a CLASS they are master of, then a SUBJECT taught in that class, then a TERM
+interface StaffClassSubjectInfo {
+  classId: string;
+  className: string;
+  subjects: { id: string; name: string }[]; // Subjects taught by this staff in this class
+}
 
 
 export default function ResultsPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
-  const [selectedTerm, setSelectedTerm] = useState<string | undefined>(TERMS[0]);
-  const [selectedSubjectForStaff, setSelectedSubjectForStaff] = useState<string | undefined>(mockSubjectsForStaffView[0]?.id);
+  
+  // Student state
+  const [studentData, setStudentData] = useState<StudentOverallResult | null>(null);
+  const [availableClassesForStudent, setAvailableClassesForStudent] = useState<{id: string; name: string}[]>([]);
+  const [selectedClassIdForStudent, setSelectedClassIdForStudent] = useState<string | undefined>();
+  const [selectedTermForStudent, setSelectedTermForStudent] = useState<string | undefined>(TERMS[0]);
+
+  // Staff/Admin state
+  const [selectedSubjectIdForStaff, setSelectedSubjectIdForStaff] = useState<string | undefined>();
+  const [selectedClassIdForStaff, setSelectedClassIdForStaff] = useState<string | undefined>();
+  const [selectedTermForStaff, setSelectedTermForStaff] = useState<string | undefined>(TERMS[0]);
+  const [subjectsInSelectedClassForStaff, setSubjectsInSelectedClassForStaff] = useState<{id: string; name: string}[]>([]);
+  const [staffAllocatedClasses, setStaffAllocatedClasses] = useState<typeof mockSchoolClasses>([]);
 
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     const name = localStorage.getItem("userName");
+    const userId = localStorage.getItem("userId");
     setUserRole(role);
     setUserName(name);
-  }, []);
+
+    if (role === "student") {
+      let data = mockStudentResults;
+      // Basic name matching for demo, in real app this would be fetched by ID
+      if (name && name.toLowerCase().includes("test student")) {
+          data = {
+              studentId: "teststd001", studentName: "Test Student", overallAverage: 82.0,
+              termResults: [
+                  { term: "First Term", classId: "pri1", className: "Primary 1", termAverage: 84, results: [{ subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B+", marks: 84, totalMarks: 100 }]},
+                  { term: "Second Term", classId: "pri1", className: "Primary 1", termAverage: 80, results: [{ subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B", marks: 80, totalMarks: 100 }]},
+              ]
+          };
+      } else if (name && !name.toLowerCase().includes("alice")) {
+          data = { ...mockStudentResults, studentName: name, overallAverage: 75, termResults: mockStudentResults.termResults.map(tr => ({...tr, termAverage: 75, results: tr.results.map(r => ({...r, grade: "C", marks: 70}))})) };
+      }
+      setStudentData(data);
+      
+      const uniqueClasses = Array.from(new Set(data.termResults.map(tr => JSON.stringify({id: tr.classId, name: tr.className}))))
+                                .map(s => JSON.parse(s));
+      setAvailableClassesForStudent(uniqueClasses);
+      if (uniqueClasses.length > 0) {
+        setSelectedClassIdForStudent(uniqueClasses[0].id);
+      }
+
+    } else if (role === "staff" || role === "admin") {
+        // For staff, filter classes they are master of
+        let staffClasses = mockSchoolClasses;
+        if (role === 'staff' && userId) {
+            const storedUsersString = localStorage.getItem('managedUsers');
+            if (storedUsersString) {
+                const allManagedUsers = JSON.parse(storedUsersString);
+                const staffUser = allManagedUsers.find((u: any) => u.id === userId && u.role === 'staff');
+                if (staffUser && staffUser.assignedClasses) {
+                    staffClasses = mockSchoolClasses.filter(cls => staffUser.assignedClasses.includes(cls.id));
+                } else {
+                    staffClasses = []; // No classes assigned to this staff
+                }
+            } else {
+                 staffClasses = [];
+            }
+        }
+        setStaffAllocatedClasses(staffClasses);
+        if (staffClasses.length > 0) {
+            setSelectedClassIdForStaff(staffClasses[0].id);
+        }
+    }
+  }, [userRole, userName]);
+
+  // Effect to update subjects when staff selects a class
+  useEffect(() => {
+    if ((userRole === 'staff' || userRole === 'admin') && selectedClassIdForStaff) {
+        // In a real app, fetch subjects for this class, possibly taught by this staff
+        // For mock: use a subset of global subjects or specific subjects for the class level
+        const classDetails = mockSchoolClasses.find(c => c.id === selectedClassIdForStaff);
+        if (classDetails) {
+            // Mock subjects based on class level - simplified
+            let MOCK_SUBJECTS_IN_CLASS = [
+                { id: "PRI_ENG", name: "English Language (Primary)" },
+                { id: "JSS_MTH", name: "Mathematics (JSS)" },
+                { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
+                { id: "NUR_BSC", name: "Basic Science (Nursery)"},
+            ];
+            if (classDetails.level === "Primary") MOCK_SUBJECTS_IN_CLASS = [{ id: "PRI_ENG", name: "English (Pri)" }, { id: "PRI_MTH", name: "Math (Pri)" }];
+            else if (classDetails.level === "Secondary" && classDetails.displayLevel.startsWith("Junior")) MOCK_SUBJECTS_IN_CLASS = [{ id: "JSS_ENG", name: "English (JSS)" }, { id: "JSS_MTH", name: "Math (JSS)" }];
+            else if (classDetails.level === "Secondary" && classDetails.displayLevel.startsWith("Senior")) MOCK_SUBJECTS_IN_CLASS = [{ id: "SSS_ENG_C", name: "English (SSS)" }, { id: "SSS_PHY_S", name: "Physics (SSS)" }];
+            else MOCK_SUBJECTS_IN_CLASS = [{ id: "GEN_SUB", name: "General Subject" }];
+            
+            setSubjectsInSelectedClassForStaff(MOCK_SUBJECTS_IN_CLASS);
+            if (MOCK_SUBJECTS_IN_CLASS.length > 0) {
+                 setSelectedSubjectIdForStaff(MOCK_SUBJECTS_IN_CLASS[0].id);
+            } else {
+                 setSelectedSubjectIdForStaff(undefined);
+            }
+        }
+    }
+  }, [selectedClassIdForStaff, userRole]);
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   if (!userRole || !userName) {
-    return <div className="text-center p-10">Loading results...</div>;
+    return <div className="text-center p-10 print:hidden">Loading results...</div>;
   }
 
   if (userRole === "student") {
-    let studentData = mockStudentResults;
-    if (userName.toLowerCase().includes("test student")) {
-        studentData = {
-            studentId: "teststd001",
-            studentName: "Test Student",
-            overallAverage: 82.0,
-            termResults: [
-                { term: "First Term", termAverage: 84, results: [{ subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B+", marks: 84, totalMarks: 100 }]},
-                { term: "Second Term", termAverage: 80, results: [{ subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B", marks: 80, totalMarks: 100 }]},
-            ]
-        };
-    } else if (!userName.toLowerCase().includes("alice")) { // For other generic students
-        studentData = { ...mockStudentResults, studentName: userName, overallAverage: 0, termResults: mockStudentResults.termResults.map(tr => ({...tr, termAverage: 0, results: tr.results.map(r => ({...r, grade: "N/A", marks: 0}))})) };
-    }
+    if (!studentData) return <div className="text-center p-10 print:hidden">Loading student data...</div>;
     
-    const currentTermData = studentData.termResults.find(tr => tr.term === selectedTerm);
+    const filteredTermResultsForClass = studentData.termResults.filter(tr => tr.classId === selectedClassIdForStudent);
+    const currentTermData = filteredTermResultsForClass.find(tr => tr.term === selectedTermForStudent);
 
     return (
       <div className="space-y-6">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center print:hidden">
           <div>
             <h1 className="text-3xl font-bold font-headline text-foreground">My Results</h1>
-            <p className="text-muted-foreground">View your academic performance by term.</p>
+            <p className="text-muted-foreground">View your academic performance by class and term.</p>
           </div>
-           <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-              <SelectTrigger className="w-full sm:w-[200px] mt-2 sm:mt-0">
+          <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+            <Select value={selectedClassIdForStudent} onValueChange={setSelectedClassIdForStudent}>
+              <SelectTrigger className="w-full sm:w-[240px]">
+                <SelectValue placeholder="Select Class" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableClassesForStudent.map(cls => (
+                  <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedTermForStudent} onValueChange={setSelectedTermForStudent}>
+              <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Select Term" />
               </SelectTrigger>
               <SelectContent>
@@ -136,21 +258,28 @@ export default function ResultsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
         </header>
-        <Card className="shadow-xl">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>{studentData.studentName}</CardTitle>
-              <CardDescription className="text-right">Overall Average: <span className="font-semibold text-primary">{studentData.overallAverage.toFixed(1)}%</span></CardDescription>
+
+        <Card className="shadow-xl printable-area print:shadow-none print:border-none print:p-0">
+          <CardHeader className="print:text-center">
+            <div className="flex justify-between items-center print:flex-col print:items-center">
+              <CardTitle className="text-2xl">{studentData.studentName}</CardTitle>
+              <CardDescription className="text-right print:text-center print:mt-1">
+                Overall Average: <span className="font-semibold text-primary">{studentData.overallAverage.toFixed(1)}%</span>
+              </CardDescription>
             </div>
-            {currentTermData && currentTermData.termAverage !== undefined && (
-              <CardDescription>
-                {currentTermData.term} Average: <span className="font-semibold text-primary">{currentTermData.termAverage.toFixed(1)}%</span>
+            {currentTermData && (
+              <CardDescription className="mt-1 print:text-center">
+                Results for: <span className="font-semibold text-primary">{currentTermData.className}</span> - <span className="font-semibold text-primary">{currentTermData.term}</span>
+                {currentTermData.termAverage !== undefined && (
+                  <> (Term Average: <span className="font-semibold text-primary">{currentTermData.termAverage.toFixed(1)}%</span>)</>
+                )}
               </CardDescription>
             )}
           </CardHeader>
-          <CardContent>
-            {currentTermData ? (
+          <CardContent className="print:p-0">
+            {currentTermData && currentTermData.results.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -172,41 +301,63 @@ export default function ResultsPage() {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-muted-foreground text-center py-4">No results found for {selectedTerm}.</p>
+              <p className="text-muted-foreground text-center py-4">No results found for the selected class and term.</p>
             )}
           </CardContent>
+           {currentTermData && currentTermData.results.length > 0 && (
+            <CardContent className="pt-6 print:hidden">
+                 <Button onClick={handlePrint} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
+                    <Printer className="mr-2 h-4 w-4" /> Print Results
+                </Button>
+            </CardContent>
+           )}
         </Card>
       </div>
     );
   }
 
   // Staff or Admin View
-  const subjectResultsForSelectedTerm = selectedSubjectForStaff ? 
-    (mockStaffSubjectResults[selectedSubjectForStaff]?.find(ct => ct.term === selectedTerm)?.studentResults || []) 
+  const staffResultsForClassSubjectTerm = (selectedClassIdForStaff && selectedSubjectIdForStaff && selectedTermForStaff) ? 
+    (mockStaffSubjectResults[selectedSubjectIdForStaff]?.find(
+        ct => ct.term === selectedTermForStaff && ct.classId === selectedClassIdForStaff
+    )?.studentResults || []) 
     : [];
 
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:hidden">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Student Results</h1>
-        <p className="text-muted-foreground">View collective results by subject and term.</p>
+        <p className="text-muted-foreground">View collective results by class, subject, and term.</p>
       </header>
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet/> Results Overview</CardTitle>
-          <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <Select value={selectedSubjectForStaff} onValueChange={setSelectedSubjectForStaff}>
-              <SelectTrigger className="w-full sm:w-[300px]">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Select value={selectedClassIdForStaff} onValueChange={setSelectedClassIdForStaff}>
+                <SelectTrigger>
+                    <SelectValue placeholder="Select Class" />
+                </SelectTrigger>
+                <SelectContent>
+                    {staffAllocatedClasses.length > 0 ? staffAllocatedClasses.map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                    )) : <SelectItem value="no-class" disabled>No classes available/assigned</SelectItem>}
+                </SelectContent>
+            </Select>
+
+            <Select value={selectedSubjectIdForStaff} onValueChange={setSelectedSubjectIdForStaff} disabled={!selectedClassIdForStaff || subjectsInSelectedClassForStaff.length === 0}>
+              <SelectTrigger>
                 <SelectValue placeholder="Select Subject" />
               </SelectTrigger>
               <SelectContent>
-                {mockSubjectsForStaffView.map(subject => (
+                 {subjectsInSelectedClassForStaff.length > 0 ? subjectsInSelectedClassForStaff.map(subject => (
                   <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
-                ))}
+                )) : <SelectItem value="no-subject" disabled>No subjects for this class</SelectItem>}
               </SelectContent>
             </Select>
-             <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+
+            <Select value={selectedTermForStaff} onValueChange={setSelectedTermForStaff}>
+              <SelectTrigger>
                 <SelectValue placeholder="Select Term" />
               </SelectTrigger>
               <SelectContent>
@@ -218,10 +369,10 @@ export default function ResultsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {selectedSubjectForStaff && subjectResultsForSelectedTerm.length > 0 ? (
+          {selectedClassIdForStaff && selectedSubjectIdForStaff && staffResultsForClassSubjectTerm.length > 0 ? (
             <>
             <h3 className="text-lg font-semibold mb-2 text-foreground">
-              {mockSubjectsForStaffView.find(s => s.id === selectedSubjectForStaff)?.name} - {selectedTerm}
+              {mockSchoolClasses.find(c=>c.id === selectedClassIdForStaff)?.name} - {subjectsInSelectedClassForStaff.find(s => s.id === selectedSubjectIdForStaff)?.name} - {selectedTermForStaff}
             </h3>
             <Table>
               <TableHeader>
@@ -233,7 +384,7 @@ export default function ResultsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {subjectResultsForSelectedTerm.map((studentResult) => (
+                {staffResultsForClassSubjectTerm.map((studentResult) => (
                   <TableRow key={studentResult.studentId + studentResult.subjectResult.subjectCode}>
                     <TableCell>{studentResult.studentId}</TableCell>
                     <TableCell>{studentResult.studentName}</TableCell>
@@ -244,10 +395,10 @@ export default function ResultsPage() {
               </TableBody>
             </Table>
             </>
-          ) : selectedSubjectForStaff ? (
-             <p className="text-muted-foreground p-4 text-center">No results found for the selected subject and term.</p>
+          ) : selectedClassIdForStaff && selectedSubjectIdForStaff ? (
+             <p className="text-muted-foreground p-4 text-center">No results found for the selected class, subject, and term.</p>
           ) : (
-             <p className="text-muted-foreground p-4 text-center">Please select a subject and term to view results.</p>
+             <p className="text-muted-foreground p-4 text-center">Please select a class, subject and term to view results.</p>
           )}
         </CardContent>
       </Card>
