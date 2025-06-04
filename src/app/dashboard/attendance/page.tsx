@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link"; // Import Link
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -182,7 +183,7 @@ export default function AttendancePage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Avatar</TableHead>
+                  <TableHead className="w-16">Image</TableHead>
                   <TableHead>Roll Number</TableHead>
                   <TableHead>Student Name</TableHead>
                   <TableHead className="text-center">Present</TableHead>
@@ -195,10 +196,12 @@ export default function AttendancePage() {
                   return (
                     <TableRow key={student.id}>
                       <TableCell>
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={avatarSrc} alt={student.name} data-ai-hint="student avatar" />
-                          <AvatarFallback>{initials}</AvatarFallback>
-                        </Avatar>
+                        <Link href={`/dashboard/student/${student.id}/profile`} passHref>
+                          <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
+                            <AvatarImage src={avatarSrc} alt={student.name} data-ai-hint="student avatar" />
+                            <AvatarFallback>{initials}</AvatarFallback>
+                          </Avatar>
+                        </Link>
                       </TableCell>
                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                       <TableCell>{student.name}</TableCell>
