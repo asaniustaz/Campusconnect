@@ -22,10 +22,9 @@ export type SubjectCategory =
 export interface SchoolClass {
   id: string;
   name: string; // e.g., "Nursery 1A", "Primary 5B", "JSS 2"
-  level: SchoolLevel; // This will be 'Primary' for Nursery, and 'Secondary' for JSS/SSS
+  level: SchoolLevel;
   displayLevel: 'Kindergarten' | 'Nursery' | 'Primary' | 'Junior Secondary' | 'Senior Secondary'; // For UI grouping
   studentCount: number; // Target student count
-  classMasterId?: string; // ID of a staff member
 }
 
 export type NavItem = {
@@ -35,6 +34,60 @@ export type NavItem = {
   roles: UserRole[];
   children?: NavItem[];
 };
+
+export interface Subject {
+  id: string;
+  title: string;
+  code: string; // e.g., ENG101, JSS_MTH
+  description: string;
+  instructor: string; // Default/Coordinating Instructor
+  schedule: string; // e.g., "Mon 9-11 AM, Wed 1-3 PM"
+  schoolLevel: SchoolLevel;
+  subjectCategory: SubjectCategory;
+  sssStream?: 'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade'; // For SSS subjects
+}
+
+export const defaultNigerianCurriculumSubjects: Subject[] = [
+  // Kindergarten
+  { id: "KG_LIT", title: "Literacy (KG)", code: "KG_LIT", description: "Basic literacy skills for kindergarteners.", instructor: "To be assigned", schedule: "Daily 9-10 AM", schoolLevel: "Kindergarten", subjectCategory: "Languages" },
+  { id: "KG_NUM", title: "Numeracy (KG)", code: "KG_NUM", description: "Introduction to numbers and basic math concepts for kindergarten.", instructor: "To be assigned", schedule: "Daily 10-11 AM", schoolLevel: "Kindergarten", subjectCategory: "Mathematics" },
+  { id: "KG_ART", title: "Creative Play (KG)", code: "KG_ART", description: "Art, craft, and play-based learning.", instructor: "To be assigned", schedule: "T/Th 11 AM", schoolLevel: "Kindergarten", subjectCategory: "Creative Arts" },
+
+  // Nursery
+  { id: "NUR_ENG", title: "Early English (Nursery)", code: "NUR_ENG", description: "Foundational English skills for nursery children.", instructor: "To be assigned", schedule: "Mon, Wed 10 AM", schoolLevel: "Nursery", subjectCategory: "Languages" },
+  { id: "NUR_MTH", title: "Early Maths (Nursery)", code: "NUR_MTH", description: "Playful introduction to mathematics for nursery.", instructor: "To be assigned", schedule: "Tue, Thu 10 AM", schoolLevel: "Nursery", subjectCategory: "Mathematics" },
+  { id: "NUR_SCI", title: "Our World (Nursery)", code: "NUR_SCI", description: "Exploring the environment and basic science for nursery.", instructor: "To be assigned", schedule: "Fri 10 AM", schoolLevel: "Nursery", subjectCategory: "General Studies" },
+
+  // Primary
+  { id: "PRI_ENG", title: "English Language (Primary)", code: "PRI_ENG", description: "Comprehensive English studies for primary students.", instructor: "To be assigned", schedule: "Daily 9 AM", schoolLevel: "Primary", subjectCategory: "Languages" },
+  { id: "PRI_MTH", title: "Mathematics (Primary)", code: "PRI_MTH", description: "Core mathematical principles for primary education.", instructor: "To be assigned", schedule: "Daily 10 AM", schoolLevel: "Primary", subjectCategory: "Mathematics" },
+  { id: "PRI_BST", title: "Basic Science & Tech (Primary)", code: "PRI_BST", description: "Introduction to science and technology for primary.", instructor: "To be assigned", schedule: "MWF 11 AM", schoolLevel: "Primary", subjectCategory: "Sciences" },
+  { id: "PRI_SOS", title: "Social Studies (Primary)", code: "PRI_SOS", description: "Understanding society, history, and geography for primary.", instructor: "To be assigned", schedule: "T/Th 11 AM", schoolLevel: "Primary", subjectCategory: "Social & Humanities" },
+
+  // JSS (Secondary - Junior)
+  { id: "JSS_ENG", title: "English Studies (JSS)", code: "JSS_ENG", description: "Advanced English language and literature for JSS.", instructor: "To be assigned", schedule: "Daily 8 AM", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core" },
+  { id: "JSS_MTH", title: "Mathematics (JSS)", code: "JSS_MTH", description: "Junior secondary mathematics curriculum.", instructor: "To be assigned", schedule: "Daily 9 AM", schoolLevel: "Secondary", subjectCategory: "Mathematics", sssStream: "Core" },
+  { id: "JSS_BSC", title: "Basic Science (JSS)", code: "JSS_BSC", description: "Integrated basic science concepts for JSS.", instructor: "To be assigned", schedule: "T/Th 10 AM", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Core" },
+  { id: "JSS_BST", title: "Basic Technology (JSS)", code: "JSS_BST", description: "Introduction to technological concepts and skills for JSS.", instructor: "To be assigned", schedule: "MWF 10 AM", schoolLevel: "Secondary", subjectCategory: "Technology", sssStream: "Core" },
+
+  // SSS (Secondary - Senior) - Core examples
+  { id: "SSS_ENG_C", title: "English Language (SSS Core)", code: "SSS_ENG_C", description: "Senior secondary English language for all streams.", instructor: "To be assigned", schedule: "Daily 11 AM", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core" },
+  { id: "SSS_MTH_C", title: "Mathematics (SSS Core)", code: "SSS_MTH_C", description: "Senior secondary general mathematics for all streams.", instructor: "To be assigned", schedule: "Daily 12 PM", schoolLevel: "Secondary", subjectCategory: "Mathematics", sssStream: "Core" },
+
+  // SSS - Science examples
+  { id: "SSS_BIO_S", title: "Biology (SSS Science)", code: "SSS_BIO_S", description: "Senior secondary biology for science stream.", instructor: "To be assigned", schedule: "MWF 1 PM", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science" },
+  { id: "SSS_CHM_S", title: "Chemistry (SSS Science)", code: "SSS_CHM_S", description: "Senior secondary chemistry for science stream.", instructor: "To be assigned", schedule: "T/Th 1 PM", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science" },
+  { id: "SSS_PHY_S", title: "Physics (SSS Science)", code: "SSS_PHY_S", description: "Senior secondary physics for science stream.", instructor: "To be assigned", schedule: "MWF 2 PM", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science" },
+
+  // SSS - Arts examples
+  { id: "SSS_LIT_A", title: "Literature in English (SSS Arts)", code: "SSS_LIT_A", description: "Senior secondary literature for arts stream.", instructor: "To be assigned", schedule: "MWF 1 PM", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Art" },
+  { id: "SSS_GOV_A", title: "Government (SSS Arts)", code: "SSS_GOV_A", description: "Senior secondary government for arts stream.", instructor: "To be assigned", schedule: "T/Th 1 PM", schoolLevel: "Secondary", subjectCategory: "Social & Humanities", sssStream: "Art" },
+  
+  // SSS - Commercial examples
+  { id: "SSS_ACC_B", title: "Accounting (SSS Commercial)", code: "SSS_ACC_B", description: "Senior secondary accounting for commercial stream.", instructor: "To be assigned", schedule: "MWF 1 PM", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Commercial" },
+  { id: "SSS_ECO_B", title: "Economics (SSS Commercial)", code: "SSS_ECO_B", description: "Senior secondary economics for commercial stream.", instructor: "To be assigned", schedule: "T/Th 1 PM", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Commercial" },
+];
+
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['student', 'staff', 'admin'] },

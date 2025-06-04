@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
-import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
+import type { UserRole, SchoolLevel, SubjectCategory, Subject } from "@/lib/constants";
 import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons, defaultNigerianCurriculumSubjects } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -17,18 +17,6 @@ import { useForm, Controller, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-
-interface Subject {
-  id: string;
-  title: string;
-  code: string;
-  description: string;
-  instructor: string; // Default/Coordinating Instructor
-  schedule: string;
-  schoolLevel: SchoolLevel;
-  subjectCategory: SubjectCategory;
-  sssStream?: 'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade';
-}
 
 const subjectSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -81,7 +69,7 @@ export default function SubjectsPage() {
     const role = localStorage.getItem("userRole") as UserRole | null;
     setUserRole(role);
 
-    let currentSubjects = defaultNigerianCurriculumSubjects;
+    let currentSubjects: Subject[] = defaultNigerianCurriculumSubjects;
     if (typeof window !== 'undefined') {
         const storedSubjects = localStorage.getItem('schoolSubjectsData');
         if (storedSubjects) {
@@ -129,6 +117,7 @@ export default function SubjectsPage() {
     if (role !== 'staff') {
         setPageDescription("Browse available subjects. Filter by school level, subject category, and SSS stream.");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
   // Effect to determine allocated subjects for the current staff user and update page description
@@ -364,13 +353,13 @@ export default function SubjectsPage() {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row gap-2 justify-end">
+              <CardFooter className="flex justify-end">
                 {userRole === 'admin' && (
-                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(subject)} className="flex-1 sm:flex-none" aria-label={`Edit ${subject.title}`}>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(subject)} aria-label={`Edit ${subject.title}`}>
                             <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSubject(subject.id)} className="flex-1 sm:flex-none" aria-label={`Delete ${subject.title}`}>
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSubject(subject.id)} aria-label={`Delete ${subject.title}`}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -493,3 +482,5 @@ export default function SubjectsPage() {
     </div>
   );
 }
+
+    
