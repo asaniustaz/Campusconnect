@@ -5,19 +5,26 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { BookText, Layers, Users, CalendarDays } from "lucide-react";
+import { BookText, Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
 import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
 import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm, Controller, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useToast } from "@/hooks/use-toast";
 
-interface Subject { // Renamed from Course to Subject for clarity in this context
+interface Subject {
   id: string;
   title: string;
   code: string;
   description: string;
   instructor: string;
-  // credits: number; // Removed credits
   schedule: string;
   imageUrl: string;
   aiHint: string;
@@ -26,7 +33,24 @@ interface Subject { // Renamed from Course to Subject for clarity in this contex
   sssStream?: 'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade';
 }
 
-let subjectCounter = 0;
+const subjectSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters"),
+  code: z.string().min(3, "Code must be at least 3 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  instructor: z.string().min(2, "Instructor name is required"),
+  schedule: z.string().min(3, "Schedule is required"),
+  imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  aiHint: z.string().optional(),
+  schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
+  subjectCategory: z.custom<SubjectCategory>((val) => SUBJECT_CATEGORIES.includes(val as SubjectCategory), "Please select a subject category"),
+  sssStream: z.enum(['Core', 'Science', 'Art', 'Commercial', 'Trade']).optional(),
+});
+
+type SubjectFormData = z.infer<typeof subjectSchema>;
+
+
+let subjectCounter = 0; // This counter might lead to non-unique codes if subjects are deleted and then new ones added with old counter values.
+                        // For a robust system, code generation/validation needs more sophistication.
 const generateSubjectCode = (level: SchoolLevel, category: SubjectCategory, title: string) => {
   subjectCounter++;
   const levelPrefix = level.substring(0, 1);
@@ -34,376 +58,100 @@ const generateSubjectCode = (level: SchoolLevel, category: SubjectCategory, titl
   return `${levelPrefix}${catPrefix}${String(subjectCounter).padStart(3, '0')}`;
 };
 
-// Renamed nigerianCurriculumCourses to nigerianCurriculumSubjects for clarity
-const nigerianCurriculumSubjects: Subject[] = [
+// Default subjects if localStorage is empty
+const defaultNigerianCurriculumSubjects: Subject[] = [
   // Kindergarten (KG)
   {
     id: "KG_LIT", title: "Literacy (Pre-Reading & Pre-Writing)", schoolLevel: "Kindergarten", subjectCategory: "Languages",
-    code: generateSubjectCode("Kindergarten", "Languages", "Literacy"), description: "Developing pre-reading and pre-writing skills.", instructor: "Mrs. Adaobi", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "alphabet blocks"
+    code: "KGLAN001", description: "Developing pre-reading and pre-writing skills.", instructor: "Mrs. Adaobi", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "alphabet blocks"
   },
   {
     id: "KG_NUM", title: "Numeracy (Basic Numbers & Counting)", schoolLevel: "Kindergarten", subjectCategory: "Mathematics",
-    code: generateSubjectCode("Kindergarten", "Mathematics", "Numeracy"), description: "Introduction to numbers and counting.", instructor: "Mrs. Adaobi", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "counting bears"
+    code: "KMAT002", description: "Introduction to numbers and counting.", instructor: "Mrs. Adaobi", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "counting bears"
   },
-  {
-    id: "KG_RHY", title: "Rhymes and Songs", schoolLevel: "Kindergarten", subjectCategory: "Creative Arts",
-    code: generateSubjectCode("Kindergarten", "Creative Arts", "Rhymes"), description: "Learning through rhymes and songs.", instructor: "Mrs. Adaobi", schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children singing"
-  },
-  {
-    id: "KG_COL", title: "Colours and Shapes", schoolLevel: "Kindergarten", subjectCategory: "General Studies",
-    code: generateSubjectCode("Kindergarten", "General Studies", "ColoursShapes"), description: "Identifying colours and shapes.", instructor: "Mrs. Funke", schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "shape sorter"
-  },
-  {
-    id: "KG_HEA", title: "Health Habits", schoolLevel: "Kindergarten", subjectCategory: "Health & PE",
-    code: generateSubjectCode("Kindergarten", "Health & PE", "HealthHabits"), description: "Basic personal hygiene and health.", instructor: "Mrs. Funke", schedule: "Daily 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hand washing"
-  },
-  {
-    id: "KG_SOC", title: "Social Habits", schoolLevel: "Kindergarten", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Kindergarten", "Social & Humanities", "SocialHabits"), description: "Learning to interact and share.", instructor: "Mrs. Funke", schedule: "Daily 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children playing"
-  },
-  {
-    id: "KG_PHY", title: "Physical Development", schoolLevel: "Kindergarten", subjectCategory: "Health & PE",
-    code: generateSubjectCode("Kindergarten", "Health & PE", "PhysicalDev"), description: "Gross motor skills development.", instructor: "Mr. Emeka", schedule: "Daily 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kids playground"
-  },
-  {
-    id: "KG_ART", title: "Creative Arts (KG)", schoolLevel: "Kindergarten", subjectCategory: "Creative Arts",
-    code: generateSubjectCode("Kindergarten", "Creative Arts", "CreativeKG"), description: "Exploring creativity through drawing and crafts.", instructor: "Mrs. Adaobi", schedule: "Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kids drawing"
-  },
-
-  // Nursery 1–3
+  // Nursery
   {
     id: "NUR_ENG", title: "English Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
-    code: generateSubjectCode("Nursery", "Languages", "EnglishNursery"), description: "Foundational English skills for nursery.", instructor: "Ms. Bola", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "abc book"
+    code: "NLAN001", description: "Foundational English skills for nursery.", instructor: "Ms. Bola", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "abc book"
   },
   {
     id: "NUR_MTH", title: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics",
-    code: generateSubjectCode("Nursery", "Mathematics", "MathNursery"), description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "number blocks"
+    code: "NMAT002", description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "number blocks"
   },
-  {
-    id: "NUR_YOR", title: "Yoruba Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
-    code: generateSubjectCode("Nursery", "Languages", "YorubaNursery"), description: "Introduction to Yoruba language.", instructor: "Mrs. Ade", schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "yoruba culture"
-  },
-   {
-    id: "NUR_IGB", title: "Igbo Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
-    code: generateSubjectCode("Nursery", "Languages", "IgboNursery"), description: "Introduction to Igbo language.", instructor: "Mr. Obi", schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "igbo culture"
-  },
-   {
-    id: "NUR_HAU", title: "Hausa Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
-    code: generateSubjectCode("Nursery", "Languages", "HausaNursery"), description: "Introduction to Hausa language.", instructor: "Mallam Sani", schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hausa culture"
-  },
-  {
-    id: "NUR_BSC", title: "Basic Science (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences",
-    code: generateSubjectCode("Nursery", "Sciences", "ScienceNursery"), description: "Exploring the world around us.", instructor: "Ms. Chidinma", schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "magnifying glass"
-  },
-  {
-    id: "NUR_HH", title: "Health Habits (Nursery)", schoolLevel: "Nursery", subjectCategory: "Health & PE",
-    code: generateSubjectCode("Nursery", "Health & PE", "HealthNursery"), description: "Promoting healthy habits.", instructor: "Nurse Fatima", schedule: "Daily 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "toothbrush apple"
-  },
-  {
-    id: "NUR_SNV", title: "Social Norms and Values (Nursery)", schoolLevel: "Nursery", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Nursery", "Social & Humanities", "SocialNursery"), description: "Understanding social norms and values.", instructor: "Ms. Bola", schedule: "Daily 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children sharing"
-  },
-  {
-    id: "NUR_RHYP", title: "Rhymes and Poetry (Nursery)", schoolLevel: "Nursery", subjectCategory: "Creative Arts",
-    code: generateSubjectCode("Nursery", "Creative Arts", "RhymesNursery"), description: "Learning through rhymes and poetry.", instructor: "Ms. Bola", schedule: "Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "poetry book"
-  },
-  {
-    id: "NUR_PHE", title: "Physical and Health Education (Nursery)", schoolLevel: "Nursery", subjectCategory: "Health & PE",
-    code: generateSubjectCode("Nursery", "Health & PE", "PHENursery"), description: "Fun physical activities.", instructor: "Coach Sam", schedule: "Daily 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kids exercising"
-  },
-  {
-    id: "NUR_CA", title: "Creative Arts (Nursery)", schoolLevel: "Nursery", subjectCategory: "Creative Arts",
-    code: generateSubjectCode("Nursery", "Creative Arts", "CreativeNursery"), description: "Drawing, painting, and crafts.", instructor: "Ms. Chidinma", schedule: "Wed 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children painting"
-  },
-  {
-    id: "NUR_IRS", title: "Islamic Studies (Nursery)", schoolLevel: "Nursery", subjectCategory: "Religious Studies",
-    code: generateSubjectCode("Nursery", "Religious Studies", "IRSNursery"), description: "Introduction to Islamic teachings.", instructor: "Imam Ali", schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "quran illustration"
-  },
-  {
-    id: "NUR_CRS", title: "Christian Religious Studies (Nursery)", schoolLevel: "Nursery", subjectCategory: "Religious Studies",
-    code: generateSubjectCode("Nursery", "Religious Studies", "CRSNursery"), description: "Introduction to Christian teachings.", instructor: "Pastor John", schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "bible illustration"
-  },
-  {
-    id: "NUR_NAT", title: "Nature Study (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences",
-    code: generateSubjectCode("Nursery", "Sciences", "NatureNursery"), description: "Learning about plants and animals.", instructor: "Ms. Chidinma", schedule: "Mon 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "leaf insect"
-  },
-  {
-    id: "NUR_CIV", title: "Civic Education (Nursery)", schoolLevel: "Nursery", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Nursery", "Social & Humanities", "CivicNursery"), description: "Basic understanding of civic duties.", instructor: "Ms. Bola", schedule: "Fri 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "community helpers"
-  },
-
-  // Primary 1–5
+  // Primary
   {
     id: "PRI_ENG", title: "English Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateSubjectCode("Primary", "Languages", "EnglishPrimary"), description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "english textbook"
+    code: "PLAN001", description: "Developing reading, writing, and speaking skills.", instructor: "Mr. David", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "english textbook"
   },
   {
     id: "PRI_MTH", title: "Mathematics (Primary)", schoolLevel: "Primary", subjectCategory: "Mathematics",
-    code: generateSubjectCode("Primary", "Mathematics", "MathPrimary"), description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "math symbols"
+    code: "PMAT002", description: "Core mathematical concepts and problem-solving.", instructor: "Mrs. Esther", schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "math symbols"
   },
-  {
-    id: "PRI_BST", title: "Basic Science and Technology (Primary)", schoolLevel: "Primary", subjectCategory: "Sciences",
-    code: generateSubjectCode("Primary", "Sciences", "BSTPrimary"), description: "Fundamentals of science and basic technology.", instructor: "Mr. Peter", schedule: "Mon/Wed/Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "science experiment"
-  },
-  {
-    id: "PRI_SOS", title: "Social Studies (Primary)", schoolLevel: "Primary", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Primary", "Social & Humanities", "SocialPrimary"), description: "Understanding society, culture, and environment.", instructor: "Mrs. Grace", schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "map globe"
-  },
-  {
-    id: "PRI_CIV", title: "Civic Education (Primary)", schoolLevel: "Primary", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Primary", "Social & Humanities", "CivicPrimary"), description: "Rights, duties, and values of a citizen.", instructor: "Mrs. Grace", schedule: "Mon 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "voting box"
-  },
-  {
-    id: "PRI_AGR", title: "Agricultural Science (Primary)", schoolLevel: "Primary", subjectCategory: "Business & Vocational",
-    code: generateSubjectCode("Primary", "Business & Vocational", "AgricPrimary"), description: "Introduction to farming and agriculture.", instructor: "Mr. Ben", schedule: "Wed 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "farm tools"
-  },
-  {
-    id: "PRI_YOR", title: "Yoruba Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateSubjectCode("Primary", "Languages", "YorubaPrimary"), description: "Further studies in Yoruba language.", instructor: "Mrs. Ade", schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "yoruba text"
-  },
-  {
-    id: "PRI_IGB", title: "Igbo Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateSubjectCode("Primary", "Languages", "IgboPrimary"), description: "Further studies in Igbo language.", instructor: "Mr. Obi", schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "igbo text"
-  },
-  {
-    id: "PRI_HAU", title: "Hausa Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateSubjectCode("Primary", "Languages", "HausaPrimary"), description: "Further studies in Hausa language.", instructor: "Mallam Sani", schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hausa text"
-  },
-  {
-    id: "PRI_IRS", title: "Islamic Studies (Primary)", schoolLevel: "Primary", subjectCategory: "Religious Studies",
-    code: generateSubjectCode("Primary", "Religious Studies", "IRSPrimary"), description: "Islamic teachings and practices.", instructor: "Imam Ali", schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "mosque silhouette"
-  },
-  {
-    id: "PRI_CRS", title: "Christian Religious Studies (Primary)", schoolLevel: "Primary", subjectCategory: "Religious Studies",
-    code: generateSubjectCode("Primary", "Religious Studies", "CRSPrimary"), description: "Christian teachings and practices.", instructor: "Pastor John", schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "church silhouette"
-  },
-  {
-    id: "PRI_CCA", title: "Cultural and Creative Arts (Primary)", schoolLevel: "Primary", subjectCategory: "Creative Arts",
-    code: generateSubjectCode("Primary", "Creative Arts", "CCAPrimary"), description: "Exploring culture through various art forms.", instructor: "Ms. Aisha", schedule: "Fri 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "african masks"
-  },
-  {
-    id: "PRI_PHE", title: "Physical and Health Education (Primary)", schoolLevel: "Primary", subjectCategory: "Health & PE",
-    code: generateSubjectCode("Primary", "Health & PE", "PHEPrimary"), description: "Sports, games, and health education.", instructor: "Coach Tunde", schedule: "Daily 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "sports equipment"
-  },
-  {
-    id: "PRI_MOR", title: "Moral Instruction (Primary)", schoolLevel: "Primary", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Primary", "Social & Humanities", "MoralPrimary"), description: "Teaching moral values and ethics.", instructor: "Mrs. Grace", schedule: "Mon 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "helping hands"
-  },
-  {
-    id: "PRI_VR", title: "Verbal Reasoning (Primary)", schoolLevel: "Primary", subjectCategory: "General Studies",
-    code: generateSubjectCode("Primary", "General Studies", "VRPrimary"), description: "Developing verbal reasoning skills.", instructor: "Mr. David", schedule: "Wed 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "brain puzzle"
-  },
-  {
-    id: "PRI_QR", title: "Quantitative Reasoning (Primary)", schoolLevel: "Primary", subjectCategory: "General Studies",
-    code: generateSubjectCode("Primary", "General Studies", "QRPrimary"), description: "Developing quantitative reasoning skills.", instructor: "Mrs. Esther", schedule: "Fri 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "number puzzle"
-  },
-  {
-    id: "PRI_HE", title: "Home Economics (Primary)", schoolLevel: "Primary", subjectCategory: "Business & Vocational",
-    code: generateSubjectCode("Primary", "Business & Vocational", "HEPrimary"), description: "Basic home management skills.", instructor: "Mrs. Kemi", schedule: "Tue 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "sewing cooking"
-  },
-
-  // Junior Secondary School (JSS 1–3)
+  // JSS
   {
     id: "JSS_ENG", title: "English Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
-    code: generateSubjectCode("Secondary", "Languages", "EnglishJSS"), description: "Advanced English language and literature.", instructor: "Ms. Johnson", schedule: "Daily 8:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "shakespeare book"
+    code: "SLAN001", description: "Advanced English language and literature.", instructor: "Ms. Johnson", schedule: "Daily 8:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "shakespeare book", sssStream: "Core" // Example, JSS usually doesn't have SSS streams
   },
   {
     id: "JSS_MTH", title: "Mathematics (JSS)", schoolLevel: "Secondary", subjectCategory: "Mathematics",
-    code: generateSubjectCode("Secondary", "Mathematics", "MathJSS"), description: "Core mathematics for junior secondary.", instructor: "Mr. Adebayo", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "geometry tools"
+    code: "SMAT002", description: "Core mathematics for junior secondary.", instructor: "Mr. Adebayo", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "geometry tools", sssStream: "Core"
   },
-  {
-    id: "JSS_BSC", title: "Basic Science (JSS)", schoolLevel: "Secondary", subjectCategory: "Sciences",
-    code: generateSubjectCode("Secondary", "Sciences", "ScienceJSS"), description: "Integrated science concepts.", instructor: "Mr. Okoro", schedule: "Mon/Wed/Fri 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "science lab"
-  },
-  {
-    id: "JSS_BT", title: "Basic Technology (JSS)", schoolLevel: "Secondary", subjectCategory: "Technology",
-    code: generateSubjectCode("Secondary", "Technology", "TechJSS"), description: "Introduction to technology and design.", instructor: "Mr. Isa", schedule: "Tue/Thu 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "tools workshop"
-  },
-  {
-    id: "JSS_SOS", title: "Social Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Secondary", "Social & Humanities", "SocialJSS"), description: "Understanding society, government, and history.", instructor: "Mrs. Bello", schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "historical map"
-  },
-  {
-    id: "JSS_CIV", title: "Civic Education (JSS)", schoolLevel: "Secondary", subjectCategory: "Social & Humanities",
-    code: generateSubjectCode("Secondary", "Social & Humanities", "CivicJSS"), description: "Citizenship, rights, and responsibilities.", instructor: "Mrs. Bello", schedule: "Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "constitution book"
-  },
-  {
-    id: "JSS_AGR", title: "Agricultural Science (JSS)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", 
-    code: generateSubjectCode("Secondary", "Business & Vocational", "AgricJSS"), description: "Principles of agriculture and farming.", instructor: "Mr. Eze", schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "farm field"
-  },
-  {
-    id: "JSS_BUS", title: "Business Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "BusinessJSS"), description: "Introduction to business and commerce.", instructor: "Ms. Dangana", schedule: "Mon/Wed 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "office setting"
-  },
-  {
-    id: "JSS_CCA", title: "Cultural and Creative Arts (JSS)", schoolLevel: "Secondary", subjectCategory: "Creative Arts",
-    code: generateSubjectCode("Secondary", "Creative Arts", "CCAJSS"), description: "Music, drama, fine arts.", instructor: "Mr. Femi", schedule: "Fri 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "art supplies"
-  },
-  {
-    id: "JSS_COMP", title: "Computer Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Technology",
-    code: generateSubjectCode("Secondary", "Technology", "ComputerJSS"), description: "Fundamentals of computing.", instructor: "Mr. Isa", schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "computer screen"
-  },
-  {
-    id: "JSS_IRS", title: "Islamic Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Religious Studies",
-    code: generateSubjectCode("Secondary", "Religious Studies", "IRSJSS"), description: "In-depth Islamic knowledge.", instructor: "Sheikh Ahmed", schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "islamic calligraphy"
-  },
-  {
-    id: "JSS_CRS", title: "Christian Religious Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Religious Studies",
-    code: generateSubjectCode("Secondary", "Religious Studies", "CRSJSS"), description: "In-depth Christian knowledge.", instructor: "Rev. Sister Mary", schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "stained glass"
-  },
-  {
-    id: "JSS_HE", title: "Home Economics (JSS)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "HEJSS"), description: "Food, nutrition, and home management.", instructor: "Mrs. Chioma", schedule: "Wed 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kitchen utensils"
-  },
-  {
-    id: "JSS_PHE", title: "Physical and Health Education (JSS)", schoolLevel: "Secondary", subjectCategory: "Health & PE",
-    code: generateSubjectCode("Secondary", "Health & PE", "PHEJSS"), description: "Sports, fitness, and health science.", instructor: "Coach Bala", schedule: "Daily 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "running track"
-  },
-  {
-    id: "JSS_NIGYOR", title: "Nigerian Language - Yoruba (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
-    code: generateSubjectCode("Secondary", "Languages", "YorubaJSS"), description: "Yoruba language and culture.", instructor: "Dr. (Mrs.) Adewale", schedule: "Tue 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "yoruba script"
-  },
-  {
-    id: "JSS_NIGIGB", title: "Nigerian Language - Igbo (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
-    code: generateSubjectCode("Secondary", "Languages", "IgboJSS"), description: "Igbo language and culture.", instructor: "Chief Nzeogwu", schedule: "Tue 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "igbo script"
-  },
-  {
-    id: "JSS_NIGHAU", title: "Nigerian Language - Hausa (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages",
-    code: generateSubjectCode("Secondary", "Languages", "HausaJSS"), description: "Hausa language and culture.", instructor: "Alhaji Musa", schedule: "Tue 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hausa script"
-  },
-
-  // Senior Secondary School (SSS 1–3) - Core
-  {
-    id: "SSS_ENG_C", title: "English Language (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core",
-    code: generateSubjectCode("Secondary", "Languages", "EnglishSSSCore"), description: "Compulsory English for SSS.", instructor: "Prof. Wole", schedule: "Daily 8:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "literature books"
-  },
-  {
-    id: "SSS_MTH_C", title: "Mathematics (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Mathematics", sssStream: "Core",
-    code: generateSubjectCode("Secondary", "Mathematics", "MathSSSCore"), description: "Compulsory Mathematics for SSS.", instructor: "Dr. Funmi", schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "calculus equations"
-  },
-  {
-    id: "SSS_CIV_C", title: "Civic Education (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Social & Humanities", sssStream: "Core",
-    code: generateSubjectCode("Secondary", "Social & Humanities", "CivicSSSCore"), description: "Compulsory Civic Education for SSS.", instructor: "Mr. Lagbaja", schedule: "Mon/Wed 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "nigerian flag"
-  },
-  {
-    id: "SSS_NIGYOR_C", title: "Nigerian Language - Yoruba (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core",
-    code: generateSubjectCode("Secondary", "Languages", "YorubaSSSCore"), description: "Yoruba as a core Nigerian Language.", instructor: "Dr. (Mrs.) Adewale", schedule: "Tue/Thu 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "yoruba literature"
-  },
-    {
-    id: "SSS_NIGIGB_C", title: "Nigerian Language - Igbo (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core",
-    code: generateSubjectCode("Secondary", "Languages", "IgboSSSCore"), description: "Igbo as a core Nigerian Language.", instructor: "Chief Nzeogwu", schedule: "Tue/Thu 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "igbo literature"
-  },
-  {
-    id: "SSS_NIGHAU_C", title: "Nigerian Language - Hausa (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Core",
-    code: generateSubjectCode("Secondary", "Languages", "HausaSSSCore"), description: "Hausa as a core Nigerian Language.", instructor: "Alhaji Musa", schedule: "Tue/Thu 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hausa literature"
-  },
-  {
-    id: "SSS_TRD_DP", title: "Trade Subject: Data Processing (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Technology", sssStream: "Trade",
-    code: generateSubjectCode("Secondary", "Technology", "DataProcSSS"), description: "Core trade subject: Data Processing.", instructor: "Mr. Byte", schedule: "Fri 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "data server"
-  },
-  {
-    id: "SSS_TRD_CAT", title: "Trade Subject: Catering Craft (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Trade",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "CateringSSS"), description: "Core trade subject: Catering Craft.", instructor: "Chef Amina", schedule: "Fri 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "chef cooking"
-  },
-  {
-    id: "SSS_TRD_AH", title: "Trade Subject: Animal Husbandry (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Trade",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "AnimalHSSS"), description: "Core trade subject: Animal Husbandry.", instructor: "Dr. Vet", schedule: "Fri 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "farm animals"
-  },
-
-  // SSS - Science Subjects
+  // SSS
   {
     id: "SSS_BIO_S", title: "Biology (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Sciences", "BiologySSSSci"), description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "dna strand"
-  },
-  {
-    id: "SSS_CHM_S", title: "Chemistry (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Sciences", "ChemistrySSSSci"), description: "Advanced chemistry for science students.", instructor: "Mr. Atom", schedule: "Mon/Wed/Fri 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "chemistry beakers"
-  },
-  {
-    id: "SSS_PHY_S", title: "Physics (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Sciences", "PhysicsSSSSci"), description: "Advanced physics for science students.", instructor: "Ms. Proton", schedule: "Tue/Thu 11:00 AM, Fri 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "physics equations"
-  },
-  {
-    id: "SSS_FMTH_S", title: "Further Mathematics (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Mathematics", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Mathematics", "FMathSSSSci"), description: "Advanced mathematics for science students.", instructor: "Dr. Funmi", schedule: "Tue/Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "complex graph"
-  },
-  {
-    id: "SSS_AGR_S", title: "Agricultural Science (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Sciences", "AgricSSSSci"), description: "Scientific principles of agriculture.", instructor: "Dr. Farmer", schedule: "Mon 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "crop science"
-  },
-  {
-    id: "SSS_TD_S", title: "Technical Drawing (SSS Science/Tech)", schoolLevel: "Secondary", subjectCategory: "Technology", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Technology", "TDSSSSci"), description: "Technical drawing for science/tech students.", instructor: "Engr. Design", schedule: "Wed 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "blueprints tools"
-  },
-  {
-    id: "SSS_CS_S", title: "Computer Science (SSS Science/Tech)", schoolLevel: "Secondary", subjectCategory: "Technology", sssStream: "Science",
-    code: generateSubjectCode("Secondary", "Technology", "CompSciSSSSci"), description: "Computer science for science/tech students.", instructor: "Mr. Byte", schedule: "Thu 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "code screen"
-  },
-
-  // SSS - Art Subjects
-  {
-    id: "SSS_LIT_A", title: "Literature-in-English (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Languages", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Languages", "LitSSSArt"), description: "Study of English literature for art students.", instructor: "Prof. Wole", schedule: "Mon/Wed/Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "classic novel"
-  },
-  {
-    id: "SSS_GOV_A", title: "Government (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Social & Humanities", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Social & Humanities", "GovSSSArt"), description: "Study of government systems for art students.", instructor: "Mr. Lagbaja", schedule: "Mon/Wed/Fri 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "parliament building"
-  },
-  {
-    id: "SSS_HIS_A", title: "History (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Social & Humanities", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Social & Humanities", "HistSSSArt"), description: "Study of history for art students.", instructor: "Dr. Aisha", schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "ancient scroll"
-  },
-  {
-    id: "SSS_FA_A", title: "Fine Art (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Creative Arts", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Creative Arts", "FineArtSSSArt"), description: "Practical and theoretical fine arts.", instructor: "Ms. Shade", schedule: "Tue/Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "paintings sculpture"
-  },
-  {
-    id: "SSS_MUS_A", title: "Music (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Creative Arts", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Creative Arts", "MusicSSSArt"), description: "Theory and practice of music.", instructor: "Mr. Harmony", schedule: "Fri 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "musical instruments"
-  },
-  {
-    id: "SSS_IRS_A", title: "Islamic Studies (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Religious Studies", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Religious Studies", "IRSSSSArt"), description: "Islamic Studies for art students.", instructor: "Sheikh Ahmed", schedule: "Mon 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "religious text"
-  },
-  {
-    id: "SSS_CRS_A", title: "Christian Religious Studies (SSS Art)", schoolLevel: "Secondary", subjectCategory: "Religious Studies", sssStream: "Art",
-    code: generateSubjectCode("Secondary", "Religious Studies", "CRSSSSArt"), description: "Christian Religious Studies for art students.", instructor: "Rev. Sister Mary", schedule: "Mon 2:00PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "religious symbols"
-  },
-  
-  // SSS - Commercial Subjects (Example)
-   {
-    id: "SSS_ECON_C", title: "Economics (SSS Commercial)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Commercial",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "EconSSSCom"), description: "Principles of economics for commercial students.", instructor: "Mr. Dollar", schedule: "Mon/Wed/Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "stock chart"
-  },
-  {
-    id: "SSS_ACC_C", title: "Accounting (SSS Commercial)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Commercial",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "AccSSSCom"), description: "Financial accounting for commercial students.", instructor: "Ms. Ledger", schedule: "Mon/Wed/Fri 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "calculator ledger"
-  },
-  {
-    id: "SSS_COMM_C", title: "Commerce (SSS Commercial)", schoolLevel: "Secondary", subjectCategory: "Business & Vocational", sssStream: "Commercial",
-    code: generateSubjectCode("Secondary", "Business & Vocational", "CommSSSCom"), description: "Principles of commerce for commercial students.", instructor: "Mr. Trader", schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "global trade"
+    code: "SSCI001", description: "Advanced biology for science students.", instructor: "Dr. Evelyn", schedule: "Mon/Wed/Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "dna strand"
   },
 ];
 
+
 interface StaffAllocation {
-  [staffId: string]: string[]; // Array of subject IDs (renamed from course IDs)
+  [staffId: string]: string[];
 }
 
-export default function SubjectsPage() { // Renamed from CoursesPage
+export default function SubjectsPage() {
+  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<SchoolLevel | "all">("all");
   const [selectedCategory, setSelectedCategory] = useState<SubjectCategory | "all">("all");
   const [selectedSssStream, setSelectedSssStream] = useState<'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade' | 'all'>("all");
+  
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [allocatedSubjectIdsForStaff, setAllocatedSubjectIdsForStaff] = useState<string[]>([]); // Renamed from allocatedCourseIdsForStaff
-  const [pageDescription, setPageDescription] = useState("Browse available subjects from the Nigerian curriculum. Filter by school level, subject category, and SSS stream.");
+  const [allocatedSubjectIdsForStaff, setAllocatedSubjectIdsForStaff] = useState<string[]>([]);
+  const [pageDescription, setPageDescription] = useState("Browse available subjects. Filter by school level, subject category, and SSS stream.");
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const { toast } = useToast();
+
+  const subjectForm = useForm<SubjectFormData>({
+    resolver: zodResolver(subjectSchema),
+    defaultValues: {
+      title: "", code: "", description: "", instructor: "", schedule: "",
+      imageUrl: "", aiHint: "", schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
+    },
+  });
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole | null;
     const userId = localStorage.getItem("userId");
     setUserRole(role);
 
+    // Load subjects from localStorage or use defaults
+    const storedSubjects = localStorage.getItem('schoolSubjectsData');
+    if (storedSubjects) {
+      try {
+        setAllSubjects(JSON.parse(storedSubjects));
+      } catch (e) {
+        console.error("Failed to parse subjects from localStorage, using defaults.", e);
+        setAllSubjects(defaultNigerianCurriculumSubjects);
+        localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
+      }
+    } else {
+      setAllSubjects(defaultNigerianCurriculumSubjects);
+      localStorage.setItem('schoolSubjectsData', JSON.stringify(defaultNigerianCurriculumSubjects));
+    }
+
     if (role === 'staff' && userId) {
-      const storedAllocations = localStorage.getItem('staffCourseAllocations'); // Key remains staffCourseAllocations as it's an internal key
+      const storedAllocations = localStorage.getItem('staffCourseAllocations');
       if (storedAllocations) {
         try {
           const allocations: StaffAllocation = JSON.parse(storedAllocations);
@@ -417,49 +165,108 @@ export default function SubjectsPage() { // Renamed from CoursesPage
         } catch (e) {
           console.error("Failed to parse staff allocations from localStorage", e);
           setAllocatedSubjectIdsForStaff([]);
-           setPageDescription("Could not load your allocated subjects. Contact an administrator.");
+          setPageDescription("Could not load your allocated subjects. Contact an administrator.");
         }
       } else {
         setPageDescription("You currently have no subjects allocated. Contact an administrator.");
         setAllocatedSubjectIdsForStaff([]);
       }
     } else if (role === 'student' || role === 'admin') {
-       setPageDescription("Browse available subjects from the Nigerian curriculum. Filter by school level, subject category, and SSS stream.");
+       setPageDescription("Browse available subjects. Filter by school level, subject category, and SSS stream.");
     }
-  }, []);
+  }, [userRole]); // Rerun if userRole changes, e.g., after login.
+
+  const saveSubjectsToLocalStorage = (subjects: Subject[]) => {
+    localStorage.setItem('schoolSubjectsData', JSON.stringify(subjects));
+    setAllSubjects(subjects);
+  };
+
+  const handleOpenDialog = (subject: Subject | null = null) => {
+    setEditingSubject(subject);
+    if (subject) {
+      subjectForm.reset({
+        ...subject,
+        imageUrl: subject.imageUrl || "", // Ensure URL is not null
+        aiHint: subject.aiHint || "",
+      });
+    } else {
+      subjectForm.reset({
+        title: "", code: "", description: "", instructor: "", schedule: "",
+        imageUrl: "", aiHint: "", schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
+      });
+    }
+    setIsDialogOpen(true);
+  };
+
+  const onSubjectSubmit: SubmitHandler<SubjectFormData> = (data) => {
+    if (editingSubject) { // Editing existing subject
+      const updatedSubjects = allSubjects.map(sub => 
+        sub.id === editingSubject.id ? { ...editingSubject, ...data } : sub
+      );
+      saveSubjectsToLocalStorage(updatedSubjects);
+      toast({ title: "Subject Updated", description: `${data.title} has been updated.` });
+    } else { // Adding new subject
+      const newSubject: Subject = {
+        id: `sub-${Date.now()}`, // Simple unique ID
+        ...data,
+        imageUrl: data.imageUrl || "https://placehold.co/600x400.png", // Default image if empty
+      };
+      saveSubjectsToLocalStorage([...allSubjects, newSubject]);
+      toast({ title: "Subject Added", description: `${data.title} has been added.` });
+    }
+    setIsDialogOpen(false);
+    setEditingSubject(null);
+  };
+
+  const handleDeleteSubject = (subjectId: string) => {
+    if (window.confirm("Are you sure you want to delete this subject? This action cannot be undone.")) {
+      const updatedSubjects = allSubjects.filter(sub => sub.id !== subjectId);
+      saveSubjectsToLocalStorage(updatedSubjects);
+      // Also remove from staff allocations
+      const storedAllocations = localStorage.getItem('staffCourseAllocations');
+      if (storedAllocations) {
+        try {
+          const allocations: StaffAllocation = JSON.parse(storedAllocations);
+          const newAllocations: StaffAllocation = {};
+          for (const staffId in allocations) {
+            newAllocations[staffId] = allocations[staffId].filter(subId => subId !== subjectId);
+          }
+          localStorage.setItem('staffCourseAllocations', JSON.stringify(newAllocations));
+        } catch (e) {
+          console.error("Error updating staff allocations after subject deletion:", e);
+        }
+      }
+      toast({ title: "Subject Deleted", variant: "destructive" });
+    }
+  };
 
 
-  const getFilteredSubjects = () => { // Renamed from getFilteredCourses
-    let subjectsToDisplay = nigerianCurriculumSubjects;
+  const getFilteredSubjects = () => {
+    let subjectsToDisplay = [...allSubjects];
 
     if (userRole === 'staff') {
       if (allocatedSubjectIdsForStaff.length > 0) {
         subjectsToDisplay = subjectsToDisplay.filter(subject => allocatedSubjectIdsForStaff.includes(subject.id));
       } else {
-        // If staff has no allocations explicitly, they see no subjects
         return [];
       }
     }
 
-
-    // Apply general filters: level, category, SSS stream, only if not staff or staff with allocations
-    if (userRole !== 'staff' || (userRole === 'staff' && allocatedSubjectIdsForStaff.length > 0)) {
-        subjectsToDisplay = subjectsToDisplay.filter(subject => 
-        (selectedLevel === "all" || subject.schoolLevel === selectedLevel) &&
-        (selectedCategory === "all" || subject.subjectCategory === selectedCategory)
-        );
-        
-        if (selectedLevel === "Secondary" && selectedSssStream !== "all") {
-        subjectsToDisplay = subjectsToDisplay.filter(subject => {
-            if (selectedSssStream === "Core") return subject.sssStream === "Core";
-            return subject.sssStream === selectedSssStream || subject.sssStream === "Core";
-        });
-        }
+    subjectsToDisplay = subjectsToDisplay.filter(subject => 
+      (selectedLevel === "all" || subject.schoolLevel === selectedLevel) &&
+      (selectedCategory === "all" || subject.subjectCategory === selectedCategory)
+    );
+    
+    if (selectedLevel === "Secondary" && selectedSssStream !== "all") {
+      subjectsToDisplay = subjectsToDisplay.filter(subject => {
+        if (selectedSssStream === "Core") return subject.sssStream === "Core";
+        return subject.sssStream === selectedSssStream || subject.sssStream === "Core";
+      });
     }
     return subjectsToDisplay;
   };
 
-  const filteredSubjects = getFilteredSubjects(); // Renamed from filteredCourses
+  const filteredSubjects = getFilteredSubjects();
 
   const getCategoryIcon = (category: SubjectCategory) => {
     const Icon = subjectCategoryIcons[category] || BookText; 
@@ -468,12 +275,18 @@ export default function SubjectsPage() { // Renamed from CoursesPage
   
   const sssStreams: Array<'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade'> = ['Core', 'Science', 'Art', 'Commercial', 'Trade'];
 
-
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Subjects</h1> {/* Changed from Courses */}
-        <p className="text-muted-foreground">{pageDescription}</p>
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+            <h1 className="text-3xl font-bold font-headline text-foreground">Subjects</h1>
+            <p className="text-muted-foreground">{pageDescription}</p>
+        </div>
+        {userRole === 'admin' && (
+            <Button onClick={() => handleOpenDialog(null)} className="mt-2 sm:mt-0 bg-accent hover:bg-accent/90 text-accent-foreground">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add New Subject
+            </Button>
+        )}
       </header>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -516,11 +329,11 @@ export default function SubjectsPage() { // Renamed from CoursesPage
       
       {filteredSubjects.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredSubjects.map((subject) => ( // Renamed course to subject
+          {filteredSubjects.map((subject) => (
             <Card key={subject.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="relative w-full h-48">
                 <Image 
-                  src={subject.imageUrl} 
+                  src={subject.imageUrl || "https://placehold.co/600x400.png"} 
                   alt={subject.title} 
                   layout="fill" 
                   objectFit="cover"
@@ -553,10 +366,20 @@ export default function SubjectsPage() { // Renamed from CoursesPage
                   </div>
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button variant="outline" className="w-full">
+              <CardFooter className="flex flex-col sm:flex-row gap-2 justify-between">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <BookText className="mr-2 h-4 w-4" /> View Details
                 </Button>
+                {userRole === 'admin' && (
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="icon" onClick={() => handleOpenDialog(subject)} className="flex-1 sm:flex-none">
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="destructive" size="icon" onClick={() => handleDeleteSubject(subject.id)} className="flex-1 sm:flex-none">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
               </CardFooter>
             </Card>
           ))}
@@ -565,10 +388,118 @@ export default function SubjectsPage() { // Renamed from CoursesPage
          <p className="text-center text-muted-foreground col-span-full">
             {userRole === 'staff' && allocatedSubjectIdsForStaff.length === 0
                 ? "You currently have no subjects allocated. Please contact an administrator."
-                : "No subjects match the selected filters."
+                : "No subjects match the selected filters, or no subjects have been added yet."
             }
         </p>
       )}
+
+      {/* Dialog for Add/Edit Subject */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{editingSubject ? "Edit Subject" : "Add New Subject"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={subjectForm.handleSubmit(onSubjectSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-3">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input id="title" {...subjectForm.register("title")} />
+              {subjectForm.formState.errors.title && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.title.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="code">Subject Code</Label>
+              <Input id="code" {...subjectForm.register("code")} disabled={!!editingSubject} />
+              {subjectForm.formState.errors.code && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.code.message}</p>}
+               {!!editingSubject && <p className="text-xs text-muted-foreground mt-1">Subject code cannot be changed after creation.</p>}
+            </div>
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" {...subjectForm.register("description")} />
+              {subjectForm.formState.errors.description && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.description.message}</p>}
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="instructor">Instructor</Label>
+                    <Input id="instructor" {...subjectForm.register("instructor")} />
+                    {subjectForm.formState.errors.instructor && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.instructor.message}</p>}
+                </div>
+                <div>
+                    <Label htmlFor="schedule">Schedule</Label>
+                    <Input id="schedule" {...subjectForm.register("schedule")} />
+                    {subjectForm.formState.errors.schedule && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.schedule.message}</p>}
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="imageUrl">Image URL (Optional)</Label>
+                    <Input id="imageUrl" {...subjectForm.register("imageUrl")} placeholder="https://placehold.co/600x400.png" />
+                    {subjectForm.formState.errors.imageUrl && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.imageUrl.message}</p>}
+                </div>
+                <div>
+                    <Label htmlFor="aiHint">AI Hint for Image (Optional)</Label>
+                    <Input id="aiHint" {...subjectForm.register("aiHint")} placeholder="e.g., textbook books" />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="schoolLevel">School Level</Label>
+                    <Controller
+                        name="schoolLevel"
+                        control={subjectForm.control}
+                        render={({ field }) => (
+                        <Select onValueChange={(value) => field.onChange(value as SchoolLevel)} value={field.value || ""}>
+                            <SelectTrigger id="schoolLevel"><SelectValue placeholder="Select school level" /></SelectTrigger>
+                            <SelectContent>
+                            {SCHOOL_LEVELS.map(level => (<SelectItem key={level} value={level}>{level}</SelectItem>))}
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                    {subjectForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.schoolLevel.message}</p>}
+                </div>
+                <div>
+                    <Label htmlFor="subjectCategory">Subject Category</Label>
+                     <Controller
+                        name="subjectCategory"
+                        control={subjectForm.control}
+                        render={({ field }) => (
+                        <Select onValueChange={(value) => field.onChange(value as SubjectCategory)} value={field.value || ""}>
+                            <SelectTrigger id="subjectCategory"><SelectValue placeholder="Select category" /></SelectTrigger>
+                            <SelectContent>
+                            {SUBJECT_CATEGORIES.map(cat => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                    {subjectForm.formState.errors.subjectCategory && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.subjectCategory.message}</p>}
+                </div>
+            </div>
+            {subjectForm.watch("schoolLevel") === "Secondary" && (
+                 <div>
+                    <Label htmlFor="sssStream">SSS Stream (Optional, for Secondary)</Label>
+                     <Controller
+                        name="sssStream"
+                        control={subjectForm.control}
+                        render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <SelectTrigger id="sssStream"><SelectValue placeholder="Select SSS stream if applicable" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">None</SelectItem>
+                                {sssStreams.map(stream => (<SelectItem key={stream} value={stream}>{stream}</SelectItem>))}
+                            </SelectContent>
+                        </Select>
+                        )}
+                    />
+                </div>
+            )}
+            <DialogFooter className="pt-4">
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">{editingSubject ? "Save Changes" : "Add Subject"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
