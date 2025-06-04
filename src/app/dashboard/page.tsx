@@ -43,16 +43,42 @@ export default function DashboardPage() {
   useEffect(() => {
     const name = localStorage.getItem("userName");
     const role = localStorage.getItem("userRole") as UserRole;
+    const userId = localStorage.getItem("userId");
     
-    if (name && role) {
-      const email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
+    if (name && role && userId) {
+      let email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
       let schoolLevel: SchoolLevel | undefined = undefined;
-      if (role === 'student') { // Assign a mock school level for students
+      let avatarUrl = `https://placehold.co/100x100.png?text=${name[0]}`;
+
+      if (typeof window !== 'undefined') {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+            try {
+                const allManagedUsers: Array<UserInfo & {id: string, avatarUrl?: string}> = JSON.parse(storedUsersString);
+                const foundUser = allManagedUsers.find(u => u.id === userId);
+                if (foundUser) {
+                    email = foundUser.email; // Use stored email
+                    if (foundUser.avatarUrl) {
+                        avatarUrl = foundUser.avatarUrl; // Use stored avatar
+                    }
+                     if (role === 'student') {
+                        schoolLevel = foundUser.schoolLevel;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to parse user details from localStorage for dashboard", e);
+            }
+        }
+      }
+      
+      // Fallback schoolLevel for student if not found in managedUsers
+      if (role === 'student' && !schoolLevel) { 
         if (name.toLowerCase().includes("kinder")) schoolLevel = "Kindergarten";
         else if (name.toLowerCase().includes("primary")) schoolLevel = "Primary";
         else schoolLevel = "Secondary";
       }
-      setUserInfo({ name, role, email, schoolLevel, avatarUrl: `https://placehold.co/100x100.png?text=${name[0]}` });
+      
+      setUserInfo({ name, role, email, schoolLevel, avatarUrl });
     }
   }, []);
 
@@ -63,7 +89,7 @@ export default function DashboardPage() {
   const userInitials = userInfo.name.split(' ').map(n => n[0]).join('').toUpperCase() || userInfo.email[0].toUpperCase();
 
   const commonStatsBase = [
-    { title: "My Courses", value: userInfo.role === 'student' ? 4 : (userInfo.role === 'staff' ? 2 : 5), icon: BookOpen, description: userInfo.role === 'student' ? "Currently enrolled" : (userInfo.role === 'staff' ? "Courses Taught" : "Total Courses"), link: "/dashboard/courses", linkText: "View Courses"},
+    { title: "My Subjects", value: userInfo.role === 'student' ? 4 : (userInfo.role === 'staff' ? 2 : 5), icon: BookOpen, description: userInfo.role === 'student' ? "Currently enrolled" : (userInfo.role === 'staff' ? "Subjects Taught" : "Total Subjects"), link: "/dashboard/courses", linkText: "View Subjects"},
     { title: "Notifications", value: userInfo.role === 'admin' ? 5 : 3, icon: Bell, description: "Unread messages" },
   ];
 
@@ -77,7 +103,7 @@ export default function DashboardPage() {
   } else if (userInfo.role === 'staff') {
     stats = [
       ...commonStatsBase,
-      { title: "Students Taught", value: 45, icon: Users, description: "Across all courses" },
+      { title: "Students Taught", value: 45, icon: Users, description: "Across all courses" }, // This description might need update if "courses" is removed globally
       { title: "Mark Attendance", value: "Today", icon: CalendarCheck, description: "For CS101", link: "/dashboard/attendance", linkText: "Mark Now" },
     ];
   } else { // admin

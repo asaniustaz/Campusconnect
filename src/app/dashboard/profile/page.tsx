@@ -58,64 +58,63 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
   });
 
- useEffect(() => {
-    const name = localStorage.getItem("userName") || "User";
-    const role = (localStorage.getItem("userRole") as UserRole) || "student";
-    const userId = localStorage.getItem("userId") || (role === "admin" ? "adm001" : (role === "staff" ? "stf001" : `std-${Date.now()}`));
-    let email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`; // Default email
+  useEffect(() => {
+    const currentUserName = localStorage.getItem("userName") || "User";
+    const currentUserRole = (localStorage.getItem("userRole") as UserRole) || "student";
+    const currentUserId = localStorage.getItem("userId") || (currentUserRole === "admin" ? "adm001" : (currentUserRole === "staff" ? "stf001" : `std-${Date.now()}`));
     
-    let studentDetails: Student | undefined;
-    let departmentValue: string | undefined = undefined;
-    let classIdValue: string | undefined;
-    let schoolLevelValue: SchoolLevel | undefined;
-    let classNameValue: string | undefined;
+    let profileData: UserProfile = {
+      id: currentUserId,
+      name: currentUserName,
+      email: `${currentUserName.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`,
+      role: currentUserRole,
+      phone: "08012345678", // Default phone
+      avatarUrl: `https://placehold.co/150x150.png?text=${currentUserName[0]}`, // Default placeholder avatar
+    };
 
     if (typeof window !== 'undefined') {
         const storedUsersString = localStorage.getItem('managedUsers');
         if (storedUsersString) {
-            const allManagedUsers: (UserProfile | Student)[] = JSON.parse(storedUsersString);
-            const foundUser = allManagedUsers.find(u => u.id === userId);
-            if (foundUser) {
-                email = foundUser.email; // Use stored email if available
-                if (foundUser.role === 'student') {
-                    studentDetails = foundUser as Student;
-                    classIdValue = studentDetails.classId;
-                    schoolLevelValue = studentDetails.schoolLevel;
-                    classNameValue = classIdValue ? mockSchoolClasses.find(c => c.id === classIdValue)?.name : undefined;
-                } else if (foundUser.role === 'staff' || foundUser.role === 'admin') {
-                    departmentValue = (foundUser as UserProfile).department || (role === 'admin' ? "School Administration" : "General Staff");
+            try {
+                const allManagedUsers: (UserProfile | Student)[] = JSON.parse(storedUsersString);
+                const foundUser = allManagedUsers.find(u => u.id === currentUserId) as UserProfile | Student | undefined;
+                
+                if (foundUser) {
+                    profileData.email = foundUser.email;
+                    profileData.name = foundUser.name; 
+                    if ((foundUser as UserProfile).avatarUrl) {
+                        profileData.avatarUrl = (foundUser as UserProfile).avatarUrl;
+                    }
+                    profileData.phone = (foundUser as UserProfile).phone || profileData.phone;
+
+                    if (foundUser.role === 'student') {
+                        profileData.classId = (foundUser as Student).classId;
+                        profileData.schoolLevel = (foundUser as Student).schoolLevel;
+                        profileData.className = (foundUser as Student).classId ? mockSchoolClasses.find(c => c.id === (foundUser as Student).classId)?.name : undefined;
+                    } else if (foundUser.role === 'staff' || foundUser.role === 'admin') {
+                        profileData.department = (foundUser as UserProfile).department || (currentUserRole === 'admin' ? "School Administration" : "General Staff");
+                    }
                 }
+            } catch (e) {
+                console.error("Failed to parse managedUsers for profile initialization:", e);
             }
         }
     }
     
-    // Fallbacks if user not in localStorage (e.g. first load for default admin)
-    if (role === "student" && !studentDetails) { 
-      if (name.toLowerCase().includes("kinder")) schoolLevelValue = "Kindergarten";
-      else if (name.toLowerCase().includes("nursery")) schoolLevelValue = "Nursery";
-      else if (name.toLowerCase().includes("primary")) schoolLevelValue = "Primary";
-      else schoolLevelValue = "Secondary";
-    } else if (role === "staff" && !departmentValue) {
-      departmentValue = name.toLowerCase().includes("teacher") || name.toLowerCase().includes("bola") ? "Academics" : "Administration"; 
-    } else if (role === "admin" && !departmentValue) {
-      departmentValue = "School Administration";
+    // Fallbacks if user not in localStorage or if certain fields are missing
+    if (profileData.role === "student" && !profileData.schoolLevel) { 
+      if (profileData.name.toLowerCase().includes("kinder")) profileData.schoolLevel = "Kindergarten";
+      else if (profileData.name.toLowerCase().includes("nursery")) profileData.schoolLevel = "Nursery";
+      else if (profileData.name.toLowerCase().includes("primary")) profileData.schoolLevel = "Primary";
+      else profileData.schoolLevel = "Secondary";
+    } else if (profileData.role === "staff" && !profileData.department) {
+      profileData.department = profileData.name.toLowerCase().includes("teacher") || profileData.name.toLowerCase().includes("bola") ? "Academics" : "Administration"; 
+    } else if (profileData.role === "admin" && !profileData.department) {
+      profileData.department = "School Administration";
     }
-    
-    const initialAvatarUrl = `https://placehold.co/150x150.png?text=${name[0]}`;
-    const profileData: UserProfile = {
-      id: userId,
-      name,
-      email,
-      role,
-      phone: "08012345678", 
-      department: departmentValue,
-      classId: classIdValue,
-      className: classNameValue,
-      schoolLevel: schoolLevelValue,
-      avatarUrl: initialAvatarUrl,
-    };
+
     setUserProfile(profileData);
-    setAvatarPreview(initialAvatarUrl);
+    setAvatarPreview(profileData.avatarUrl || null);
     form.reset({
       name: profileData.name,
       email: profileData.email,
@@ -124,8 +123,8 @@ export default function ProfilePage() {
       classId: profileData.classId,
       schoolLevel: profileData.schoolLevel,
     });
-  }, [form]);
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.reset]); // form.reset is stable, other localStorage values are read once on mount effectively.
 
   const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -138,58 +137,81 @@ export default function ProfilePage() {
         };
         reader.readAsDataURL(file);
         form.setValue("avatarFile", files);
+        form.clearErrors("avatarFile");
       } else {
         form.setError("avatarFile", {
             type: "manual",
-            message: !ACCEPTED_IMAGE_TYPES.includes(file.type) ? "Invalid file type." : "File too large."
+            message: !ACCEPTED_IMAGE_TYPES.includes(file.type) ? "Invalid file type. Use JPG, PNG, WEBP." : "File too large. Max 2MB."
         });
         setAvatarPreview(userProfile?.avatarUrl || null);
+         form.setValue("avatarFile", undefined); // Clear invalid file from form
       }
+    } else {
+       form.setValue("avatarFile", undefined); // No file selected
+       // Optionally reset to original avatar if needed, or keep current preview
+       // setAvatarPreview(userProfile?.avatarUrl || null); 
     }
   };
 
   const onSubmit: SubmitHandler<ProfileFormData> = (data) => {
-    let newAvatarUrl = userProfile?.avatarUrl;
+    if (!userProfile) return;
+
+    let newAvatarUrl = userProfile.avatarUrl; // Start with current avatar
     if (data.avatarFile && data.avatarFile.length > 0 && avatarPreview && avatarPreview.startsWith('data:image')) {
+      // If a new valid file was selected and preview is a data URI
       newAvatarUrl = avatarPreview;
     }
 
-    setUserProfile(prev => {
-      if (!prev) return null;
-      const updatedProfile: UserProfile = {
-        ...prev,
+    const updatedProfile: UserProfile = {
+        ...userProfile, // Spread existing profile to keep role, id etc.
         name: data.name,
         email: data.email,
         phone: data.phone,
         schoolLevel: data.schoolLevel,
         avatarUrl: newAvatarUrl,
-        classId: prev.role === 'student' ? data.classId : prev.classId,
-        department: prev.role !== 'student' ? data.department : prev.department,
-        className: prev.role === 'student' && data.classId ? mockSchoolClasses.find(c => c.id === data.classId)?.name : prev.className,
+        classId: userProfile.role === 'student' ? data.classId : userProfile.classId,
+        department: userProfile.role !== 'student' ? data.department : userProfile.department,
+        className: userProfile.role === 'student' && data.classId ? mockSchoolClasses.find(c => c.id === data.classId)?.name : userProfile.className,
       };
+    
+    setUserProfile(updatedProfile); // Update state immediately
       
       // Update localStorage
       if (typeof window !== 'undefined') {
         const storedUsersString = localStorage.getItem('managedUsers');
         let allManagedUsers: (UserProfile | Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
-        const userIndex = allManagedUsers.findIndex(u => u.id === prev.id);
+        const userIndex = allManagedUsers.findIndex(u => u.id === userProfile.id);
+
         if (userIndex > -1) {
-           allManagedUsers[userIndex] = { ...allManagedUsers[userIndex], ...updatedProfile };
+           // Create a completely new object for the updated user to ensure all fields are fresh
+           const userToUpdate = allManagedUsers[userIndex];
+           allManagedUsers[userIndex] = {
+             ...userToUpdate, // Base properties like id, role, password
+             name: updatedProfile.name,
+             email: updatedProfile.email,
+             avatarUrl: updatedProfile.avatarUrl,
+             phone: updatedProfile.phone,
+             department: updatedProfile.department,
+             title: (userToUpdate as UserProfile).title, // Preserve existing title
+             classId: updatedProfile.classId,
+             schoolLevel: updatedProfile.schoolLevel,
+             // ensure all other fields from 'Student' or 'StaffMember' interfaces are preserved if they exist on userToUpdate
+           };
         } else {
-           // This case might not be hit if profile assumes user exists, but good for robustness
+           // This case should ideally not happen for an existing profile update
            allManagedUsers.push(updatedProfile);
         }
         localStorage.setItem('managedUsers', JSON.stringify(allManagedUsers));
-        if (localStorage.getItem("userId") === prev.id && localStorage.getItem("userName") !== data.name) {
-            localStorage.setItem("userName", data.name); // Update current session's userName if it changed
+
+        // If the currently logged-in user's name changed, update localStorage for userName
+        if (localStorage.getItem("userId") === userProfile.id && localStorage.getItem("userName") !== data.name) {
+            localStorage.setItem("userName", data.name); 
         }
       }
-      return updatedProfile;
-    });
     
     toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     setIsEditing(false);
-    form.reset({...data, avatarFile: undefined });
+    form.reset({...data, avatarFile: undefined }); // Reset form, clear avatarFile field
   };
 
   if (!userProfile) {
@@ -378,5 +400,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
