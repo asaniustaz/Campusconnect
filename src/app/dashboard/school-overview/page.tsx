@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Building, Users, UserCheck, HelpCircle } from "lucide-react";
-import type { UserRole, SchoolClass, Student } from "@/lib/constants"; // Added Student
+import type { UserRole, SchoolClass, Student, SchoolLevel } from "@/lib/constants"; 
 import { mockSchoolClasses } from "@/lib/constants";
 
 interface ManagedUserForDisplay {
@@ -20,7 +20,7 @@ interface ManagedUserForDisplay {
 export default function SchoolOverviewPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [allStaff, setAllStaff] = useState<ManagedUserForDisplay[]>([]);
-  const [allStudents, setAllStudents] = useState<Student[]>([]); // To count students per class
+  const [allStudents, setAllStudents] = useState<Student[]>([]); 
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
@@ -55,7 +55,6 @@ export default function SchoolOverviewPage() {
     );
   }
 
-  // Function to find the class master for a given class ID by checking staff's assignedClasses
   const getClassMasterForClass = (classId: string): ManagedUserForDisplay | undefined => {
     return allStaff.find(staff => staff.assignedClasses && staff.assignedClasses.includes(classId));
   };
@@ -64,7 +63,7 @@ export default function SchoolOverviewPage() {
     return allStudents.filter(student => student.classId === classId).length;
   };
 
-  const displayLevels: SchoolClass['displayLevel'][] = ['Nursery', 'Primary', 'Junior Secondary', 'Senior Secondary'];
+  const displayLevels: SchoolClass['displayLevel'][] = ['Kindergarten', 'Nursery', 'Primary', 'Junior Secondary', 'Senior Secondary'];
 
   return (
     <div className="space-y-8">
@@ -136,3 +135,5 @@ export default function SchoolOverviewPage() {
     </div>
   );
 }
+
+    

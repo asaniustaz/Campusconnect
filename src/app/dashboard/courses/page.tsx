@@ -70,66 +70,66 @@ const nigerianCurriculumCourses: Course[] = [
     code: generateCourseCode("Kindergarten", "Creative Arts", "CreativeKG"), description: "Exploring creativity through drawing and crafts.", instructor: "Mrs. Adaobi", credits: 1, schedule: "Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kids drawing"
   },
 
-  // Nursery 1–3 (Mapped to Primary Level)
+  // Nursery 1–3
   {
-    id: "NUR_ENG", title: "English Language (Nursery)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateCourseCode("Primary", "Languages", "EnglishNursery"), description: "Foundational English skills for nursery.", instructor: "Ms. Bola", credits: 2, schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "abc book"
+    id: "NUR_ENG", title: "English Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
+    code: generateCourseCode("Nursery", "Languages", "EnglishNursery"), description: "Foundational English skills for nursery.", instructor: "Ms. Bola", credits: 2, schedule: "Daily 9:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "abc book"
   },
   {
-    id: "NUR_MTH", title: "Mathematics (Nursery)", schoolLevel: "Primary", subjectCategory: "Mathematics",
-    code: generateCourseCode("Primary", "Mathematics", "MathNursery"), description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", credits: 2, schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "number blocks"
+    id: "NUR_MTH", title: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics",
+    code: generateCourseCode("Nursery", "Mathematics", "MathNursery"), description: "Basic mathematical concepts for nursery.", instructor: "Ms. Bola", credits: 2, schedule: "Daily 10:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "number blocks"
   },
   {
-    id: "NUR_YOR", title: "Yoruba Language (Nursery)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateCourseCode("Primary", "Languages", "YorubaNursery"), description: "Introduction to Yoruba language.", instructor: "Mrs. Ade", credits: 1, schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "yoruba culture"
+    id: "NUR_YOR", title: "Yoruba Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
+    code: generateCourseCode("Nursery", "Languages", "YorubaNursery"), description: "Introduction to Yoruba language.", instructor: "Mrs. Ade", credits: 1, schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "yoruba culture"
   },
    {
-    id: "NUR_IGB", title: "Igbo Language (Nursery)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateCourseCode("Primary", "Languages", "IgboNursery"), description: "Introduction to Igbo language.", instructor: "Mr. Obi", credits: 1, schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "igbo culture"
+    id: "NUR_IGB", title: "Igbo Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
+    code: generateCourseCode("Nursery", "Languages", "IgboNursery"), description: "Introduction to Igbo language.", instructor: "Mr. Obi", credits: 1, schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "igbo culture"
   },
    {
-    id: "NUR_HAU", title: "Hausa Language (Nursery)", schoolLevel: "Primary", subjectCategory: "Languages",
-    code: generateCourseCode("Primary", "Languages", "HausaNursery"), description: "Introduction to Hausa language.", instructor: "Mallam Sani", credits: 1, schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hausa culture"
+    id: "NUR_HAU", title: "Hausa Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages",
+    code: generateCourseCode("Nursery", "Languages", "HausaNursery"), description: "Introduction to Hausa language.", instructor: "Mallam Sani", credits: 1, schedule: "Mon/Wed 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "hausa culture"
   },
   {
-    id: "NUR_BSC", title: "Basic Science (Nursery)", schoolLevel: "Primary", subjectCategory: "Sciences",
-    code: generateCourseCode("Primary", "Sciences", "ScienceNursery"), description: "Exploring the world around us.", instructor: "Ms. Chidinma", credits: 2, schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "magnifying glass"
+    id: "NUR_BSC", title: "Basic Science (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences",
+    code: generateCourseCode("Nursery", "Sciences", "ScienceNursery"), description: "Exploring the world around us.", instructor: "Ms. Chidinma", credits: 2, schedule: "Tue/Thu 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "magnifying glass"
   },
   {
-    id: "NUR_HH", title: "Health Habits (Nursery)", schoolLevel: "Primary", subjectCategory: "Health & PE",
-    code: generateCourseCode("Primary", "Health & PE", "HealthNursery"), description: "Promoting healthy habits.", instructor: "Nurse Fatima", credits: 1, schedule: "Daily 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "toothbrush apple"
+    id: "NUR_HH", title: "Health Habits (Nursery)", schoolLevel: "Nursery", subjectCategory: "Health & PE",
+    code: generateCourseCode("Nursery", "Health & PE", "HealthNursery"), description: "Promoting healthy habits.", instructor: "Nurse Fatima", credits: 1, schedule: "Daily 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "toothbrush apple"
   },
   {
-    id: "NUR_SNV", title: "Social Norms and Values (Nursery)", schoolLevel: "Primary", subjectCategory: "Social & Humanities",
-    code: generateCourseCode("Primary", "Social & Humanities", "SocialNursery"), description: "Understanding social norms and values.", instructor: "Ms. Bola", credits: 1, schedule: "Daily 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children sharing"
+    id: "NUR_SNV", title: "Social Norms and Values (Nursery)", schoolLevel: "Nursery", subjectCategory: "Social & Humanities",
+    code: generateCourseCode("Nursery", "Social & Humanities", "SocialNursery"), description: "Understanding social norms and values.", instructor: "Ms. Bola", credits: 1, schedule: "Daily 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children sharing"
   },
   {
-    id: "NUR_RHYP", title: "Rhymes and Poetry (Nursery)", schoolLevel: "Primary", subjectCategory: "Creative Arts",
-    code: generateCourseCode("Primary", "Creative Arts", "RhymesNursery"), description: "Learning through rhymes and poetry.", instructor: "Ms. Bola", credits: 1, schedule: "Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "poetry book"
+    id: "NUR_RHYP", title: "Rhymes and Poetry (Nursery)", schoolLevel: "Nursery", subjectCategory: "Creative Arts",
+    code: generateCourseCode("Nursery", "Creative Arts", "RhymesNursery"), description: "Learning through rhymes and poetry.", instructor: "Ms. Bola", credits: 1, schedule: "Fri 11:00 AM", imageUrl: "https://placehold.co/600x400.png", aiHint: "poetry book"
   },
   {
-    id: "NUR_PHE", title: "Physical and Health Education (Nursery)", schoolLevel: "Primary", subjectCategory: "Health & PE",
-    code: generateCourseCode("Primary", "Health & PE", "PHENursery"), description: "Fun physical activities.", instructor: "Coach Sam", credits: 1, schedule: "Daily 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kids exercising"
+    id: "NUR_PHE", title: "Physical and Health Education (Nursery)", schoolLevel: "Nursery", subjectCategory: "Health & PE",
+    code: generateCourseCode("Nursery", "Health & PE", "PHENursery"), description: "Fun physical activities.", instructor: "Coach Sam", credits: 1, schedule: "Daily 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "kids exercising"
   },
   {
-    id: "NUR_CA", title: "Creative Arts (Nursery)", schoolLevel: "Primary", subjectCategory: "Creative Arts",
-    code: generateCourseCode("Primary", "Creative Arts", "CreativeNursery"), description: "Drawing, painting, and crafts.", instructor: "Ms. Chidinma", credits: 1, schedule: "Wed 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children painting"
+    id: "NUR_CA", title: "Creative Arts (Nursery)", schoolLevel: "Nursery", subjectCategory: "Creative Arts",
+    code: generateCourseCode("Nursery", "Creative Arts", "CreativeNursery"), description: "Drawing, painting, and crafts.", instructor: "Ms. Chidinma", credits: 1, schedule: "Wed 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "children painting"
   },
   {
-    id: "NUR_IRS", title: "Islamic Studies (Nursery)", schoolLevel: "Primary", subjectCategory: "Religious Studies",
-    code: generateCourseCode("Primary", "Religious Studies", "IRSNursery"), description: "Introduction to Islamic teachings.", instructor: "Imam Ali", credits: 1, schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "quran illustration"
+    id: "NUR_IRS", title: "Islamic Studies (Nursery)", schoolLevel: "Nursery", subjectCategory: "Religious Studies",
+    code: generateCourseCode("Nursery", "Religious Studies", "IRSNursery"), description: "Introduction to Islamic teachings.", instructor: "Imam Ali", credits: 1, schedule: "Tue 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "quran illustration"
   },
   {
-    id: "NUR_CRS", title: "Christian Religious Studies (Nursery)", schoolLevel: "Primary", subjectCategory: "Religious Studies",
-    code: generateCourseCode("Primary", "Religious Studies", "CRSNursery"), description: "Introduction to Christian teachings.", instructor: "Pastor John", credits: 1, schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "bible illustration"
+    id: "NUR_CRS", title: "Christian Religious Studies (Nursery)", schoolLevel: "Nursery", subjectCategory: "Religious Studies",
+    code: generateCourseCode("Nursery", "Religious Studies", "CRSNursery"), description: "Introduction to Christian teachings.", instructor: "Pastor John", credits: 1, schedule: "Thu 1:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "bible illustration"
   },
   {
-    id: "NUR_NAT", title: "Nature Study (Nursery)", schoolLevel: "Primary", subjectCategory: "Sciences",
-    code: generateCourseCode("Primary", "Sciences", "NatureNursery"), description: "Learning about plants and animals.", instructor: "Ms. Chidinma", credits: 1, schedule: "Mon 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "leaf insect"
+    id: "NUR_NAT", title: "Nature Study (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences",
+    code: generateCourseCode("Nursery", "Sciences", "NatureNursery"), description: "Learning about plants and animals.", instructor: "Ms. Chidinma", credits: 1, schedule: "Mon 2:00 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "leaf insect"
   },
   {
-    id: "NUR_CIV", title: "Civic Education (Nursery)", schoolLevel: "Primary", subjectCategory: "Social & Humanities",
-    code: generateCourseCode("Primary", "Social & Humanities", "CivicNursery"), description: "Basic understanding of civic duties.", instructor: "Ms. Bola", credits: 1, schedule: "Fri 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "community helpers"
+    id: "NUR_CIV", title: "Civic Education (Nursery)", schoolLevel: "Nursery", subjectCategory: "Social & Humanities",
+    code: generateCourseCode("Nursery", "Social & Humanities", "CivicNursery"), description: "Basic understanding of civic duties.", instructor: "Ms. Bola", credits: 1, schedule: "Fri 1:30 PM", imageUrl: "https://placehold.co/600x400.png", aiHint: "community helpers"
   },
 
   // Primary 1–5
@@ -569,3 +569,5 @@ export default function CoursesPage() {
     </div>
   );
 }
+
+    

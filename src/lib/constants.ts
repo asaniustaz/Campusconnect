@@ -4,7 +4,7 @@ import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, 
 
 export type UserRole = 'student' | 'staff' | 'admin';
 
-export type SchoolLevel = 'Kindergarten' | 'Primary' | 'Secondary';
+export type SchoolLevel = 'Kindergarten' | 'Nursery' | 'Primary' | 'Secondary';
 
 // Updated Subject Categories
 export type SubjectCategory =
@@ -23,7 +23,7 @@ export interface SchoolClass {
   id: string;
   name: string; // e.g., "Nursery 1A", "Primary 5B", "JSS 2"
   level: SchoolLevel; // This will be 'Primary' for Nursery, and 'Secondary' for JSS/SSS
-  displayLevel: 'Nursery' | 'Primary' | 'Junior Secondary' | 'Senior Secondary'; // For UI grouping
+  displayLevel: 'Kindergarten' | 'Nursery' | 'Primary' | 'Junior Secondary' | 'Senior Secondary'; // For UI grouping
   studentCount: number; // Target student count
   classMasterId?: string; // ID of a staff member
 }
@@ -56,7 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 export const APP_NAME = "ANNAJIHUN ACADEMY ZARIA";
 
-export const SCHOOL_LEVELS: SchoolLevel[] = ['Kindergarten', 'Primary', 'Secondary'];
+export const SCHOOL_LEVELS: SchoolLevel[] = ['Kindergarten', 'Nursery', 'Primary', 'Secondary'];
 
 // Updated list of subject categories
 export const SUBJECT_CATEGORIES: SubjectCategory[] = [
@@ -88,50 +88,39 @@ export const subjectCategoryIcons: Record<SubjectCategory, LucideIcon> = {
 };
 
 export const mockSchoolClasses: SchoolClass[] = [
-  // Nursery Classes (mapped to Primary level for data, displayed as Nursery)
-  { id: 'nur1', name: 'Nursery 1', level: 'Primary', displayLevel: 'Nursery', studentCount: 0, classMasterId: 'staff005' }, // Mrs. Daisy Fields
-  { id: 'nur2', name: 'Nursery 2', level: 'Primary', displayLevel: 'Nursery', studentCount: 0, classMasterId: 'staff006' }, // Ms. Bola
-  { id: 'nur3', name: 'Nursery 3', level: 'Primary', displayLevel: 'Nursery', studentCount: 0, classMasterId: 'staff006' }, // Ms. Bola
+  // Kindergarten
+  { id: 'kg1', name: 'Kindergarten 1', level: 'Kindergarten', displayLevel: 'Kindergarten', studentCount: 0 },
+  { id: 'kg2', name: 'Kindergarten 2', level: 'Kindergarten', displayLevel: 'Kindergarten', studentCount: 0 },
+
+  // Nursery Classes
+  { id: 'nur1', name: 'Nursery 1', level: 'Nursery', displayLevel: 'Nursery', studentCount: 0 },
+  { id: 'nur2', name: 'Nursery 2', level: 'Nursery', displayLevel: 'Nursery', studentCount: 0 },
+  { id: 'nur3', name: 'Nursery 3', level: 'Nursery', displayLevel: 'Nursery', studentCount: 0 },
 
   // Primary Classes
-  { id: 'pri1', name: 'Primary 1', level: 'Primary', displayLevel: 'Primary', studentCount: 0, classMasterId: 'staff007' }, // Mr. David
-  { id: 'pri2', name: 'Primary 2', level: 'Primary', displayLevel: 'Primary', studentCount: 0, classMasterId: 'staff007' }, // Mr. David
-  { id: 'pri3', name: 'Primary 3', level: 'Primary', displayLevel: 'Primary', studentCount: 0, classMasterId: 'staff008' }, // Mrs. Esther
-  { id: 'pri4', name: 'Primary 4', level: 'Primary', displayLevel: 'Primary', studentCount: 0, classMasterId: 'staff008' }, // Mrs. Esther
-  { id: 'pri5', name: 'Primary 5', level: 'Primary', displayLevel: 'Primary', studentCount: 0 }, // No class master assigned example
-  { id: 'pri6', name: 'Primary 6', level: 'Primary', displayLevel: 'Primary', studentCount: 0, classMasterId: 'staff002' }, // Mr. Samuel Green (Admissions, but can be CM)
+  { id: 'pri1', name: 'Primary 1', level: 'Primary', displayLevel: 'Primary', studentCount: 0 },
+  { id: 'pri2', name: 'Primary 2', level: 'Primary', displayLevel: 'Primary', studentCount: 0 },
+  { id: 'pri3', name: 'Primary 3', level: 'Primary', displayLevel: 'Primary', studentCount: 0 },
+  { id: 'pri4', name: 'Primary 4', level: 'Primary', displayLevel: 'Primary', studentCount: 0 },
+  { id: 'pri5', name: 'Primary 5', level: 'Primary', displayLevel: 'Primary', studentCount: 0 },
+  { id: 'pri6', name: 'Primary 6', level: 'Primary', displayLevel: 'Primary', studentCount: 0 },
 
   // Junior Secondary Classes
-  { id: 'jss1', name: 'JSS 1', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 0, classMasterId: 'staff009' }, // Ms. Johnson
-  { id: 'jss2', name: 'JSS 2', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 0, classMasterId: 'staff010' }, // Mr. Adebayo
-  { id: 'jss3', name: 'JSS 3', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 0, classMasterId: 'staff003' }, // Ms. Olivia Chen
+  { id: 'jss1', name: 'JSS 1', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 0 },
+  { id: 'jss2', name: 'JSS 2', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 0 },
+  { id: 'jss3', name: 'JSS 3', level: 'Secondary', displayLevel: 'Junior Secondary', studentCount: 0 },
 
   // Senior Secondary Classes
-  { id: 'sss1_sci', name: 'SSS 1 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0, classMasterId: 'staff004' }, // Mr. Robert Adewale
-  { id: 'sss1_art', name: 'SSS 1 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0, classMasterId: 'staff011' }, // Mr. Wole Soyinka
-  { id: 'sss1_com', name: 'SSS 1 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0, classMasterId: 'staff001' }, // Mrs. Eleanor Vance
-  { id: 'sss2_sci', name: 'SSS 2 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0, classMasterId: 'staff004' }, // Mr. Robert Adewale
-  { id: 'sss2_art', name: 'SSS 2 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0, classMasterId: 'staff011' }, // Mr. Wole Soyinka
-  { id: 'sss2_com', name: 'SSS 2 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0, classMasterId: 'staff001' }, // Mrs. Eleanor Vance
+  { id: 'sss1_sci', name: 'SSS 1 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
+  { id: 'sss1_art', name: 'SSS 1 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
+  { id: 'sss1_com', name: 'SSS 1 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
+  { id: 'sss2_sci', name: 'SSS 2 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
+  { id: 'sss2_art', name: 'SSS 2 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
+  { id: 'sss2_com', name: 'SSS 2 Commercial', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
   { id: 'sss3_sci', name: 'SSS 3 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
   { id: 'sss3_art', name: 'SSS 3 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
 ];
 
-// Simplified staff list used in school-overview and my-classes for mapping classMasterId to name/avatar
-export const mockStaffListSimpleForClassMaster = [
-  { id: "staff001", name: "Mrs. Eleanor Vance", avatarUrl: "https://placehold.co/40x40.png?text=EV" },
-  { id: "staff002", name: "Mr. Samuel Green", avatarUrl: "https://placehold.co/40x40.png?text=SG" },
-  { id: "staff003", name: "Ms. Olivia Chen", avatarUrl: "https://placehold.co/40x40.png?text=OC" },
-  { id: "staff004", name: "Mr. Robert Adewale", avatarUrl: "https://placehold.co/40x40.png?text=RA" },
-  { id: "staff005", name: "Mrs. Daisy Fields", avatarUrl: "https://placehold.co/40x40.png?text=DF" },
-  { id: "staff006", name: "Ms. Bola Aderibigbe", avatarUrl: "https://placehold.co/40x40.png?text=BA"},
-  { id: "staff007", name: "Mr. David Okon", avatarUrl: "https://placehold.co/40x40.png?text=DO"},
-  { id: "staff008", name: "Mrs. Esther Musa", avatarUrl: "https://placehold.co/40x40.png?text=EM"},
-  { id: "staff009", name: "Ms. Johnson Chioma", avatarUrl: "https://placehold.co/40x40.png?text=JC"},
-  { id: "staff010", name: "Mr. Adebayo Bello", avatarUrl: "https://placehold.co/40x40.png?text=AB"},
-  { id: "staff011", name: "Mr. Wole Soyinka", avatarUrl: "https://placehold.co/40x40.png?text=WS"},
-  { id: "staff012", name: "Dr. Funmi Kuti", avatarUrl: "https://placehold.co/40x40.png?text=FK"},
-];
 
 // Define Student interface here to be used across relevant files
 export interface Student {
@@ -157,13 +146,15 @@ export const updateGlobalMockStudents = (newStudents: Student[]) => {
 export const addStudentToGlobalList = (newStudent: Student) => {
   let students = [];
   if (typeof window !== 'undefined') {
-    const storedStudents = localStorage.getItem('managedUsers');
-    students = storedStudents ? JSON.parse(storedStudents).filter((u: any) => u.role === 'student') : [];
+    const storedUsersString = localStorage.getItem('managedUsers');
+    const allStoredUsers: (Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
+    students = allStoredUsers.filter((u: any) => u.role === 'student');
   }
   students.push(newStudent);
   if (typeof window !== 'undefined') {
-    const allUsers = localStorage.getItem('managedUsers');
-    const otherUsers = allUsers ? JSON.parse(allUsers).filter((u: any) => u.role !== 'student') : [];
+    const allUsersString = localStorage.getItem('managedUsers');
+    const allUsers: (Student)[] = allUsersString ? JSON.parse(allUsersString) : [];
+    const otherUsers = allUsers.filter((u: any) => u.role !== 'student');
     localStorage.setItem('managedUsers', JSON.stringify([...otherUsers, ...students]));
   }
   globalMockStudents = students; // Update in-memory list if needed by other components immediately
@@ -172,16 +163,18 @@ export const addStudentToGlobalList = (newStudent: Student) => {
 export const updateStudentInGlobalList = (updatedStudent: Student) => {
   let students = [];
    if (typeof window !== 'undefined') {
-    const storedStudents = localStorage.getItem('managedUsers');
-    students = storedStudents ? JSON.parse(storedStudents).filter((u: any) => u.role === 'student') : [];
+    const storedUsersString = localStorage.getItem('managedUsers');
+    const allStoredUsers: (Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
+    students = allStoredUsers.filter((u: any) => u.role === 'student');
   }
   const index = students.findIndex(s => s.id === updatedStudent.id);
   if (index !== -1) {
     students[index] = updatedStudent;
   }
   if (typeof window !== 'undefined') {
-     const allUsers = localStorage.getItem('managedUsers');
-    const otherUsers = allUsers ? JSON.parse(allUsers).filter((u: any) => u.role !== 'student') : [];
+     const allUsersString = localStorage.getItem('managedUsers');
+     const allUsers: (Student)[] = allUsersString ? JSON.parse(allUsersString) : [];
+    const otherUsers = allUsers.filter((u: any) => u.role !== 'student');
     localStorage.setItem('managedUsers', JSON.stringify([...otherUsers, ...students]));
   }
   globalMockStudents = students;
@@ -190,14 +183,18 @@ export const updateStudentInGlobalList = (updatedStudent: Student) => {
 export const deleteStudentFromGlobalList = (studentId: string) => {
   let students = [];
   if (typeof window !== 'undefined') {
-    const storedStudents = localStorage.getItem('managedUsers');
-    students = storedStudents ? JSON.parse(storedStudents).filter((u: any) => u.role === 'student') : [];
+    const storedUsersString = localStorage.getItem('managedUsers');
+    const allStoredUsers: (Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
+    students = allStoredUsers.filter((u: any) => u.role === 'student');
   }
   students = students.filter(s => s.id !== studentId);
   if (typeof window !== 'undefined') {
-    const allUsers = localStorage.getItem('managedUsers');
-    const otherUsers = allUsers ? JSON.parse(allUsers).filter((u: any) => u.role !== 'student') : [];
+    const allUsersString = localStorage.getItem('managedUsers');
+    const allUsers: (Student)[] = allUsersString ? JSON.parse(allUsersString) : [];
+    const otherUsers = allUsers.filter((u: any) => u.role !== 'student');
     localStorage.setItem('managedUsers', JSON.stringify([...otherUsers, ...students]));
   }
   globalMockStudents = students;
 };
+
+    

@@ -11,8 +11,8 @@ import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses, globalMockStudents } from "@/lib/constants"; // Added globalMockStudents
+import type { UserRole, SchoolLevel, Student } from "@/lib/constants";
+import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants"; 
 import { Edit3, School, Camera, GraduationCap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -23,10 +23,9 @@ const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
-  // departmentOrClass: z.string().optional(), // Replaced by classId for students
-  classId: z.string().optional(), // For students
-  department: z.string().optional(), // For staff/admin
-  schoolLevel: z.custom<SchoolLevel>().optional(), 
+  classId: z.string().optional(), 
+  department: z.string().optional(), 
+  schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level").optional(), 
   avatarFile: z
     .custom<FileList>()
     .optional()
@@ -42,13 +41,11 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
-type UserProfile = Omit<ProfileFormData, 'avatarFile' | 'classId' | 'department'> & {
+type UserProfile = Omit<ProfileFormData, 'avatarFile' > & {
   role: UserRole;
   id: string;
   avatarUrl?: string;
-  classId?: string; // Specific class for student
-  department?: string; // For staff/admin
-  className?: string; // Derived from classId for display
+  className?: string; 
 };
 
 export default function ProfilePage() {
@@ -61,28 +58,46 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
   });
 
-  useEffect(() => {
+ useEffect(() => {
     const name = localStorage.getItem("userName") || "User";
     const role = (localStorage.getItem("userRole") as UserRole) || "student";
-    // Try to find user in globalMockStudents if student to get ID and classId
-    const studentUser = role === 'student' ? globalMockStudents.find(s => s.name === name) : null;
-    const userId = studentUser?.id || (role === "admin" ? "adm001" : (role === "staff" ? "stf001" : "std001"));
-    const email = studentUser?.email || `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
+    const userId = localStorage.getItem("userId") || (role === "admin" ? "adm001" : (role === "staff" ? "stf001" : `std-${Date.now()}`));
+    let email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`; // Default email
     
+    let studentDetails: Student | undefined;
     let departmentValue: string | undefined = undefined;
-    let classIdValue: string | undefined = studentUser?.classId;
-    let schoolLevelValue: SchoolLevel | undefined = studentUser?.schoolLevel;
-    let classNameValue: string | undefined = classIdValue ? mockSchoolClasses.find(c => c.id === classIdValue)?.name : undefined;
+    let classIdValue: string | undefined;
+    let schoolLevelValue: SchoolLevel | undefined;
+    let classNameValue: string | undefined;
 
-
-    if (role === "student" && !studentUser) { // Fallback for a student not in globalMockStudents
+    if (typeof window !== 'undefined') {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+            const allManagedUsers: (UserProfile | Student)[] = JSON.parse(storedUsersString);
+            const foundUser = allManagedUsers.find(u => u.id === userId);
+            if (foundUser) {
+                email = foundUser.email; // Use stored email if available
+                if (foundUser.role === 'student') {
+                    studentDetails = foundUser as Student;
+                    classIdValue = studentDetails.classId;
+                    schoolLevelValue = studentDetails.schoolLevel;
+                    classNameValue = classIdValue ? mockSchoolClasses.find(c => c.id === classIdValue)?.name : undefined;
+                } else if (foundUser.role === 'staff' || foundUser.role === 'admin') {
+                    departmentValue = (foundUser as UserProfile).department || (role === 'admin' ? "School Administration" : "General Staff");
+                }
+            }
+        }
+    }
+    
+    // Fallbacks if user not in localStorage (e.g. first load for default admin)
+    if (role === "student" && !studentDetails) { 
       if (name.toLowerCase().includes("kinder")) schoolLevelValue = "Kindergarten";
+      else if (name.toLowerCase().includes("nursery")) schoolLevelValue = "Nursery";
       else if (name.toLowerCase().includes("primary")) schoolLevelValue = "Primary";
       else schoolLevelValue = "Secondary";
-      // No specific classId if not found
-    } else if (role === "staff") {
+    } else if (role === "staff" && !departmentValue) {
       departmentValue = name.toLowerCase().includes("teacher") || name.toLowerCase().includes("bola") ? "Academics" : "Administration"; 
-    } else if (role === "admin") {
+    } else if (role === "admin" && !departmentValue) {
       departmentValue = "School Administration";
     }
     
@@ -92,7 +107,7 @@ export default function ProfilePage() {
       name,
       email,
       role,
-      phone: "08012345678", // Default phone
+      phone: "08012345678", 
       department: departmentValue,
       classId: classIdValue,
       className: classNameValue,
@@ -110,6 +125,7 @@ export default function ProfilePage() {
       schoolLevel: profileData.schoolLevel,
     });
   }, [form]);
+
 
   const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -151,12 +167,26 @@ export default function ProfilePage() {
         department: prev.role !== 'student' ? data.department : prev.department,
         className: prev.role === 'student' && data.classId ? mockSchoolClasses.find(c => c.id === data.classId)?.name : prev.className,
       };
+      
+      // Update localStorage
+      if (typeof window !== 'undefined') {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        let allManagedUsers: (UserProfile | Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
+        const userIndex = allManagedUsers.findIndex(u => u.id === prev.id);
+        if (userIndex > -1) {
+           allManagedUsers[userIndex] = { ...allManagedUsers[userIndex], ...updatedProfile };
+        } else {
+           // This case might not be hit if profile assumes user exists, but good for robustness
+           allManagedUsers.push(updatedProfile);
+        }
+        localStorage.setItem('managedUsers', JSON.stringify(allManagedUsers));
+        if (localStorage.getItem("userId") === prev.id && localStorage.getItem("userName") !== data.name) {
+            localStorage.setItem("userName", data.name); // Update current session's userName if it changed
+        }
+      }
       return updatedProfile;
     });
     
-    if (localStorage.getItem("userName") !== data.name) {
-       localStorage.setItem("userName", data.name);
-    }
     toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     setIsEditing(false);
     form.reset({...data, avatarFile: undefined });
@@ -240,7 +270,15 @@ export default function ProfilePage() {
                       control={form.control}
                       defaultValue={userProfile.schoolLevel}
                       render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <Select 
+                            onValueChange={(value) => {
+                                field.onChange(value as SchoolLevel);
+                                if (userProfile.schoolLevel !== value) {
+                                    form.setValue("classId", undefined); // Reset class if level changes
+                                }
+                            }} 
+                            value={field.value || ""}
+                        >
                           <SelectTrigger id="schoolLevel">
                             <SelectValue placeholder="Select school level" />
                           </SelectTrigger>
@@ -253,7 +291,7 @@ export default function ProfilePage() {
                       )}
                     />
                   ) : (
-                    <Input id="schoolLevelInput" value={userProfile.schoolLevel || ''} disabled />
+                    <Input id="schoolLevelInput" value={userProfile.schoolLevel || 'N/A'} disabled />
                   )}
                 </div>
                 <div>
