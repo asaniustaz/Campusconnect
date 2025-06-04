@@ -33,7 +33,7 @@ type ManagedUser = {
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), // Min 1 for flexibility with potentially empty passwords from old mocks
+  password: z.string().min(1, { message: "Password is required." }),
   role: z.enum(["student", "staff", "admin"], { required_error: "Please select a role." }),
 });
 
@@ -55,11 +55,13 @@ export default function AuthForm() {
     let loggedIn = false;
     let userName = values.email.split('@')[0] || "User";
     let userRole: UserRole = values.role;
+    let loggedInUserId: string | null = null; // To store the actual ID of the logged-in user
 
     // 1. Check for the "real" admin
     if (values.email === REAL_ADMIN_EMAIL && values.password === REAL_ADMIN_PASS) {
       userRole = "admin";
       userName = "Asani Ustaz";
+      loggedInUserId = values.email; // For the real admin, use email as ID for consistency if needed elsewhere
       loggedIn = true;
     }
 
@@ -73,6 +75,7 @@ export default function AuthForm() {
           if (matchedUser) {
             userRole = matchedUser.role;
             userName = matchedUser.name;
+            loggedInUserId = matchedUser.id; // Store the actual ID from managedUsers
             loggedIn = true;
           }
         } catch (error) {
@@ -86,14 +89,17 @@ export default function AuthForm() {
       if (values.email === "student@test.com") {
         userRole = "student";
         userName = "Test Student";
+        loggedInUserId = "test-student-id"; // Example fixed ID for test user
         loggedIn = true;
       } else if (values.email === "staff@test.com") {
         userRole = "staff";
         userName = "Test Staff";
+        loggedInUserId = "test-staff-id"; // Example fixed ID for test user
         loggedIn = true;
-      } else if (values.email === "admin@test.com" && values.email !== REAL_ADMIN_EMAIL) { // Ensure this doesn't override real admin if password was 'password'
+      } else if (values.email === "admin@test.com" && values.email !== REAL_ADMIN_EMAIL) {
         userRole = "admin";
         userName = "Test Admin";
+        loggedInUserId = "test-admin-id"; // Example fixed ID for test user
         loggedIn = true;
       }
     }
@@ -102,7 +108,7 @@ export default function AuthForm() {
       if (typeof window !== 'undefined') {
         localStorage.setItem("userRole", userRole);
         localStorage.setItem("userName", userName);
-        localStorage.setItem("userId", values.email); // Use email as a simple ID for now
+        localStorage.setItem("userId", loggedInUserId || values.email); // Use the actual ID if available, otherwise fallback
       }
       toast({
         title: "Login Successful",
@@ -115,7 +121,7 @@ export default function AuthForm() {
         title: "Login Failed",
         description: "Invalid email, password, or role selected.",
       });
-      form.setError("email", { type: "manual", message: " " }); // Add error to field to show something is wrong
+      form.setError("email", { type: "manual", message: " " }); 
       form.setError("password", { type: "manual", message: "Invalid credentials or role mismatch." });
     }
   }
