@@ -23,6 +23,7 @@ export interface SchoolClass {
   id: string;
   name: string; // e.g., "Nursery 1A", "Primary 5B", "JSS 2"
   section: SchoolSection;
+  displayLevel: string;
 }
 
 export type NavItem = {
@@ -115,22 +116,23 @@ export const subjectCategoryIcons: Record<SubjectCategory, LucideIcon> = {
 
 export const mockSchoolClasses: SchoolClass[] = [
   // College Classes
-  { id: 'jss1', name: 'JSS 1', section: 'College' },
-  { id: 'jss2', name: 'JSS 2', section: 'College' },
-  { id: 'jss3', name: 'JSS 3', section: 'College' },
-  { id: 'sss1', name: 'SSS 1', section: 'College' },
-  { id: 'sss2', name: 'SSS 2', section: 'College' },
-  { id: 'sss3', name: 'SSS 3', section: 'College' },
+  { id: 'jss1', name: 'JSS 1', section: 'College', displayLevel: 'Junior Secondary 1' },
+  { id: 'jss2', name: 'JSS 2', section: 'College', displayLevel: 'Junior Secondary 2' },
+  { id: 'jss3', name: 'JSS 3', section: 'College', displayLevel: 'Junior Secondary 3' },
+  { id: 'sss1', name: 'SSS 1', section: 'College', displayLevel: 'Senior Secondary 1' },
+  { id: 'sss2', name: 'SSS 2', section: 'College', displayLevel: 'Senior Secondary 2' },
+  { id: 'sss3', name: 'SSS 3', section: 'College', displayLevel: 'Senior Secondary 3' },
 
   // Islamiyya Classes
-  { id: 'islamiyya1', name: 'Islamiyya 1', section: 'Islamiyya' },
-  { id: 'islamiyya2', name: 'Islamiyya 2', section: 'Islamiyya' },
-  { id: 'islamiyya3', name: 'Islamiyya 3', section: 'Islamiyya' },
+  { id: 'islamiyya1', name: 'Islamiyya 1', section: 'Islamiyya', displayLevel: 'Level 1' },
+  { id: 'islamiyya2', name: 'Islamiyya 2', section: 'Islamiyya', displayLevel: 'Level 2' },
+  { id: 'islamiyya3', name: 'Islamiyya 3', section: 'Islamiyya', displayLevel: 'Level 3' },
   
   // Tahfeez Classes
-  { id: 'tahfeez1', name: 'Tahfeez 1', section: 'Tahfeez' },
-  { id: 'tahfeez2', name: 'Tahfeez 2', section: 'Tahfeez' },
+  { id: 'tahfeez1', name: 'Tahfeez 1', section: 'Tahfeez', displayLevel: 'Level 1' },
+  { id: 'tahfeez2', name: 'Tahfeez 2', section: 'Tahfeez', displayLevel: 'Level 2' },
 ];
+
 
 export type PaymentStatus = "Paid" | "Pending" | "Failed";
 
@@ -145,80 +147,46 @@ export interface PaymentRecord {
   term: string;
 }
 
+export interface User {
+    id: string;
+    firstName: string;
+    surname: string;
+    middleName?: string;
+    email: string;
+    role: UserRole;
+    password?: string;
+    avatarUrl?: string;
+}
 
 // Define Student interface here to be used across relevant files
-export interface Student {
-  id: string;
-  name: string;
-  email: string;
+export interface Student extends User {
   schoolSection: SchoolSection; // Overall school section
   classId?: string; // Specific class assigned
-  passwordHash?: string; // For prototype, this might store the actual password for login. NOT FOR PRODUCTION.
   rollNumber?: string; // For attendance page if needed
-  // Added for localStorage user management
-  role?: UserRole; 
-  password?: string; // Storing password directly for prototype login - NOT SECURE
-  avatarUrl?: string; // Added for student avatar
 }
+
+export interface StaffMember extends User {
+    department: string;
+    title: string;
+    assignedClasses?: string[];
+    section?: SchoolSection;
+}
+
+export const combineName = (user: { firstName?: string, surname?: string, middleName?: string, name?: string }): string => {
+    if (user.firstName && user.surname) {
+        return `${user.firstName} ${user.middleName || ''} ${user.surname}`.replace(/\s+/g, ' ').trim();
+    }
+    // Fallback for old data structure
+    if (user.name) return user.name;
+    return 'Unknown User';
+};
 
 // Global mock student list, can be imported by pages that need it.
 export let globalMockStudents: Student[] = []; // Emptied for real user management
 
-// Function to update globalMockStudents (e.g., when admin adds/edits)
-export const updateGlobalMockStudents = (newStudents: Student[]) => {
-  globalMockStudents = newStudents;
-};
-export const addStudentToGlobalList = (newStudent: Student) => {
-  let students = [];
-  if (typeof window !== 'undefined') {
-    const storedUsersString = localStorage.getItem('managedUsers');
-    const allStoredUsers: (Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
-    students = allStoredUsers.filter((u: any) => u.role === 'student');
-  }
-  students.push(newStudent);
-  if (typeof window !== 'undefined') {
-    const allUsersString = localStorage.getItem('managedUsers');
-    const allUsers: (Student)[] = allUsersString ? JSON.parse(allUsersString) : [];
-    const otherUsers = allUsers.filter((u: any) => u.role !== 'student');
-    localStorage.setItem('managedUsers', JSON.stringify([...otherUsers, ...students]));
-  }
-  globalMockStudents = students; // Update in-memory list if needed by other components immediately
-};
 
-export const updateStudentInGlobalList = (updatedStudent: Student) => {
-  let students = [];
-   if (typeof window !== 'undefined') {
-    const storedUsersString = localStorage.getItem('managedUsers');
-    const allStoredUsers: (Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
-    students = allStoredUsers.filter((u: any) => u.role === 'student');
-  }
-  const index = students.findIndex(s => s.id === updatedStudent.id);
-  if (index !== -1) {
-    students[index] = updatedStudent;
-  }
-  if (typeof window !== 'undefined') {
-     const allUsersString = localStorage.getItem('managedUsers');
-     const allUsers: (Student)[] = allUsersString ? JSON.parse(allUsersString) : [];
-    const otherUsers = allUsers.filter((u: any) => u.role !== 'student');
-    localStorage.setItem('managedUsers', JSON.stringify([...otherUsers, ...students]));
-  }
-  globalMockStudents = students;
-};
+// Mock data for initial payments (can be removed if using a real backend)
+export const mockSchoolPayments: PaymentRecord[] = [];
 
-export const deleteStudentFromGlobalList = (studentId: string) => {
-  let students = [];
-  if (typeof window !== 'undefined') {
-    const storedUsersString = localStorage.getItem('managedUsers');
-    const allStoredUsers: (Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
-    students = allStoredUsers.filter((u: any) => u.role === 'student');
-  }
-  students = students.filter(s => s.id !== studentId);
-  if (typeof window !== 'undefined') {
-    const allUsersString = localStorage.getItem('managedUsers');
-    const allUsers: (Student)[] = allUsersString ? JSON.parse(allUsersString) : [];
-    const otherUsers = allUsers.filter((u: any) => u.role !== 'student');
-    localStorage.setItem('managedUsers', JSON.stringify([...otherUsers, ...students]));
-  }
-  globalMockStudents = students;
-};
-
+// Mock user data for initial load
+export const mockManagedUsers: (Student | StaffMember)[] = [];

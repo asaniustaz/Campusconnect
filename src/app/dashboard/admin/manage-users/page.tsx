@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolSection, SchoolClass, Student } from "@/lib/constants";
-import { SCHOOL_SECTIONS, mockSchoolClasses } from "@/lib/constants";
+import type { UserRole, SchoolSection, SchoolClass, Student, StaffMember } from "@/lib/constants";
+import { SCHOOL_SECTIONS, mockSchoolClasses, combineName } from "@/lib/constants";
 import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap, Upload } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +24,9 @@ import * as XLSX from "xlsx";
 
 // Student Schema for Add/Edit
 const studentSchema = z.object({
-  name: z.string().min(2, "Full name is required"),
+  firstName: z.string().min(2, "First name is required"),
+  surname: z.string().min(2, "Surname is required"),
+  middleName: z.string().optional(),
   email: z.string().email("Invalid email address"),
   schoolSection: z.custom<SchoolSection>((val) => SCHOOL_SECTIONS.includes(val as SchoolSection), "Please select a school section"),
   classId: z.string().optional(), 
@@ -35,7 +37,9 @@ type StudentFormData = z.infer<typeof studentSchema>;
 
 // Staff Schema for Add/Edit
 const staffSchema = z.object({
-  name: z.string().min(2, "Full name is required"),
+  firstName: z.string().min(2, "First name is required"),
+  surname: z.string().min(2, "Surname is required"),
+  middleName: z.string().optional(),
   email: z.string().email("Invalid email address"),
   role: z.custom<UserRole>((val) => ['staff', 'head_of_section', 'admin'].includes(val as UserRole), "Please select a valid role."),
   department: z.string().min(2, "Department is required"),
@@ -56,21 +60,6 @@ const staffSchema = z.object({
 type StaffFormData = z.infer<typeof staffSchema>;
 
 
-interface StaffMember {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  title: string;
-  password?: string; // Storing actual password for prototype login
-  assignedClasses?: string[];
-  role: UserRole;
-  section?: SchoolSection;
-}
-
-const initialMockStaff: StaffMember[] = []; // Emptied for real user management
-
-
 export default function ManageUsersPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -84,7 +73,9 @@ export default function ManageUsersPage() {
   const studentForm = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
-        name: "",
+        firstName: "",
+        surname: "",
+        middleName: "",
         email: "",
         schoolSection: undefined,
         classId: undefined,
@@ -96,7 +87,9 @@ export default function ManageUsersPage() {
   const staffForm = useForm<StaffFormData>({
     resolver: zodResolver(staffSchema),
     defaultValues: {
-        name: "",
+        firstName: "",
+        surname: "",
+        middleName: "",
         email: "",
         department: "",
         title: "",
@@ -135,7 +128,9 @@ export default function ManageUsersPage() {
   useEffect(() => {
     if (editingStudent) {
       studentForm.reset({
-        name: editingStudent.name,
+        firstName: editingStudent.firstName,
+        surname: editingStudent.surname,
+        middleName: editingStudent.middleName,
         email: editingStudent.email,
         schoolSection: editingStudent.schoolSection,
         classId: editingStudent.classId,
@@ -143,14 +138,16 @@ export default function ManageUsersPage() {
         rollNumber: editingStudent.rollNumber,
       });
     } else {
-      studentForm.reset({ name: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: "" });
+      studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: "" });
     }
   }, [editingStudent, studentForm]);
 
   useEffect(() => {
     if (editingStaff) {
       staffForm.reset({
-        name: editingStaff.name,
+        firstName: editingStaff.firstName,
+        surname: editingStaff.surname,
+        middleName: editingStaff.middleName,
         email: editingStaff.email,
         department: editingStaff.department,
         title: editingStaff.title,
@@ -160,7 +157,7 @@ export default function ManageUsersPage() {
         section: editingStaff.section,
       });
     } else {
-      staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
+      staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
     }
   }, [editingStaff, staffForm]);
 
@@ -172,7 +169,7 @@ export default function ManageUsersPage() {
   };
 
   const processImportedData = (data: any[]) => {
-    const requiredFields = ["name", "email", "password", "schoolSection", "classId", "rollNumber"];
+    const requiredFields = ["firstName", "surname", "email", "password", "schoolSection", "classId", "rollNumber"];
     // Assuming first object keys are headers for excel, and for csv we check meta.fields
     const headers = data.length > 0 ? Object.keys(data[0]) : [];
 
@@ -184,13 +181,15 @@ export default function ManageUsersPage() {
     let newStudents: Student[] = [];
     let errors: string[] = [];
     data.forEach((row: any, index) => {
-      if (!row.name || !row.email || !row.password) {
-        errors.push(`Row ${index + 2}: Missing required name, email, or password.`);
+      if (!row.firstName || !row.surname || !row.email || !row.password) {
+        errors.push(`Row ${index + 2}: Missing required firstName, surname, email, or password.`);
         return;
       }
       const newStudent: Student = {
         id: `stud-${Date.now()}-${index}`,
-        name: String(row.name),
+        firstName: String(row.firstName),
+        surname: String(row.surname),
+        middleName: String(row.middleName || ''),
         email: String(row.email),
         password: String(row.password),
         schoolSection: row.schoolSection as SchoolSection,
@@ -268,17 +267,19 @@ export default function ManageUsersPage() {
       }
       const updatedStudentData: Student = {
         ...editingStudent,
-        name: data.name,
+        firstName: data.firstName,
+        surname: data.surname,
+        middleName: data.middleName,
         email: data.email,
         schoolSection: data.schoolSection!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
-        password: data.password ? data.password : editingStudent.password, // Store actual password for prototype
+        password: data.password ? data.password : editingStudent.password,
         role: 'student',
       };
       newStudentList = studentList.map(s => s.id === editingStudent.id ? updatedStudentData : s);
       setStudentList(newStudentList);
-      toast({ title: "Student Updated", description: `${data.name}'s details have been updated.` });
+      toast({ title: "Student Updated", description: `${combineName(data)}'s details have been updated.` });
       setEditingStudent(null);
     } else {
       if (!data.password || data.password.length < 6) {
@@ -287,20 +288,22 @@ export default function ManageUsersPage() {
       }
       const newStudentData: Student = {
         id: `stud-${Date.now()}`,
-        name: data.name,
+        firstName: data.firstName,
+        surname: data.surname,
+        middleName: data.middleName,
         email: data.email,
         schoolSection: data.schoolSection!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
-        password: data.password, // Store actual password for prototype
+        password: data.password,
         role: 'student',
       };
       newStudentList.push(newStudentData);
       setStudentList(newStudentList);
-      toast({ title: "Student Added", description: `${data.name} has been added.` });
+      toast({ title: "Student Added", description: `${combineName(data)} has been added.` });
     }
     saveUsersToLocalStorage(newStudentList, staffList);
-    studentForm.reset({ name: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
+    studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleEditStudent = (student: Student) => {
@@ -310,7 +313,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
-    studentForm.reset({ name: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
+    studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleDeleteStudent = (studentId: string) => {
@@ -329,7 +332,9 @@ export default function ManageUsersPage() {
     if (editingStaff) {
       const updatedStaff: StaffMember = {
         ...editingStaff,
-        name: data.name,
+        firstName: data.firstName,
+        surname: data.surname,
+        middleName: data.middleName,
         email: data.email,
         department: data.department,
         title: data.title,
@@ -340,7 +345,7 @@ export default function ManageUsersPage() {
       };
       newStaffList = staffList.map(staff => staff.id === editingStaff.id ? updatedStaff : staff);
       setStaffList(newStaffList);
-      toast({ title: "Staff Updated", description: `${data.name}'s details have been updated.` });
+      toast({ title: "Staff Updated", description: `${combineName(data)}'s details have been updated.` });
       setEditingStaff(null);
     } else {
       if (!data.password || data.password.length < 6) {
@@ -349,7 +354,9 @@ export default function ManageUsersPage() {
       }
       const newStaffMember: StaffMember = {
         id: `staff-${Date.now()}`,
-        name: data.name,
+        firstName: data.firstName,
+        surname: data.surname,
+        middleName: data.middleName,
         email: data.email,
         department: data.department,
         title: data.title,
@@ -360,10 +367,10 @@ export default function ManageUsersPage() {
       };
       newStaffList.push(newStaffMember);
       setStaffList(newStaffList);
-      toast({ title: "Staff Added", description: `${data.name} has been added as a staff member.` });
+      toast({ title: "Staff Added", description: `${combineName(data)} has been added as a staff member.` });
     }
     saveUsersToLocalStorage(studentList, newStaffList);
-    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
+    staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
   };
 
   const handleEditStaff = (staff: StaffMember) => {
@@ -373,7 +380,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStaffEdit = () => {
     setEditingStaff(null);
-    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
+    staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
   };
   
   const handleDeleteStaff = (staffId: string) => {
@@ -455,7 +462,7 @@ export default function ManageUsersPage() {
                                 <TableBody>
                                   {studentsInThisClass.map((student) => (
                                     <TableRow key={student.id}>
-                                      <TableCell>{student.name}</TableCell>
+                                      <TableCell>{combineName(student)}</TableCell>
                                       <TableCell>{student.email}</TableCell>
                                       <TableCell>{student.schoolSection}</TableCell>
                                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
@@ -499,7 +506,7 @@ export default function ManageUsersPage() {
                                 <TableBody>
                                   {unassignedStudents.map((student) => (
                                     <TableRow key={student.id}>
-                                      <TableCell>{student.name}</TableCell>
+                                      <TableCell>{combineName(student)}</TableCell>
                                       <TableCell>{student.email}</TableCell>
                                       <TableCell>{student.schoolSection}</TableCell>
                                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
@@ -531,14 +538,25 @@ export default function ManageUsersPage() {
               <Card className="shadow-xl">
                 <CardHeader>
                   <CardTitle>{editingStudent ? "Edit Student" : "Add New Student"}</CardTitle>
-                  <CardDescription>{editingStudent ? `Update details for ${editingStudent.name}.` : "Fill in the details to register a new student."}</CardDescription>
+                  <CardDescription>{editingStudent ? `Update details for ${combineName(editingStudent)}.` : "Fill in the details to register a new student."}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={studentForm.handleSubmit(onStudentSubmit)} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input id="firstName" {...studentForm.register("firstName")} />
+                        {studentForm.formState.errors.firstName && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.firstName.message}</p>}
+                        </div>
+                        <div>
+                        <Label htmlFor="surname">Surname</Label>
+                        <Input id="surname" {...studentForm.register("surname")} />
+                        {studentForm.formState.errors.surname && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.surname.message}</p>}
+                        </div>
+                    </div>
                     <div>
-                      <Label htmlFor="studentName">Full Name</Label>
-                      <Input id="studentName" {...studentForm.register("name")} />
-                      {studentForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.name.message}</p>}
+                      <Label htmlFor="middleName">Middle Name (Optional)</Label>
+                      <Input id="middleName" {...studentForm.register("middleName")} />
                     </div>
                     <div>
                       <Label htmlFor="studentEmail">Email Address</Label>
@@ -645,7 +663,9 @@ export default function ManageUsersPage() {
                       <h4 className="font-semibold text-foreground mb-1">File Instructions:</h4>
                       <p>Your file must be a `.csv`, `.xlsx`, or `.xls` format and include the following headers in the first row:</p>
                       <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">name</span>: Full name of the student.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">firstName</span>: First name of the student.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">surname</span>: Surname of the student.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">middleName</span>: (Optional) Middle name.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: Unique email address.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">password</span>: Temporary password.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">schoolSection</span>: Must be one of: `College`, `Islamiyya`, `Tahfeez`.</li>
@@ -692,7 +712,7 @@ export default function ManageUsersPage() {
                                       <TableBody>
                                         {members.map((staff) => (
                                           <TableRow key={staff.id}>
-                                            <TableCell>{staff.name}</TableCell>
+                                            <TableCell>{combineName(staff)}</TableCell>
                                             <TableCell className="capitalize">{staff.role.replace('_', ' ')}</TableCell>
                                             <TableCell>{staff.title}</TableCell>
                                             <TableCell>{staff.section || 'N/A'}</TableCell>
@@ -723,14 +743,25 @@ export default function ManageUsersPage() {
             <Card className="shadow-xl max-w-lg mx-auto">
               <CardHeader>
                 <CardTitle>{editingStaff ? "Edit Staff Member" : "Add New Staff Member"}</CardTitle>
-                <CardDescription>{editingStaff ? `Update details for ${editingStaff.name}.` : "Fill in the details to register a new staff member."}</CardDescription>
+                <CardDescription>{editingStaff ? `Update details for ${combineName(editingStaff)}.` : "Fill in the details to register a new staff member."}</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={staffForm.handleSubmit(onStaffSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="staffFirstName">First Name</Label>
+                        <Input id="staffFirstName" {...staffForm.register("firstName")} />
+                        {staffForm.formState.errors.firstName && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.firstName.message}</p>}
+                      </div>
+                      <div>
+                        <Label htmlFor="staffSurname">Surname</Label>
+                        <Input id="staffSurname" {...staffForm.register("surname")} />
+                        {staffForm.formState.errors.surname && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.surname.message}</p>}
+                      </div>
+                  </div>
                   <div>
-                    <Label htmlFor="staffName">Full Name</Label>
-                    <Input id="staffName" {...staffForm.register("name")} />
-                    {staffForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.name.message}</p>}
+                    <Label htmlFor="staffMiddleName">Middle Name (Optional)</Label>
+                    <Input id="staffMiddleName" {...staffForm.register("middleName")} />
                   </div>
                   <div>
                     <Label htmlFor="staffEmail">Email Address</Label>

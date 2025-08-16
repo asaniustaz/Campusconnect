@@ -11,8 +11,8 @@ import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolSection, Student } from "@/lib/constants";
-import { SCHOOL_SECTIONS, mockSchoolClasses } from "@/lib/constants"; 
+import type { UserRole, SchoolSection, Student, StaffMember } from "@/lib/constants";
+import { SCHOOL_SECTIONS, mockSchoolClasses, combineName } from "@/lib/constants"; 
 import { Edit3, School, Camera, GraduationCap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -20,7 +20,9 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const profileSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  firstName: z.string().min(2, "First Name must be at least 2 characters"),
+  surname: z.string().min(2, "Surname must be at least 2 characters"),
+  middleName: z.string().optional(),
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
   classId: z.string().optional(), 
@@ -65,7 +67,8 @@ export default function ProfilePage() {
     
     let profileData: UserProfile = {
       id: currentUserId,
-      name: currentUserName,
+      firstName: currentUserName.split(' ')[0] || 'User',
+      surname: currentUserName.split(' ').slice(1).join(' ') || 'User',
       email: `${currentUserName.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`,
       role: currentUserRole,
       phone: "08012345678", // Default phone
@@ -76,23 +79,26 @@ export default function ProfilePage() {
         const storedUsersString = localStorage.getItem('managedUsers');
         if (storedUsersString) {
             try {
-                const allManagedUsers: (UserProfile | Student)[] = JSON.parse(storedUsersString);
-                const foundUser = allManagedUsers.find(u => u.id === currentUserId) as UserProfile | Student | undefined;
+                const allManagedUsers: (Student | StaffMember)[] = JSON.parse(storedUsersString);
+                const foundUser = allManagedUsers.find(u => u.id === currentUserId);
                 
                 if (foundUser) {
                     profileData.email = foundUser.email;
-                    profileData.name = foundUser.name; 
-                    if ((foundUser as UserProfile).avatarUrl) {
-                        profileData.avatarUrl = (foundUser as UserProfile).avatarUrl;
+                    profileData.firstName = foundUser.firstName; 
+                    profileData.surname = foundUser.surname; 
+                    profileData.middleName = foundUser.middleName; 
+                    if (foundUser.avatarUrl) {
+                        profileData.avatarUrl = foundUser.avatarUrl;
                     }
-                    profileData.phone = (foundUser as UserProfile).phone || profileData.phone;
 
                     if (foundUser.role === 'student') {
-                        profileData.classId = (foundUser as Student).classId;
-                        profileData.schoolSection = (foundUser as Student).schoolSection;
-                        profileData.className = (foundUser as Student).classId ? mockSchoolClasses.find(c => c.id === (foundUser as Student).classId)?.name : undefined;
-                    } else if (foundUser.role === 'staff' || foundUser.role === 'admin') {
-                        profileData.department = (foundUser as UserProfile).department || (currentUserRole === 'admin' ? "School Administration" : "General Staff");
+                        const studentUser = foundUser as Student;
+                        profileData.classId = studentUser.classId;
+                        profileData.schoolSection = studentUser.schoolSection;
+                        profileData.className = studentUser.classId ? mockSchoolClasses.find(c => c.id === studentUser.classId)?.name : undefined;
+                    } else if (foundUser.role === 'staff' || foundUser.role === 'admin' || foundUser.role === 'head_of_section') {
+                        const staffUser = foundUser as StaffMember;
+                        profileData.department = staffUser.department || (currentUserRole === 'admin' ? "School Administration" : "General Staff");
                     }
                 }
             } catch (e) {
@@ -103,11 +109,9 @@ export default function ProfilePage() {
     
     // Fallbacks if user not in localStorage or if certain fields are missing
     if (profileData.role === "student" && !profileData.schoolSection) { 
-      if (profileData.name.toLowerCase().includes("college")) profileData.schoolSection = "College";
-      else if (profileData.name.toLowerCase().includes("islamiyya")) profileData.schoolSection = "Islamiyya";
-      else profileData.schoolSection = "Tahfeez";
+        profileData.schoolSection = "College";
     } else if (profileData.role === "staff" && !profileData.department) {
-      profileData.department = profileData.name.toLowerCase().includes("teacher") || profileData.name.toLowerCase().includes("bola") ? "Academics" : "Administration"; 
+      profileData.department = "Academics"; 
     } else if (profileData.role === "admin" && !profileData.department) {
       profileData.department = "School Administration";
     }
@@ -115,7 +119,9 @@ export default function ProfilePage() {
     setUserProfile(profileData);
     setAvatarPreview(profileData.avatarUrl || null);
     form.reset({
-      name: profileData.name,
+      firstName: profileData.firstName,
+      surname: profileData.surname,
+      middleName: profileData.middleName,
       email: profileData.email,
       phone: profileData.phone,
       department: profileData.department,
@@ -147,8 +153,6 @@ export default function ProfilePage() {
       }
     } else {
        form.setValue("avatarFile", undefined); // No file selected
-       // Optionally reset to original avatar if needed, or keep current preview
-       // setAvatarPreview(userProfile?.avatarUrl || null); 
     }
   };
 
@@ -157,13 +161,14 @@ export default function ProfilePage() {
 
     let newAvatarUrl = userProfile.avatarUrl; // Start with current avatar
     if (data.avatarFile && data.avatarFile.length > 0 && avatarPreview && avatarPreview.startsWith('data:image')) {
-      // If a new valid file was selected and preview is a data URI
       newAvatarUrl = avatarPreview;
     }
 
     const updatedProfile: UserProfile = {
         ...userProfile, // Spread existing profile to keep role, id etc.
-        name: data.name,
+        firstName: data.firstName,
+        surname: data.surname,
+        middleName: data.middleName,
         email: data.email,
         phone: data.phone,
         schoolSection: data.schoolSection,
@@ -173,51 +178,50 @@ export default function ProfilePage() {
         className: userProfile.role === 'student' && data.classId ? mockSchoolClasses.find(c => c.id === data.classId)?.name : userProfile.className,
       };
     
-    setUserProfile(updatedProfile); // Update state immediately
+    setUserProfile(updatedProfile);
       
-      // Update localStorage
       if (typeof window !== 'undefined') {
         const storedUsersString = localStorage.getItem('managedUsers');
-        let allManagedUsers: (UserProfile | Student)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
+        let allManagedUsers: (Student | StaffMember)[] = storedUsersString ? JSON.parse(storedUsersString) : [];
         const userIndex = allManagedUsers.findIndex(u => u.id === userProfile.id);
 
         if (userIndex > -1) {
-           // Create a completely new object for the updated user to ensure all fields are fresh
            const userToUpdate = allManagedUsers[userIndex];
            allManagedUsers[userIndex] = {
-             ...userToUpdate, // Base properties like id, role, password
-             name: updatedProfile.name,
+             ...userToUpdate,
+             firstName: updatedProfile.firstName,
+             surname: updatedProfile.surname,
+             middleName: updatedProfile.middleName,
              email: updatedProfile.email,
              avatarUrl: updatedProfile.avatarUrl,
-             phone: updatedProfile.phone,
-             department: updatedProfile.department,
-             title: (userToUpdate as UserProfile).title, // Preserve existing title
-             classId: updatedProfile.classId,
-             schoolSection: updatedProfile.schoolSection,
-             // ensure all other fields from 'Student' or 'StaffMember' interfaces are preserved if they exist on userToUpdate
+             ...(userToUpdate.role === 'student' && {
+                classId: (updatedProfile as Student).classId,
+                schoolSection: (updatedProfile as Student).schoolSection,
+             }),
+             ...(userToUpdate.role !== 'student' && {
+                 department: (updatedProfile as StaffMember).department,
+             })
            };
         } else {
-           // This case should ideally not happen for an existing profile update
-           allManagedUsers.push(updatedProfile);
+           allManagedUsers.push(updatedProfile as Student | StaffMember);
         }
         localStorage.setItem('managedUsers', JSON.stringify(allManagedUsers));
 
-        // If the currently logged-in user's name changed, update localStorage for userName
-        if (localStorage.getItem("userId") === userProfile.id && localStorage.getItem("userName") !== data.name) {
-            localStorage.setItem("userName", data.name); 
+        if (localStorage.getItem("userId") === userProfile.id) {
+            localStorage.setItem("userName", combineName(updatedProfile)); 
         }
       }
     
     toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     setIsEditing(false);
-    form.reset({...data, avatarFile: undefined }); // Reset form, clear avatarFile field
+    form.reset({...data, avatarFile: undefined });
   };
 
   if (!userProfile) {
     return <div className="text-center p-10">Loading profile...</div>;
   }
   
-  const userInitials = userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase() || userProfile.email[0].toUpperCase();
+  const userInitials = (userProfile.firstName[0] || '') + (userProfile.surname[0] || '');
   
   return (
     <div className="space-y-6">
@@ -227,7 +231,7 @@ export default function ProfilePage() {
             <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
               <AvatarImage
                 src={avatarPreview || userProfile.avatarUrl}
-                alt={userProfile.name}
+                alt={combineName(userProfile)}
                 data-ai-hint="user avatar passport"
               />
               <AvatarFallback className="text-4xl">{userInitials}</AvatarFallback>
@@ -245,7 +249,7 @@ export default function ProfilePage() {
               </label>
             )}
           </div>
-          <CardTitle className="text-3xl font-headline">{userProfile.name}</CardTitle>
+          <CardTitle className="text-3xl font-headline">{combineName(userProfile)}</CardTitle>
           <CardDescription>
             {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)} - ID: {userProfile.id}
              {userProfile.role === 'student' && (
@@ -266,14 +270,25 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input id="firstName" {...form.register("firstName")} disabled={!isEditing} />
+                {form.formState.errors.firstName && <p className="text-sm text-destructive mt-1">{form.formState.errors.firstName.message}</p>}
+                </div>
+                <div>
+                <Label htmlFor="surname">Surname</Label>
+                <Input id="surname" {...form.register("surname")} disabled={!isEditing} />
+                {form.formState.errors.surname && <p className="text-sm text-destructive mt-1">{form.formState.errors.surname.message}</p>}
+                </div>
+            </div>
             <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" {...form.register("name")} defaultValue={userProfile.name} disabled={!isEditing} />
-              {form.formState.errors.name && <p className="text-sm text-destructive mt-1">{form.formState.errors.name.message}</p>}
+              <Label htmlFor="middleName">Middle Name (Optional)</Label>
+              <Input id="middleName" {...form.register("middleName")} disabled={!isEditing} />
             </div>
             <div>
               <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" {...form.register("email")} defaultValue={userProfile.email} disabled={!isEditing} />
+              <Input id="email" type="email" {...form.register("email")} disabled={!isEditing} />
               {form.formState.errors.email && <p className="text-sm text-destructive mt-1">{form.formState.errors.email.message}</p>}
             </div>
             <div>
@@ -345,7 +360,7 @@ export default function ProfilePage() {
               </>
             )}
 
-            {(userProfile.role === 'staff' || userProfile.role === 'admin') && (
+            {(userProfile.role === 'staff' || userProfile.role === 'admin' || userProfile.role === 'head_of_section') && (
               <div>
                 <Label htmlFor="department">Department</Label>
                 <Input id="department" {...form.register("department")} defaultValue={userProfile.department} disabled={!isEditing || userProfile.role === 'admin'} />
@@ -361,7 +376,9 @@ export default function ProfilePage() {
                 <Button type="button" variant="outline" onClick={() => {
                     setIsEditing(false);
                     form.reset({
-                        name: userProfile.name,
+                        firstName: userProfile.firstName,
+                        surname: userProfile.surname,
+                        middleName: userProfile.middleName,
                         email: userProfile.email,
                         phone: userProfile.phone,
                         department: userProfile.department,
@@ -381,7 +398,9 @@ export default function ProfilePage() {
             <Button variant="outline" onClick={() => {
               setIsEditing(true);
               form.reset({
-                name: userProfile.name,
+                firstName: userProfile.firstName,
+                surname: userProfile.surname,
+                middleName: userProfile.middleName,
                 email: userProfile.email,
                 phone: userProfile.phone,
                 department: userProfile.department,
@@ -399,5 +418,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

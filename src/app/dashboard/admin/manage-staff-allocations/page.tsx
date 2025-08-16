@@ -8,20 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolSection, SubjectCategory } from "@/lib/constants";
-import { SCHOOL_SECTIONS } from "@/lib/constants"; 
+import type { UserRole, SchoolSection, SubjectCategory, StaffMember } from "@/lib/constants";
+import { SCHOOL_SECTIONS, combineName } from "@/lib/constants"; 
 import { BookUser, Save } from "lucide-react";
-
-// ManagedUser is a user from localStorage, could be student, staff, or admin
-interface ManagedUser {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  department?: string;
-  title?: string;
-}
-
 
 interface CourseForAllocation {
   id: string;
@@ -59,7 +48,7 @@ export default function ManageStaffAllocationsPage() {
   const [allocations, setAllocations] = useState<StaffAllocation>({});
   const [filteredCourses, setFilteredCourses] = useState<CourseForAllocation[]>(mockCourseListForAllocation);
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<SchoolSection | "all">("all");
-  const [availableStaff, setAvailableStaff] = useState<ManagedUser[]>([]);
+  const [availableStaff, setAvailableStaff] = useState<StaffMember[]>([]);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
@@ -70,7 +59,7 @@ export default function ManageStaffAllocationsPage() {
       const storedUsersString = localStorage.getItem('managedUsers');
       if (storedUsersString) {
         try {
-          const allStoredUsers: ManagedUser[] = JSON.parse(storedUsersString);
+          const allStoredUsers: StaffMember[] = JSON.parse(storedUsersString);
           // Filter for users who are staff or admin, as admins might also be assigned subjects
           const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section');
           setAvailableStaff(staffUsers);
@@ -125,7 +114,8 @@ export default function ManageStaffAllocationsPage() {
      if (typeof window !== 'undefined') {
         localStorage.setItem('staffCourseAllocations', JSON.stringify(allocations));
      }
-    const staffMemberName = availableStaff.find(s => s.id === selectedStaffId)?.name || "Selected Staff";
+    const staffMember = availableStaff.find(s => s.id === selectedStaffId);
+    const staffMemberName = staffMember ? combineName(staffMember) : "Selected Staff";
     console.log("Saving allocations for", staffMemberName, ":", allocations[selectedStaffId]);
     toast({
       title: "Allocations Saved",
@@ -166,7 +156,7 @@ export default function ManageStaffAllocationsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {availableStaff.length > 0 ? availableStaff.map(staff => (
-                    <SelectItem key={staff.id} value={staff.id}>{staff.name} ({staff.title || staff.role})</SelectItem>
+                    <SelectItem key={staff.id} value={staff.id}>{combineName(staff)} ({staff.title || staff.role})</SelectItem>
                   )) : <SelectItem value="no-staff" disabled>No staff available</SelectItem>}
                 </SelectContent>
               </Select>
@@ -190,7 +180,7 @@ export default function ManageStaffAllocationsPage() {
         <CardContent>
           {selectedStaffId && staffMemberDetails ? (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Available Subjects for {staffMemberDetails.name}:</h3>
+              <h3 className="text-lg font-medium">Available Subjects for {combineName(staffMemberDetails)}:</h3>
               {filteredCourses.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-96 overflow-y-auto p-2 border rounded-md">
                   {filteredCourses.map(course => (
@@ -199,7 +189,7 @@ export default function ManageStaffAllocationsPage() {
                         id={`course-${course.id}`}
                         checked={staffCourses.includes(course.id)}
                         onCheckedChange={() => handleCourseToggle(course.id)}
-                        aria-label={`Allocate ${course.name} to ${staffMemberDetails.name}`}
+                        aria-label={`Allocate ${course.name} to ${combineName(staffMemberDetails)}`}
                       />
                       <Label htmlFor={`course-${course.id}`} className="flex flex-col cursor-pointer">
                         <span>{course.name}</span>
@@ -213,7 +203,7 @@ export default function ManageStaffAllocationsPage() {
               )}
               <div className="flex justify-end mt-6">
                 <Button onClick={handleSaveChanges} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                  <Save className="mr-2 h-4 w-4"/> Save Changes for {staffMemberDetails.name}
+                  <Save className="mr-2 h-4 w-4"/> Save Changes for {combineName(staffMemberDetails)}
                 </Button>
               </div>
             </div>
@@ -225,8 +215,3 @@ export default function ManageStaffAllocationsPage() {
     </div>
   );
 }
-    
-
-    
-
-    

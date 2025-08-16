@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Student, PaymentRecord, PaymentStatus } from "@/lib/constants";
-import { TERMS } from "@/lib/constants";
+import { TERMS, combineName } from "@/lib/constants";
 import { DollarSign, PlusCircle, Edit, Filter, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -105,7 +105,8 @@ export default function ManagePaymentsPage() {
   };
 
   const onSubmit: SubmitHandler<PaymentFormData> = (data) => {
-    const studentName = allStudents.find(s => s.id === data.studentId)?.name || 'Unknown Student';
+    const student = allStudents.find(s => s.id === data.studentId);
+    const studentName = student ? combineName(student) : 'Unknown Student';
     let updatedPayments = [...allPayments];
 
     if (editingPayment) {
@@ -172,7 +173,7 @@ export default function ManagePaymentsPage() {
               <SelectContent>
                 <SelectItem value="all">All Students</SelectItem>
                 {allStudents.map(student => (
-                  <SelectItem key={student.id} value={student.id}>{student.name}</SelectItem>
+                  <SelectItem key={student.id} value={student.id}>{combineName(student)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -248,7 +249,7 @@ export default function ManagePaymentsPage() {
                   <Select onValueChange={field.onChange} value={field.value} disabled={!!editingPayment}>
                     <SelectTrigger><SelectValue placeholder="Select a student" /></SelectTrigger>
                     <SelectContent>
-                      {allStudents.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      {allStudents.map(s => <SelectItem key={s.id} value={s.id}>{combineName(s)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   {form.formState.errors.studentId && <p className="text-sm text-destructive">{form.formState.errors.studentId.message}</p>}
