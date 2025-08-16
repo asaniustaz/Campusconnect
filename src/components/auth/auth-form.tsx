@@ -16,19 +16,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { UserRole } from "@/lib/constants";
-import { APP_NAME } from "@/lib/constants";
+import type { UserRole, Student, StaffMember } from "@/lib/constants";
+import { APP_NAME, combineName } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn } from "lucide-react";
 
-// Define a type for users stored in localStorage
-type ManagedUser = {
-  id: string;
-  name: string;
-  email: string;
-  password?: string; // Password stored directly for prototype
-  role: UserRole;
-};
+type ManagedUser = Student | StaffMember;
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -58,7 +51,7 @@ export default function AuthForm() {
     const REAL_ADMIN_PASS = "Aa12345678@";
 
     let loggedIn = false;
-    let userName = values.email.split('@')[0] || "User";
+    let userName = "User";
     let userRole: UserRole | null = null;
     let loggedInUserId: string | null = null;
 
@@ -76,10 +69,10 @@ export default function AuthForm() {
       if (storedUsersString) {
         try {
           const managedUsers: ManagedUser[] = JSON.parse(storedUsersString);
-          const matchedUser = managedUsers.find(u => u.email === values.email && u.password === values.password);
+          const matchedUser = managedUsers.find(u => u.email.toLowerCase() === values.email.toLowerCase() && u.password === values.password);
           if (matchedUser) {
             userRole = matchedUser.role;
-            userName = matchedUser.name;
+            userName = combineName(matchedUser);
             loggedInUserId = matchedUser.id;
             loggedIn = true;
           }

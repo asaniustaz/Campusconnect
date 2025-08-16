@@ -30,7 +30,7 @@ const studentSchema = z.object({
   email: z.string().email("Invalid email address"),
   schoolSection: z.custom<SchoolSection>((val) => SCHOOL_SECTIONS.includes(val as SchoolSection), "Please select a school section"),
   classId: z.string().optional(), 
-  password: z.string().min(6, "Password must be at least 6 characters for new students.").optional(), 
+  password: z.string().min(6, "Password must be at least 6 characters.").optional(), 
   rollNumber: z.string().optional(),
 });
 type StudentFormData = z.infer<typeof studentSchema>;
@@ -169,8 +169,7 @@ export default function ManageUsersPage() {
   };
 
   const processImportedData = (data: any[]) => {
-    const requiredFields = ["firstName", "surname", "email", "password", "schoolSection", "classId", "rollNumber"];
-    // Assuming first object keys are headers for excel, and for csv we check meta.fields
+    const requiredFields = ["firstName", "surname", "email", "schoolSection", "classId", "rollNumber"];
     const headers = data.length > 0 ? Object.keys(data[0]) : [];
 
     if (!requiredFields.every(field => headers.includes(field))) {
@@ -181,8 +180,8 @@ export default function ManageUsersPage() {
     let newStudents: Student[] = [];
     let errors: string[] = [];
     data.forEach((row: any, index) => {
-      if (!row.firstName || !row.surname || !row.email || !row.password) {
-        errors.push(`Row ${index + 2}: Missing required firstName, surname, email, or password.`);
+      if (!row.firstName || !row.surname || !row.email) {
+        errors.push(`Row ${index + 2}: Missing required firstName, surname, or email.`);
         return;
       }
       const newStudent: Student = {
@@ -191,7 +190,7 @@ export default function ManageUsersPage() {
         surname: String(row.surname),
         middleName: String(row.middleName || ''),
         email: String(row.email),
-        password: String(row.password),
+        password: String(row.surname).toLowerCase(), // Set password to surname
         schoolSection: row.schoolSection as SchoolSection,
         classId: row.classId ? String(row.classId) : undefined,
         rollNumber: row.rollNumber ? String(row.rollNumber) : undefined,
@@ -261,10 +260,6 @@ export default function ManageUsersPage() {
   const onStudentSubmit: SubmitHandler<StudentFormData> = (data) => {
     let newStudentList = [...studentList];
     if (editingStudent) {
-      if (!data.password && !editingStudent.password) { 
-         studentForm.setError("password", { type: "manual", message: "Password is required if not previously set or to change it."});
-         return;
-      }
       const updatedStudentData: Student = {
         ...editingStudent,
         firstName: data.firstName,
@@ -282,10 +277,6 @@ export default function ManageUsersPage() {
       toast({ title: "Student Updated", description: `${combineName(data)}'s details have been updated.` });
       setEditingStudent(null);
     } else {
-      if (!data.password || data.password.length < 6) {
-        studentForm.setError("password", { type: "manual", message: "Password must be at least 6 characters for new students."});
-        return;
-      }
       const newStudentData: Student = {
         id: `stud-${Date.now()}`,
         firstName: data.firstName,
@@ -295,7 +286,7 @@ export default function ManageUsersPage() {
         schoolSection: data.schoolSection!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
-        password: data.password,
+        password: data.surname.toLowerCase(), // Set password to surname
         role: 'student',
       };
       newStudentList.push(newStudentData);
@@ -624,16 +615,18 @@ export default function ManageUsersPage() {
                         {studentForm.formState.errors.classId && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.classId.message}</p>}
                       </div>
                     </div>
-                    <div>
-                      <Label htmlFor="studentPassword">Password</Label>
-                      <Input 
-                          id="studentPassword" 
-                          type="password" 
-                          {...studentForm.register("password")} 
-                          placeholder={editingStudent ? "Leave blank to keep current" : "Min. 6 characters"} 
-                      />
-                      {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
-                    </div>
+                    {editingStudent && (
+                      <div>
+                        <Label htmlFor="studentPassword">Password</Label>
+                        <Input 
+                            id="studentPassword" 
+                            type="password" 
+                            {...studentForm.register("password")} 
+                            placeholder={"Leave blank to keep current password"} 
+                        />
+                        {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
+                      </div>
+                    )}
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <Button type="submit" className="w-full sm:flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
                         <UserPlus className="mr-2 h-4 w-4"/> {editingStudent ? "Update Student" : "Add Student"}
@@ -667,11 +660,11 @@ export default function ManageUsersPage() {
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">surname</span>: Surname of the student.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">middleName</span>: (Optional) Middle name.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: Unique email address.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">password</span>: Temporary password.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">schoolSection</span>: Must be one of: `College`, `Islamiyya`, `Tahfeez`.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">classId</span>: The ID for the class (e.g., `jss1`, `islamiyya2`). Leave empty for unassigned.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span>: The student's roll number.</li>
                       </ul>
+                       <p className="mt-2">The student's password will be automatically set to their <span className="font-semibold">surname in lowercase</span>.</p>
                     </div>
                   </div>
                 </CardContent>
