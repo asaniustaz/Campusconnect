@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolClass } from "@/lib/constants";
+import type { UserRole, SchoolClass, StaffMember, SchoolSection } from "@/lib/constants";
 import { TERMS, SESSIONS, mockSchoolClasses as defaultClasses } from "@/lib/constants"; 
 import { UploadCloud, FileSpreadsheet, FileText, FileType } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,6 +50,8 @@ type UploadFormData = z.infer<typeof uploadSchema>;
 export default function ResultUploadPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
+
   const [templateFileName, setTemplateFileName] = useState<string | null>(null);
   const [resultsFileName, setResultsFileName] = useState<string | null>(null);
   const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
@@ -61,6 +63,7 @@ export default function ResultUploadPage() {
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
+    const userId = localStorage.getItem("userId");
     setUserRole(role);
 
     if (typeof window !== 'undefined') {
@@ -73,6 +76,19 @@ export default function ResultUploadPage() {
         }
       } else {
         setAllClasses(defaultClasses);
+      }
+
+      if (userId && (role === 'admin' || role === 'head_of_section')) {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+          try {
+            const allUsers: StaffMember[] = JSON.parse(storedUsersString);
+            const foundUser = allUsers.find(u => u.id === userId);
+            if (foundUser) {
+              setCurrentUser(foundUser);
+            }
+          } catch (e) { console.error("Failed to parse current user", e); }
+        }
       }
     }
   }, []);
@@ -88,12 +104,22 @@ export default function ResultUploadPage() {
     setResultsFileName(null);
   };
 
-  if (userRole !== 'admin') {
+  const getVisibleClasses = () => {
+    if (userRole === 'admin') {
+      return allClasses;
+    }
+    if (userRole === 'head_of_section' && currentUser?.section) {
+      return allClasses.filter(c => c.section === currentUser.section);
+    }
+    return [];
+  };
+
+  if (userRole !== 'admin' && userRole !== 'head_of_section') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
           <CardTitle className="text-2xl text-destructive mb-4">Access Denied</CardTitle>
-          <CardDescription>This page is only accessible to admin members.</CardDescription>
+          <CardDescription>This page is only accessible to admin and Head of Section members.</CardDescription>
         </Card>
       </div>
     );
@@ -174,7 +200,7 @@ export default function ResultUploadPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {allClasses.map(cls => (
+                          {getVisibleClasses().map(cls => (
                             <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
                           ))}
                         </SelectContent>

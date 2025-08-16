@@ -44,6 +44,8 @@ interface StaffAllocation {
 export default function ManageStaffAllocationsPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
+
   const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>();
   const [allocations, setAllocations] = useState<StaffAllocation>({});
   const [filteredCourses, setFilteredCourses] = useState<CourseForAllocation[]>(mockCourseListForAllocation);
@@ -52,6 +54,7 @@ export default function ManageStaffAllocationsPage() {
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
+    const userId = localStorage.getItem("userId");
     setUserRole(role);
 
     // Load staff from localStorage
@@ -63,6 +66,17 @@ export default function ManageStaffAllocationsPage() {
           // Filter for users who are staff or admin, as admins might also be assigned subjects
           const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section');
           setAvailableStaff(staffUsers);
+
+          if (userId && (role === 'admin' || role === 'head_of_section')) {
+            const foundUser = allStoredUsers.find(u => u.id === userId);
+            if (foundUser) {
+              setCurrentUser(foundUser);
+              if (role === 'head_of_section') {
+                setSelectedSectionFilter(foundUser.section || 'all');
+              }
+            }
+          }
+
         } catch (e) {
           console.error("Failed to parse users from localStorage for staff allocations:", e);
           setAvailableStaff([]); // Fallback to empty if parsing fails
@@ -114,7 +128,7 @@ export default function ManageStaffAllocationsPage() {
      if (typeof window !== 'undefined') {
         localStorage.setItem('staffCourseAllocations', JSON.stringify(allocations));
      }
-    const staffMember = availableStaff.find(s => s.id === selectedStaffId);
+    const staffMember = visibleStaff.find(s => s.id === selectedStaffId);
     const staffMemberName = staffMember ? combineName(staffMember) : "Selected Staff";
     console.log("Saving allocations for", staffMemberName, ":", allocations[selectedStaffId]);
     toast({
@@ -123,25 +137,29 @@ export default function ManageStaffAllocationsPage() {
     });
   };
 
-  if (userRole !== 'admin') {
+  const visibleStaff = userRole === 'head_of_section' && currentUser?.section
+    ? availableStaff.filter(s => s.section === currentUser.section || s.role === 'staff') // HOS can assign to staff in their section
+    : availableStaff;
+
+  if (userRole !== 'admin' && userRole !== 'head_of_section') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
           <CardTitle className="text-2xl text-destructive mb-4">Access Denied</CardTitle>
-          <CardDescription>This page is only accessible to admin members.</CardDescription>
+          <CardDescription>This page is only accessible to admin and Head of Section members.</CardDescription>
         </Card>
       </div>
     );
   }
 
   const staffCourses = selectedStaffId ? (allocations[selectedStaffId] || []) : [];
-  const staffMemberDetails = availableStaff.find(s => s.id === selectedStaffId);
+  const staffMemberDetails = visibleStaff.find(s => s.id === selectedStaffId);
 
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Manage Staff Allocations</h1>
-        <p className="text-muted-foreground">Assign subjects and class mastery to staff members.</p>
+        <p className="text-muted-foreground">Assign subjects to staff members {userRole === 'head_of_section' && `for the ${currentUser?.section} section`}.</p>
       </header>
 
       <Card className="shadow-xl max-w-3xl mx-auto">
@@ -155,7 +173,7 @@ export default function ManageStaffAllocationsPage() {
                   <SelectValue placeholder="Select a staff member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableStaff.length > 0 ? availableStaff.map(staff => (
+                  {visibleStaff.length > 0 ? visibleStaff.map(staff => (
                     <SelectItem key={staff.id} value={staff.id}>{combineName(staff)} ({staff.title || staff.role})</SelectItem>
                   )) : <SelectItem value="no-staff" disabled>No staff available</SelectItem>}
                 </SelectContent>
@@ -163,14 +181,14 @@ export default function ManageStaffAllocationsPage() {
             </div>
             <div>
               <Label htmlFor="levelFilter">Filter Subjects by Section</Label>
-              <Select value={selectedSectionFilter} onValueChange={(value) => setSelectedSectionFilter(value as SchoolSection | "all")}>
+              <Select value={selectedSectionFilter} onValueChange={(value) => setSelectedSectionFilter(value as SchoolSection | "all")} disabled={userRole === 'head_of_section'}>
                 <SelectTrigger id="levelFilter" className="w-full">
                   <SelectValue placeholder="Filter by school section" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sections</SelectItem>
                   {SCHOOL_SECTIONS.map(section => (
-                    <SelectItem key={section} value={section}>{section}</SelectItem>
+                    <SelectItem key={section} value={section} disabled={userRole === 'head_of_section' && section !== currentUser?.section}>{section}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

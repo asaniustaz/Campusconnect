@@ -41,7 +41,7 @@ const staffSchema = z.object({
   surname: z.string().min(2, "Surname is required"),
   middleName: z.string().optional(),
   email: z.string().email("Invalid email address"),
-  role: z.custom<UserRole>((val) => ['staff', 'head_of_section', 'admin'].includes(val as UserRole), "Please select a valid role."),
+  role: z.custom<UserRole>((val) => ['staff', 'head_of_section'].includes(val as UserRole), "Please select a valid role."),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
   password: z.string().min(6, "Password must be at least 6 characters for new staff.").optional(),
@@ -63,6 +63,7 @@ type StaffFormData = z.infer<typeof staffSchema>;
 export default function ManageUsersPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
   
   const [studentList, setStudentList] = useState<Student[]>([]);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -104,6 +105,7 @@ export default function ManageUsersPage() {
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
+    const userId = localStorage.getItem("userId");
     setUserRole(role);
 
     if (typeof window !== 'undefined') {
@@ -112,7 +114,13 @@ export default function ManageUsersPage() {
         try {
           const allStoredUsers: (Student | StaffMember)[] = JSON.parse(storedUsersString);
           setStudentList(allStoredUsers.filter(u => u.role === 'student') as Student[]);
-          setStaffList(allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section') as StaffMember[]);
+          const staffAndAdmins = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section') as StaffMember[];
+          setStaffList(staffAndAdmins);
+
+          if (userId && (role === 'admin' || role === 'head_of_section')) {
+            const foundUser = staffAndAdmins.find(u => u.id === userId);
+            if(foundUser) setCurrentUser(foundUser);
+          }
         } catch (e) {
           console.error("Failed to parse users from localStorage", e);
         }
@@ -145,9 +153,9 @@ export default function ManageUsersPage() {
         rollNumber: editingStudent.rollNumber,
       });
     } else {
-      studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: "" });
+      studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: userRole === 'head_of_section' ? currentUser?.section : undefined, classId: undefined, password: "", rollNumber: ""});
     }
-  }, [editingStudent, studentForm]);
+  }, [editingStudent, studentForm, userRole, currentUser]);
 
   useEffect(() => {
     if (editingStaff) {
@@ -164,9 +172,9 @@ export default function ManageUsersPage() {
         section: editingStaff.section,
       });
     } else {
-      staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
+      staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: userRole === 'head_of_section' ? currentUser?.section : undefined });
     }
-  }, [editingStaff, staffForm]);
+  }, [editingStaff, staffForm, userRole, currentUser]);
 
   const saveUsersToLocalStorage = (updatedStudents: Student[], updatedStaff: StaffMember[]) => {
     if (typeof window !== 'undefined') {
@@ -187,6 +195,10 @@ export default function ManageUsersPage() {
     let newStudents: Student[] = [];
     let errors: string[] = [];
     data.forEach((row: any, index) => {
+       if (userRole === 'head_of_section' && row.schoolSection !== currentUser?.section) {
+        errors.push(`Row ${index + 2}: You can only add students to your own section (${currentUser?.section}).`);
+        return;
+      }
       if (!row.firstName || !row.surname || !row.email) {
         errors.push(`Row ${index + 2}: Missing required firstName, surname, or email.`);
         return;
@@ -301,7 +313,7 @@ export default function ManageUsersPage() {
       toast({ title: "Student Added", description: `${combineName(data)} has been added.` });
     }
     saveUsersToLocalStorage(newStudentList, staffList);
-    studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
+    studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: userRole === 'head_of_section' ? currentUser?.section : undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleEditStudent = (student: Student) => {
@@ -311,7 +323,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
-    studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
+    studentForm.reset({ firstName: "", surname: "", middleName: "", email: "", schoolSection: userRole === 'head_of_section' ? currentUser?.section : undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleDeleteStudent = (studentId: string) => {
@@ -368,7 +380,7 @@ export default function ManageUsersPage() {
       toast({ title: "Staff Added", description: `${combineName(data)} has been added as a staff member.` });
     }
     saveUsersToLocalStorage(studentList, newStaffList);
-    staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
+    staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: userRole === 'head_of_section' ? currentUser?.section : undefined });
   };
 
   const handleEditStaff = (staff: StaffMember) => {
@@ -378,7 +390,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStaffEdit = () => {
     setEditingStaff(null);
-    staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
+    staffForm.reset({ firstName: "", surname: "", middleName: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: userRole === 'head_of_section' ? currentUser?.section : undefined });
   };
   
   const handleDeleteStaff = (staffId: string) => {
@@ -391,7 +403,11 @@ export default function ManageUsersPage() {
     }
   };
 
-  const groupedStaff = staffList.reduce((acc, staffMember) => {
+  const visibleStudents = userRole === 'head_of_section' ? studentList.filter(s => s.schoolSection === currentUser?.section) : studentList;
+  const visibleStaff = userRole === 'head_of_section' ? staffList.filter(s => s.section === currentUser?.section || s.department === currentUser?.section) : staffList; // Looser coupling for staff
+  const visibleClasses = userRole === 'head_of_section' ? allClasses.filter(c => c.section === currentUser?.section) : allClasses;
+
+  const groupedStaff = visibleStaff.reduce((acc, staffMember) => {
     const department = staffMember.department || "Uncategorized";
     if (!acc[department]) {
       acc[department] = [];
@@ -400,12 +416,12 @@ export default function ManageUsersPage() {
     return acc;
   }, {} as Record<string, StaffMember[]>);
   
-  if (userRole !== 'admin') {
+  if (userRole !== 'admin' && userRole !== 'head_of_section') {
      return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
           <CardTitle className="text-2xl text-destructive mb-4">Access Denied</CardTitle>
-          <CardDescription>This page is only accessible to admin members.</CardDescription>
+          <CardDescription>This page is only accessible to admin or Head of Section.</CardDescription>
         </Card>
       </div>
     );
@@ -413,12 +429,11 @@ export default function ManageUsersPage() {
   
   const roleForStaffForm = staffForm.watch("role");
 
-
   return (
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Manage Users</h1>
-        <p className="text-muted-foreground">Add new students or manage staff members.</p>
+        <p className="text-muted-foreground">Add new students or manage staff members {userRole === 'head_of_section' && `for the ${currentUser?.section} section`}.</p>
       </header>
 
       <Tabs defaultValue="manage-students" className="w-full">
@@ -435,11 +450,11 @@ export default function ManageUsersPage() {
                 <CardDescription>View, edit, or remove students, grouped by their classes. Click on a class name to expand/collapse.</CardDescription>
               </CardHeader>
               <CardContent>
-                {studentList.length > 0 ? (
+                {visibleStudents.length > 0 ? (
                   <ScrollArea className="max-h-[500px]">
                     <Accordion type="multiple" className="w-full">
-                      {allClasses.map(cls => {
-                        const studentsInThisClass = studentList.filter(s => s.classId === cls.id);
+                      {visibleClasses.map(cls => {
+                        const studentsInThisClass = visibleStudents.filter(s => s.classId === cls.id);
                         if (studentsInThisClass.length === 0) return null;
                         return (
                           <AccordionItem value={cls.id} key={cls.id}>
@@ -482,7 +497,7 @@ export default function ManageUsersPage() {
                       })}
                       
                       {(() => {
-                        const unassignedStudents = studentList.filter(s => !s.classId || !allClasses.some(c => c.id === s.classId));
+                        const unassignedStudents = visibleStudents.filter(s => !s.classId || !visibleClasses.some(c => c.id === s.classId));
                         if (unassignedStudents.length === 0) return null;
 
                         return (
@@ -579,13 +594,14 @@ export default function ManageUsersPage() {
                                   studentForm.setValue("classId", undefined); 
                               }} 
                               value={field.value || ""}
+                              disabled={userRole === 'head_of_section'}
                             >
                               <SelectTrigger id="schoolSection">
                                 <SelectValue placeholder="Select school section" />
                               </SelectTrigger>
                               <SelectContent>
                                 {SCHOOL_SECTIONS.map(section => (
-                                  <SelectItem key={section} value={section}>{section}</SelectItem>
+                                  <SelectItem key={section} value={section} disabled={userRole === 'head_of_section' && section !== currentUser?.section}>{section}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -610,7 +626,7 @@ export default function ManageUsersPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
-                                {allClasses
+                                {visibleClasses
                                   .filter(cls => !studentForm.getValues("schoolSection") || cls.section === studentForm.getValues("schoolSection")) 
                                   .map(cls => (
                                   <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
@@ -672,6 +688,7 @@ export default function ManageUsersPage() {
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span>: The student's roll number.</li>
                       </ul>
                        <p className="mt-2">The student's password will be automatically set to their <span className="font-semibold">surname in lowercase</span>.</p>
+                       {userRole === 'head_of_section' && <p className="mt-2 font-semibold text-destructive">Note: You can only import students for the {currentUser?.section} section. Rows for other sections will be ignored.</p>}
                     </div>
                   </div>
                 </CardContent>
@@ -688,7 +705,7 @@ export default function ManageUsersPage() {
                  <CardDescription>View, edit, or remove staff members, grouped by department. Click on a department name to expand/collapse.</CardDescription>
               </CardHeader>
               <CardContent>
-                {staffList.length > 0 ? (
+                {visibleStaff.length > 0 ? (
                    <ScrollArea className="max-h-[500px]">
                      <Accordion type="multiple" className="w-full">
                         {Object.entries(groupedStaff).sort(([deptA], [deptB]) => deptA.localeCompare(deptB)).map(([department, members]) => {
@@ -791,7 +808,7 @@ export default function ManageUsersPage() {
                                     <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="staff">Staff</SelectItem>
-                                        <SelectItem value="head_of_section">Head of Section</SelectItem>
+                                        {userRole === 'admin' && <SelectItem value="head_of_section">Head of Section</SelectItem>}
                                     </SelectContent>
                                 </Select>
                                 {staffForm.formState.errors.role && <p className="text-sm text-destructive">{staffForm.formState.errors.role.message}</p>}
@@ -805,11 +822,11 @@ export default function ManageUsersPage() {
                             render={({ field }) => (
                                 <div className="space-y-1">
                                     <Label>Assign to Section</Label>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={userRole === 'head_of_section'}>
                                         <SelectTrigger><SelectValue placeholder="Select a section" /></SelectTrigger>
                                         <SelectContent>
                                             {SCHOOL_SECTIONS.map(section => (
-                                                <SelectItem key={section} value={section}>{section}</SelectItem>
+                                                <SelectItem key={section} value={section} disabled={userRole === 'head_of_section' && section !== currentUser?.section}>{section}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -833,7 +850,7 @@ export default function ManageUsersPage() {
                         <Label className="flex items-center"><ListChecks className="mr-2 h-4 w-4 text-primary" /> Assign Classes (as Class Master)</Label>
                         <ScrollArea className="h-48 w-full rounded-md border p-3 bg-secondary/20">
                           <div className="space-y-1">
-                          {allClasses.map((cls) => (
+                          {visibleClasses.map((cls) => (
                             <div key={cls.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary/50">
                               <Checkbox
                                 id={`class-assign-${cls.id}`}

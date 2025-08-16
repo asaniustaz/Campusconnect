@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolSection, SchoolClass } from "@/lib/constants";
+import type { UserRole, SchoolSection, SchoolClass, StaffMember } from "@/lib/constants";
 import { SCHOOL_SECTIONS, mockSchoolClasses as defaultClasses } from "@/lib/constants";
 import { PlusCircle, Edit, Trash2, School } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
@@ -40,6 +40,7 @@ type ClassFormData = z.infer<typeof classSchema>;
 export default function ManageClassesPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
   
   const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
   const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
@@ -50,6 +51,7 @@ export default function ManageClassesPage() {
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
+    const userId = localStorage.getItem("userId");
     setUserRole(role);
 
     if (typeof window !== 'undefined') {
@@ -67,6 +69,19 @@ export default function ManageClassesPage() {
         setAllClasses(defaultClasses);
         localStorage.setItem('schoolClasses', JSON.stringify(defaultClasses));
       }
+
+      if (userId && (role === 'admin' || role === 'head_of_section')) {
+        const storedUsersString = localStorage.getItem('managedUsers');
+        if (storedUsersString) {
+          try {
+            const allUsers: StaffMember[] = JSON.parse(storedUsersString);
+            const foundUser = allUsers.find(u => u.id === userId);
+            if (foundUser) {
+              setCurrentUser(foundUser);
+            }
+          } catch (e) { console.error("Failed to parse current user", e); }
+        }
+      }
     }
   }, []);
 
@@ -74,9 +89,9 @@ export default function ManageClassesPage() {
     if (editingClass) {
       classForm.reset(editingClass);
     } else {
-      classForm.reset({ name: "", displayLevel: "", section: undefined });
+      classForm.reset({ name: "", displayLevel: "", section: userRole === 'head_of_section' ? currentUser?.section : undefined });
     }
-  }, [editingClass, classForm]);
+  }, [editingClass, classForm, userRole, currentUser]);
 
   const saveClassesToLocalStorage = (updatedClasses: SchoolClass[]) => {
     if (typeof window !== 'undefined') {
@@ -101,7 +116,7 @@ export default function ManageClassesPage() {
       toast({ title: "Class Added", description: `${data.name} has been added.` });
     }
     saveClassesToLocalStorage(newClassList);
-    classForm.reset({ name: "", displayLevel: "", section: undefined });
+    classForm.reset({ name: "", displayLevel: "", section: userRole === 'head_of_section' ? currentUser?.section : undefined });
   };
 
   const handleEditClass = (cls: SchoolClass) => {
@@ -121,18 +136,22 @@ export default function ManageClassesPage() {
     }
   };
 
-  if (userRole !== 'admin') {
+  const visibleClasses = userRole === 'head_of_section' && currentUser?.section 
+    ? allClasses.filter(c => c.section === currentUser.section) 
+    : allClasses;
+
+  if (userRole !== 'admin' && userRole !== 'head_of_section') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
           <CardTitle className="text-2xl text-destructive mb-4">Access Denied</CardTitle>
-          <CardDescription>This page is only accessible to admin members.</CardDescription>
+          <CardDescription>This page is only accessible to admin and Head of Section members.</CardDescription>
         </Card>
       </div>
     );
   }
 
-  const groupedClasses = allClasses.reduce((acc, cls) => {
+  const groupedClasses = visibleClasses.reduce((acc, cls) => {
     const section = cls.section;
     if (!acc[section]) {
       acc[section] = [];
@@ -145,7 +164,7 @@ export default function ManageClassesPage() {
     <div className="space-y-6">
       <header>
         <h1 className="text-3xl font-bold font-headline text-foreground">Manage Classes</h1>
-        <p className="text-muted-foreground">Add, edit, or remove classes for all school sections.</p>
+        <p className="text-muted-foreground">Add, edit, or remove classes for {userRole === 'head_of_section' ? `the ${currentUser?.section} section` : 'all school sections'}.</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
@@ -156,7 +175,7 @@ export default function ManageClassesPage() {
                     <CardDescription>All available classes, grouped by their section.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {allClasses.length > 0 ? (
+                    {visibleClasses.length > 0 ? (
                         <Accordion type="multiple" className="w-full" defaultValue={SCHOOL_SECTIONS.map(s => s.toLowerCase())}>
                             {(Object.keys(groupedClasses) as SchoolSection[]).map(section => {
                                 const classesInSection = groupedClasses[section];
@@ -242,11 +261,11 @@ export default function ManageClassesPage() {
                   name="section"
                   control={classForm.control}
                   render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={field.value || ""} disabled={userRole === 'head_of_section'}>
                       <SelectTrigger id="section"><SelectValue placeholder="Select section" /></SelectTrigger>
                       <SelectContent>
                         {SCHOOL_SECTIONS.map(section => (
-                          <SelectItem key={section} value={section}>{section}</SelectItem>
+                          <SelectItem key={section} value={section} disabled={userRole === 'head_of_section' && section !== currentUser?.section}>{section}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
