@@ -107,7 +107,7 @@ export const NAV_ITEMS: NavItem[] = [
   // { href: '/dashboard/settings', label: 'Settings', icon: Settings, roles: ['student', 'staff', 'admin'] },
 ];
 
-export const APP_NAME = "ANNAJIHUN ACADEMY ZARIA";
+export const APP_NAME = "BAMCHISE";
 
 export const SCHOOL_LEVELS: SchoolLevel[] = ['Kindergarten', 'Nursery', 'Primary', 'Secondary'];
 
@@ -250,5 +250,3 @@ export const deleteStudentFromGlobalList = (studentId: string) => {
   }
   globalMockStudents = students;
 };
-
-    
