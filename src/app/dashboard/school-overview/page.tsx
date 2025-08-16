@@ -6,16 +6,18 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building, Users, HelpCircle, Eye, UserCircle as UserIcon } from "lucide-react"; // Added UserIcon
+import { Building, Users, HelpCircle, Eye, UserCircle as UserIcon } from "lucide-react";
 import type { UserRole, SchoolClass, Student, SchoolSection } from "@/lib/constants"; 
-import { mockSchoolClasses, SCHOOL_SECTIONS } from "@/lib/constants";
+import { mockSchoolClasses as defaultClasses, SCHOOL_SECTIONS, combineName } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ManagedUserForDisplay {
   id: string;
-  name: string;
+  firstName: string;
+  surname: string;
+  middleName?: string;
   avatarUrl?: string;
   role: UserRole;
   assignedClasses?: string[]; // Staff member's assigned class IDs
@@ -25,6 +27,7 @@ export default function SchoolOverviewPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [allStaff, setAllStaff] = useState<ManagedUserForDisplay[]>([]);
   const [allStudents, setAllStudents] = useState<Student[]>([]); 
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
 
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   const [selectedClassForStudentList, setSelectedClassForStudentList] = useState<SchoolClass | null>(null);
@@ -38,13 +41,14 @@ export default function SchoolOverviewPage() {
       if (storedUsersString) {
         try {
           const allManagedUsers: (ManagedUserForDisplay | Student)[] = JSON.parse(storedUsersString);
-          const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin') as ManagedUserForDisplay[];
+          const staffUsers = allManagedUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section') as ManagedUserForDisplay[];
           
           const studentUsers = allManagedUsers.filter(u => u.role === 'student').map(u => {
             const student = u as Student; // Type assertion
+            const name = combineName(student);
             return {
               ...student,
-              avatarUrl: student.avatarUrl || `https://placehold.co/40x40.png?text=${student.name[0]}`,
+              avatarUrl: student.avatarUrl || `https://placehold.co/40x40.png?text=${name[0]}`,
             };
           }) as Student[];
 
@@ -56,10 +60,21 @@ export default function SchoolOverviewPage() {
           setAllStudents([]);
         }
       }
+
+      const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                setAllClasses(JSON.parse(storedClassesString));
+            } catch (e) {
+                setAllClasses(defaultClasses);
+            }
+        } else {
+            setAllClasses(defaultClasses);
+        }
     }
   }, []);
 
-  if (userRole !== 'admin' && userRole !== 'staff') {
+  if (userRole !== 'admin' && userRole !== 'staff' && userRole !== 'head_of_section') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
@@ -96,7 +111,7 @@ export default function SchoolOverviewPage() {
       </header>
 
       {SCHOOL_SECTIONS.map((section) => {
-        const classesForSection = mockSchoolClasses.filter(cls => cls.section === section);
+        const classesForSection = allClasses.filter(cls => cls.section === section);
         if (classesForSection.length === 0) return null;
 
         return (
@@ -120,7 +135,8 @@ export default function SchoolOverviewPage() {
                   {classesForSection.map((cls) => {
                     const classMaster = getClassMasterForClass(cls.id);
                     const studentCount = getStudentCountForClass(cls.id);
-                    const masterInitials = classMaster ? classMaster.name.split(' ').map(n=>n[0]).join('') : '?';
+                    const masterName = classMaster ? combineName(classMaster) : "Not Assigned";
+                    const masterInitials = masterName.split(' ').map(n=>n[0]).join('') || '?';
                     const masterAvatar = classMaster?.avatarUrl || `https://placehold.co/40x40.png?text=${masterInitials}`;
 
                     return (
@@ -136,14 +152,14 @@ export default function SchoolOverviewPage() {
                           {classMaster ? (
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={masterAvatar} alt={classMaster.name} data-ai-hint="teacher avatar" />
+                                <AvatarImage src={masterAvatar} alt={masterName} data-ai-hint="teacher avatar" />
                                 <AvatarFallback>{masterInitials}</AvatarFallback>
                               </Avatar>
-                              <span>{classMaster.name}</span>
+                              <span>{masterName}</span>
                             </div>
                           ) : (
                             <div className="flex items-center text-muted-foreground">
-                               <HelpCircle className="h-4 w-4 mr-2"/> Not Assigned
+                               <HelpCircle className="h-4 w-4 mr-2"/> {masterName}
                             </div>
                           )}
                         </TableCell>
@@ -174,17 +190,18 @@ export default function SchoolOverviewPage() {
             {studentsInSelectedClass.length > 0 ? (
               <div className="space-y-2 pr-2">
                 {studentsInSelectedClass.map(student => {
-                  const studentInitials = student.name.split(' ').map(n=>n[0]).join('').toUpperCase() || 'S';
+                  const studentName = combineName(student);
+                  const studentInitials = studentName.split(' ').map(n=>n[0]).join('').toUpperCase() || 'S';
                   const studentAvatar = student.avatarUrl || `https://placehold.co/40x40.png?text=${studentInitials}`;
                   return (
                     <div key={student.id} className="flex items-center justify-between gap-3 p-3 border rounded-md bg-secondary/30 hover:bg-secondary/50">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={studentAvatar} alt={student.name} data-ai-hint="student avatar" />
+                          <AvatarImage src={studentAvatar} alt={studentName} data-ai-hint="student avatar" />
                           <AvatarFallback>{studentInitials}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-medium text-foreground">{student.name}</p>
+                          <p className="font-medium text-foreground">{studentName}</p>
                           <p className="text-xs text-muted-foreground">{student.email}</p>
                         </div>
                       </div>

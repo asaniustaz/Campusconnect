@@ -14,7 +14,7 @@ import { CalendarIcon, Save } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Student, SchoolClass } from "@/lib/constants";
-import { mockSchoolClasses, globalMockStudents } from "@/lib/constants";
+import { mockSchoolClasses as defaultClasses, globalMockStudents, combineName } from "@/lib/constants";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AttendanceRecord {
@@ -23,7 +23,9 @@ interface AttendanceRecord {
 
 interface ManagedUserForAttendance { // Minimal interface for staff details
   id: string;
-  name: string;
+  firstName: string;
+  surname: string;
+  middleName?: string;
   role: UserRole;
   assignedClasses?: string[];
 }
@@ -36,16 +38,31 @@ export default function AttendancePage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [currentStaff, setCurrentStaff] = useState<ManagedUserForAttendance | null>(null);
-  const [availableClassesForStaff, setAvailableClassesForStaff] = useState<SchoolClass[]>(mockSchoolClasses);
-
+  const [availableClassesForStaff, setAvailableClassesForStaff] = useState<SchoolClass[]>([]);
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     const storedUserId = localStorage.getItem("userId");
     setUserRole(role);
 
+    let currentClasses: SchoolClass[] = [];
+     if (typeof window !== 'undefined') {
+        const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                currentClasses = JSON.parse(storedClassesString);
+            } catch (e) {
+                currentClasses = defaultClasses;
+            }
+        } else {
+            currentClasses = defaultClasses;
+        }
+    }
+    setAllClasses(currentClasses);
+
     if (role === 'admin') {
-      setAvailableClassesForStaff(mockSchoolClasses);
+      setAvailableClassesForStaff(currentClasses);
     } else if (role === 'staff' && storedUserId && typeof window !== 'undefined') {
       const storedUsersString = localStorage.getItem('managedUsers');
       if (storedUsersString) {
@@ -55,7 +72,7 @@ export default function AttendancePage() {
           if (staffUser) {
             setCurrentStaff(staffUser);
             const staffAssignedClassIds = staffUser.assignedClasses || [];
-            const classesForStaff = mockSchoolClasses.filter(cls => 
+            const classesForStaff = currentClasses.filter(cls => 
               staffAssignedClassIds.includes(cls.id)
             );
             setAvailableClassesForStaff(classesForStaff);
@@ -85,7 +102,6 @@ export default function AttendancePage() {
             currentStudents = allManagedUsers.filter((u: Student) => u.role === 'student' && u.classId === selectedClassId);
           } catch (e) {
             console.error("Failed to parse students from localStorage for attendance", e);
-            // Fallback to globalMockStudents if parsing fails or if no local storage
             currentStudents = globalMockStudents.filter(student => student.classId === selectedClassId);
           }
         } else {
@@ -115,7 +131,7 @@ export default function AttendancePage() {
         toast({ variant: "destructive", title: "Error", description: "Please select a class and date." });
         return;
     }
-    const className = mockSchoolClasses.find(c => c.id === selectedClassId)?.name;
+    const className = allClasses.find(c => c.id === selectedClassId)?.name;
     console.log("Attendance for class:", className, "on", format(selectedDate, "PPP"), ":", attendance);
     toast({
       title: "Attendance Saved",
@@ -191,25 +207,26 @@ export default function AttendancePage() {
               </TableHeader>
               <TableBody>
                 {studentsInClass.map((student) => {
-                  const initials = student.name.split(' ').map(n => n[0]).join('').toUpperCase() || 'S';
+                  const name = combineName(student);
+                  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase() || 'S';
                   const avatarSrc = student.avatarUrl || `https://placehold.co/40x40.png?text=${initials}`;
                   return (
                     <TableRow key={student.id}>
                       <TableCell>
                         <Link href={`/dashboard/student/${student.id}/profile`} passHref>
                           <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
-                            <AvatarImage src={avatarSrc} alt={student.name} data-ai-hint="student avatar" />
+                            <AvatarImage src={avatarSrc} alt={name} data-ai-hint="student avatar" />
                             <AvatarFallback>{initials}</AvatarFallback>
                           </Avatar>
                         </Link>
                       </TableCell>
                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
-                      <TableCell>{student.name}</TableCell>
+                      <TableCell>{name}</TableCell>
                       <TableCell className="text-center">
                         <Checkbox
                           checked={attendance[student.id] || false}
                           onCheckedChange={(checked) => handleAttendanceChange(student.id, !!checked)}
-                          aria-label={`Mark ${student.name} as ${attendance[student.id] ? 'absent' : 'present'}`}
+                          aria-label={`Mark ${name} as ${attendance[student.id] ? 'absent' : 'present'}`}
                         />
                       </TableCell>
                     </TableRow>

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { Student, SchoolClass, UserRole } from "@/lib/constants";
-import { mockSchoolClasses } from "@/lib/constants";
+import { mockSchoolClasses as defaultClasses, combineName } from "@/lib/constants";
 import { ArrowLeft, Mail, School, GraduationCap, Hash, ShieldAlert } from "lucide-react";
 
 // Combine relevant fields from Student and potentially other user types if needed for display consistency
@@ -29,41 +29,53 @@ export default function StudentProfileViewPage() {
     const role = localStorage.getItem("userRole") as UserRole | null;
     setCurrentUserRole(role);
 
-    if (!role || (role !== 'admin' && role !== 'staff')) {
-        router.push('/dashboard'); // Redirect if not admin or staff
+    if (!role || (role !== 'admin' && role !== 'staff' && role !== 'head_of_section')) {
+        router.push('/dashboard'); // Redirect if not authorized
         return;
     }
 
     if (studentId && typeof window !== "undefined") {
-      const storedUsersString = localStorage.getItem("managedUsers");
-      if (storedUsersString) {
-        try {
-          const allManagedUsers: Student[] = JSON.parse(storedUsersString);
-          const foundStudent = allManagedUsers.find(
-            (user) => user.id === studentId && user.role === "student"
-          );
-
-          if (foundStudent) {
-            const classDetails = foundStudent.classId
-              ? mockSchoolClasses.find((cls) => cls.id === foundStudent.classId)
-              : undefined;
-            
-            setStudentProfile({
-              ...foundStudent,
-              avatarUrl: foundStudent.avatarUrl || `https://placehold.co/150x150.png?text=${foundStudent.name[0]}`,
-              className: classDetails?.name,
-            });
-          } else {
-            setError("Student profile not found.");
-          }
-        } catch (e) {
-          console.error("Failed to parse managedUsers for student profile:", e);
-          setError("Error loading student data.");
+        let currentClasses: SchoolClass[] = [];
+        const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                currentClasses = JSON.parse(storedClassesString);
+            } catch (e) {
+                currentClasses = defaultClasses;
+            }
+        } else {
+            currentClasses = defaultClasses;
         }
-      } else {
-        setError("No user data found in local storage.");
-      }
-      setIsLoading(false);
+
+        const storedUsersString = localStorage.getItem("managedUsers");
+        if (storedUsersString) {
+            try {
+            const allManagedUsers: Student[] = JSON.parse(storedUsersString);
+            const foundStudent = allManagedUsers.find(
+                (user) => user.id === studentId && user.role === "student"
+            );
+
+            if (foundStudent) {
+                const classDetails = foundStudent.classId
+                ? currentClasses.find((cls) => cls.id === foundStudent.classId)
+                : undefined;
+                const name = combineName(foundStudent);
+                setStudentProfile({
+                ...foundStudent,
+                avatarUrl: foundStudent.avatarUrl || `https://placehold.co/150x150.png?text=${name[0]}`,
+                className: classDetails?.name,
+                });
+            } else {
+                setError("Student profile not found.");
+            }
+            } catch (e) {
+            console.error("Failed to parse managedUsers for student profile:", e);
+            setError("Error loading student data.");
+            }
+        } else {
+            setError("No user data found in local storage.");
+        }
+        setIsLoading(false);
     } else {
       setIsLoading(false);
       setError("Student ID not provided.");
@@ -98,12 +110,13 @@ export default function StudentProfileViewPage() {
     return <div className="flex justify-center items-center h-screen"><p>Student profile could not be loaded.</p></div>;
   }
   
-  if (currentUserRole !== 'admin' && currentUserRole !== 'staff') {
+  if (currentUserRole !== 'admin' && currentUserRole !== 'staff' && currentUserRole !== 'head_of_section') {
     // Final check, though useEffect should handle redirect
     return <div className="text-center p-10">Access Denied.</div>;
   }
 
-  const studentInitials = studentProfile.name.split(" ").map((n) => n[0]).join("").toUpperCase() || studentProfile.email[0].toUpperCase();
+  const studentName = combineName(studentProfile);
+  const studentInitials = studentName.split(" ").map((n) => n[0]).join("").toUpperCase() || studentProfile.email[0].toUpperCase();
 
   return (
     <div className="space-y-6 p-4 md:p-8">
@@ -115,12 +128,12 @@ export default function StudentProfileViewPage() {
             <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
                 <AvatarImage
                 src={studentProfile.avatarUrl}
-                alt={studentProfile.name}
+                alt={studentName}
                 data-ai-hint="student avatar passport"
                 />
                 <AvatarFallback className="text-4xl">{studentInitials}</AvatarFallback>
             </Avatar>
-            <CardTitle className="text-3xl font-headline">{studentProfile.name}</CardTitle>
+            <CardTitle className="text-3xl font-headline">{studentName}</CardTitle>
             <CardDescription>Student ID: {studentProfile.id}</CardDescription>
             </CardHeader>
             <CardContent className="text-sm">

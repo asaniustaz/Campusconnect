@@ -5,8 +5,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole } from "@/lib/constants";
-import { TERMS, mockSchoolClasses } from "@/lib/constants"; 
+import type { UserRole, SchoolClass } from "@/lib/constants";
+import { TERMS, mockSchoolClasses as defaultClasses } from "@/lib/constants"; 
 import { FileSpreadsheet, Printer, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -40,42 +40,42 @@ const mockStudentResults: StudentOverallResult = {
   termResults: [
     {
       term: "First Term",
-      classId: "pri5",
-      className: "Primary 5",
+      classId: "jss1",
+      className: "JSS 1",
       termAverage: 88.5,
       results: [
-        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 92, totalMarks: 100 },
-        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B+", marks: 85, totalMarks: 100 },
+        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "A", marks: 92, totalMarks: 100 },
+        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "B+", marks: 85, totalMarks: 100 },
       ],
     },
     {
       term: "Second Term",
-      classId: "pri5",
-      className: "Primary 5",
+      classId: "jss1",
+      className: "JSS 1",
       termAverage: 89,
       results: [
-        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A-", marks: 88, totalMarks: 100 },
-        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "A", marks: 90, totalMarks: 100 },
+        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "A-", marks: 88, totalMarks: 100 },
+        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A", marks: 90, totalMarks: 100 },
       ],
     },
      {
       term: "Third Term",
-      classId: "pri5",
-      className: "Primary 5",
+      classId: "jss1",
+      className: "JSS 1",
       termAverage: 87,
       results: [
-        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B+", marks: 86, totalMarks: 100 },
-        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B+", marks: 88, totalMarks: 100 },
+        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "B+", marks: 86, totalMarks: 100 },
+        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "B+", marks: 88, totalMarks: 100 },
       ],
     },
     {
       term: "First Term", // New academic year
-      classId: "pri6",
-      className: "Primary 6",
+      classId: "jss2",
+      className: "JSS 2",
       termAverage: 90.5,
       results: [
-        { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 95, totalMarks: 100 },
-        { subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "A-", marks: 86, totalMarks: 100 },
+        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "A", marks: 95, totalMarks: 100 },
+        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A-", marks: 86, totalMarks: 100 },
       ],
     },
   ],
@@ -130,7 +130,8 @@ export default function ResultsPage() {
   const [selectedClassIdForStaff, setSelectedClassIdForStaff] = useState<string | undefined>();
   const [selectedTermForStaff, setSelectedTermForStaff] = useState<string | undefined>(TERMS[0]);
   const [subjectsInSelectedClassForStaff, setSubjectsInSelectedClassForStaff] = useState<{id: string; name: string}[]>([]);
-  const [staffAllocatedClasses, setStaffAllocatedClasses] = useState<typeof mockSchoolClasses>([]);
+  const [staffAllocatedClasses, setStaffAllocatedClasses] = useState<SchoolClass[]>([]);
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
 
 
   useEffect(() => {
@@ -139,6 +140,21 @@ export default function ResultsPage() {
     const userId = localStorage.getItem("userId");
     setUserRole(role);
     setUserName(name);
+
+    let currentClasses: SchoolClass[] = [];
+    if (typeof window !== 'undefined') {
+        const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                currentClasses = JSON.parse(storedClassesString);
+            } catch (e) {
+                currentClasses = defaultClasses;
+            }
+        } else {
+            currentClasses = defaultClasses;
+        }
+    }
+    setAllClasses(currentClasses);
 
     if (role === "student") {
       let data = mockStudentResults;
@@ -164,25 +180,24 @@ export default function ResultsPage() {
       }
 
     } else if (role === "staff" || role === "admin") {
-        // For staff, filter classes they are master of
-        let staffClasses = mockSchoolClasses;
+        let assignedClasses = currentClasses;
         if (role === 'staff' && userId) {
             const storedUsersString = localStorage.getItem('managedUsers');
             if (storedUsersString) {
                 const allManagedUsers = JSON.parse(storedUsersString);
                 const staffUser = allManagedUsers.find((u: any) => u.id === userId && u.role === 'staff');
                 if (staffUser && staffUser.assignedClasses) {
-                    staffClasses = mockSchoolClasses.filter(cls => staffUser.assignedClasses.includes(cls.id));
+                    assignedClasses = currentClasses.filter(cls => staffUser.assignedClasses.includes(cls.id));
                 } else {
-                    staffClasses = []; // No classes assigned to this staff
+                    assignedClasses = []; // No classes assigned to this staff
                 }
             } else {
-                 staffClasses = [];
+                 assignedClasses = [];
             }
         }
-        setStaffAllocatedClasses(staffClasses);
-        if (staffClasses.length > 0) {
-            setSelectedClassIdForStaff(staffClasses[0].id);
+        setStaffAllocatedClasses(assignedClasses);
+        if (assignedClasses.length > 0) {
+            setSelectedClassIdForStaff(assignedClasses[0].id);
         }
     }
   }, [userRole, userName]);
@@ -190,21 +205,14 @@ export default function ResultsPage() {
   // Effect to update subjects when staff selects a class
   useEffect(() => {
     if ((userRole === 'staff' || userRole === 'admin') && selectedClassIdForStaff) {
-        // In a real app, fetch subjects for this class, possibly taught by this staff
-        // For mock: use a subset of global subjects or specific subjects for the class level
-        const classDetails = mockSchoolClasses.find(c => c.id === selectedClassIdForStaff);
+        const classDetails = allClasses.find(c => c.id === selectedClassIdForStaff);
         if (classDetails) {
-            // Mock subjects based on class level - simplified
             let MOCK_SUBJECTS_IN_CLASS = [
-                { id: "PRI_ENG", name: "English Language (Primary)" },
-                { id: "JSS_MTH", name: "Mathematics (JSS)" },
+                { id: "JSS_ENG", name: "English (JSS)" }, { id: "JSS_MTH", name: "Math (JSS)" },
                 { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
-                { id: "NUR_BSC", name: "Basic Science (Nursery)"},
+                { id: "ISL_QUR", name: "Quran" }, { id: "ISL_ARB", name: "Arabic" },
+                { id: "TAH_MEM", name: "Memorization" },
             ];
-            if (classDetails.section === "College") MOCK_SUBJECTS_IN_CLASS = [{ id: "JSS_ENG", name: "English (JSS)" }, { id: "JSS_MTH", name: "Math (JSS)" }];
-            else if (classDetails.section === "Islamiyya") MOCK_SUBJECTS_IN_CLASS = [{ id: "ISL_QUR", name: "Quran" }, { id: "ISL_ARB", name: "Arabic" }];
-            else if (classDetails.section === "Tahfeez") MOCK_SUBJECTS_IN_CLASS = [{ id: "TAH_MEM", name: "Memorization" }];
-            else MOCK_SUBJECTS_IN_CLASS = [{ id: "GEN_SUB", name: "General Subject" }];
             
             setSubjectsInSelectedClassForStaff(MOCK_SUBJECTS_IN_CLASS);
             if (MOCK_SUBJECTS_IN_CLASS.length > 0) {
@@ -214,7 +222,7 @@ export default function ResultsPage() {
             }
         }
     }
-  }, [selectedClassIdForStaff, userRole]);
+  }, [selectedClassIdForStaff, userRole, allClasses]);
 
   const handlePrint = () => {
     window.print();
@@ -372,7 +380,7 @@ export default function ResultsPage() {
           {selectedClassIdForStaff && selectedSubjectIdForStaff && staffResultsForClassSubjectTerm.length > 0 ? (
             <>
             <h3 className="text-lg font-semibold mb-2 text-foreground">
-              {mockSchoolClasses.find(c=>c.id === selectedClassIdForStaff)?.name} - {subjectsInSelectedClassForStaff.find(s => s.id === selectedSubjectIdForStaff)?.name} - {selectedTermForStaff}
+              {allClasses.find(c=>c.id === selectedClassIdForStaff)?.name} - {subjectsInSelectedClassForStaff.find(s => s.id === selectedSubjectIdForStaff)?.name} - {selectedTermForStaff}
             </h3>
             <Table>
               <TableHeader>

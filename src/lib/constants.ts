@@ -75,6 +75,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['admin'] },
   // Admin specific routes
   { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin'] },
+  { href: '/dashboard/admin/manage-classes', label: 'Manage Classes', icon: School, roles: ['admin'] },
   { href: '/dashboard/admin/manage-staff-allocations', label: 'Staff Allocations', icon: BookUser, roles: ['admin'] },
   { href: '/dashboard/admin/attendance-report', label: 'Attendance Report', icon: ClipboardList, roles: ['admin'] },
   { href: '/dashboard/admin/manage-payments', label: 'Manage Payments', icon: DollarSign, roles: ['admin'] },

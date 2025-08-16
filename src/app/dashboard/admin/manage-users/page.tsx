@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolSection, SchoolClass, Student, StaffMember } from "@/lib/constants";
-import { SCHOOL_SECTIONS, mockSchoolClasses, combineName } from "@/lib/constants";
+import { SCHOOL_SECTIONS, mockSchoolClasses as defaultClasses, combineName } from "@/lib/constants";
 import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap, Upload } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,6 +70,8 @@ export default function ManageUsersPage() {
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
 
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
+
   const studentForm = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
@@ -104,7 +106,6 @@ export default function ManageUsersPage() {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
 
-    // Load users from localStorage
     if (typeof window !== 'undefined') {
       const storedUsersString = localStorage.getItem('managedUsers');
       if (storedUsersString) {
@@ -114,12 +115,18 @@ export default function ManageUsersPage() {
           setStaffList(allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section') as StaffMember[]);
         } catch (e) {
           console.error("Failed to parse users from localStorage", e);
-          setStudentList([]);
-          setStaffList([]);
+        }
+      }
+      
+      const storedClassesString = localStorage.getItem('schoolClasses');
+      if (storedClassesString) {
+        try {
+            setAllClasses(JSON.parse(storedClassesString));
+        } catch (e) {
+            setAllClasses(defaultClasses);
         }
       } else {
-        setStudentList([]);
-        setStaffList([]);
+        setAllClasses(defaultClasses);
       }
     }
   }, []);
@@ -431,7 +438,7 @@ export default function ManageUsersPage() {
                 {studentList.length > 0 ? (
                   <ScrollArea className="max-h-[500px]">
                     <Accordion type="multiple" className="w-full">
-                      {mockSchoolClasses.map(cls => {
+                      {allClasses.map(cls => {
                         const studentsInThisClass = studentList.filter(s => s.classId === cls.id);
                         if (studentsInThisClass.length === 0) return null;
                         return (
@@ -475,7 +482,7 @@ export default function ManageUsersPage() {
                       })}
                       
                       {(() => {
-                        const unassignedStudents = studentList.filter(s => !s.classId || !mockSchoolClasses.some(c => c.id === s.classId));
+                        const unassignedStudents = studentList.filter(s => !s.classId || !allClasses.some(c => c.id === s.classId));
                         if (unassignedStudents.length === 0) return null;
 
                         return (
@@ -603,7 +610,7 @@ export default function ManageUsersPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
-                                {mockSchoolClasses
+                                {allClasses
                                   .filter(cls => !studentForm.getValues("schoolSection") || cls.section === studentForm.getValues("schoolSection")) 
                                   .map(cls => (
                                   <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
@@ -826,7 +833,7 @@ export default function ManageUsersPage() {
                         <Label className="flex items-center"><ListChecks className="mr-2 h-4 w-4 text-primary" /> Assign Classes (as Class Master)</Label>
                         <ScrollArea className="h-48 w-full rounded-md border p-3 bg-secondary/20">
                           <div className="space-y-1">
-                          {mockSchoolClasses.map((cls) => (
+                          {allClasses.map((cls) => (
                             <div key={cls.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-secondary/50">
                               <Checkbox
                                 id={`class-assign-${cls.id}`}

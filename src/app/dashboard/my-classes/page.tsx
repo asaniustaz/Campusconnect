@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, BookOpen, CalendarCheck, FileText, Presentation, AlertTriangle } from "lucide-react";
 import type { UserRole, SchoolClass, Student } from "@/lib/constants"; 
-import { mockSchoolClasses } from "@/lib/constants";
+import { mockSchoolClasses as defaultClasses, combineName } from "@/lib/constants";
 
 interface ManagedUserForDisplay {
   id: string;
-  name: string;
+  firstName: string;
+  surname: string;
+  middleName?: string;
   avatarUrl?: string;
   role: UserRole;
   assignedClasses?: string[]; 
@@ -24,21 +26,36 @@ export default function MyClassesPage() {
   const [assignedClasses, setAssignedClasses] = useState<SchoolClass[]>([]);
   const [staffDetails, setStaffDetails] = useState<ManagedUserForDisplay | null>(null);
   const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
 
 
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     const storedUserIdFromLogin = localStorage.getItem("userId"); 
-
     setUserRole(role);
 
     if (!role || !storedUserIdFromLogin) {
         return;
     }
 
+    let currentClasses: SchoolClass[] = [];
+    if (typeof window !== 'undefined') {
+        const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                currentClasses = JSON.parse(storedClassesString);
+            } catch (e) {
+                currentClasses = defaultClasses;
+            }
+        } else {
+            currentClasses = defaultClasses;
+        }
+    }
+    setAllClasses(currentClasses);
+
     if (typeof window !== 'undefined' && (role === 'staff' || role === 'admin')) {
       const storedUsersString = localStorage.getItem('managedUsers');
-      let allManagedUsers: ManagedUserForDisplay[] = [];
+      let allManagedUsers: (ManagedUserForDisplay | Student)[] = [];
 
       if (storedUsersString) {
         try {
@@ -50,19 +67,19 @@ export default function MyClassesPage() {
 
       const allStudents: Student[] = allManagedUsers.filter(u => u.role === 'student') as Student[];
       const counts: Record<string, number> = {};
-      mockSchoolClasses.forEach(cls => {
+      currentClasses.forEach(cls => {
         counts[cls.id] = allStudents.filter(s => s.classId === cls.id).length;
       });
       setStudentCounts(counts);
       
       let foundStaff: ManagedUserForDisplay | undefined;
-      foundStaff = allManagedUsers.find(u => u.id === storedUserIdFromLogin && (u.role === 'staff' || u.role === 'admin'));
+      foundStaff = allManagedUsers.find(u => u.id === storedUserIdFromLogin && (u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section')) as ManagedUserForDisplay;
       
       if (foundStaff) {
         setCurrentUserId(foundStaff.id);
         setStaffDetails(foundStaff);
         const staffAssignedClassIds = foundStaff.assignedClasses || [];
-        const classesForStaff = mockSchoolClasses.filter(cls => 
+        const classesForStaff = currentClasses.filter(cls => 
           staffAssignedClassIds.includes(cls.id)
         );
         setAssignedClasses(classesForStaff);
@@ -71,13 +88,13 @@ export default function MyClassesPage() {
         const adminName = localStorage.getItem("userName") || "Admin";
         setStaffDetails({
             id: storedUserIdFromLogin, 
-            name: adminName, 
+            firstName: "Admin",
+            surname: "User",
             role: "admin",
             assignedClasses: [] 
         });
         setAssignedClasses([]);
       } else if (role === 'staff') {
-        // Staff user but not found in managedUsers. Loading will persist.
         console.warn("Logged in staff user ID not found in managed users list. Page will remain in loading state.");
       }
     }
@@ -94,36 +111,21 @@ export default function MyClassesPage() {
     );
   }
   
-  if (userRole === 'staff' && !staffDetails) { // Simplified loading check for staff
+  if (userRole === 'staff' && !staffDetails) { 
      return <div className="text-center p-10">Loading class master information...</div>;
   }
   
-  // This handles the case where an admin is viewing, and they might not have 'staffDetails' in the same way.
-  // Or if staffDetails is loaded.
   if (!staffDetails && userRole === 'admin') {
     const adminNameFromStorage = localStorage.getItem("userName");
     const adminIdFromStorage = localStorage.getItem("userId");
     if (!adminNameFromStorage || !adminIdFromStorage) {
-      // This case should ideally not happen if login was successful
       return <div className="text-center p-10">Loading admin information...</div>;
     }
-     // Set up a default staffDetails for admin if it wasn't set up in useEffect
-      // This helps when admin has no managedUsers yet.
-    const adminMockDetails: ManagedUserForDisplay = {
-        id: adminIdFromStorage,
-        name: adminNameFromStorage,
-        role: "admin",
-        assignedClasses: []
-    };
-    // Note: We are not calling setStaffDetails here to avoid infinite loops if this logic is hit repeatedly.
-    // The useEffect should handle setting staffDetails for admin correctly.
-    // If it still gets here, it might mean admin has no localStorage `managedUsers`.
-    // The page will proceed to render "No Classes Assigned" for admin, which is acceptable.
   }
 
 
-  const displayName = staffDetails?.name || "User";
-  const displayInitials = staffDetails?.name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  const displayName = staffDetails ? combineName(staffDetails) : "User";
+  const displayInitials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
   const displayAvatar = staffDetails?.avatarUrl || `https://placehold.co/100x100.png?text=${displayInitials}`;
 
   return (

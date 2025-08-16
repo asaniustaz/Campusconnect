@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon, Filter, Users } from "lucide-react";
 import { format, subDays } from "date-fns";
 import type { UserRole, SchoolClass } from "@/lib/constants";
-import { mockSchoolClasses } from "@/lib/constants"; // Using mockSchoolClasses
+import { mockSchoolClasses as defaultClasses } from "@/lib/constants"; // Using mockSchoolClasses
 import { Badge } from "@/components/ui/badge";
 
 interface AggregatedAttendanceRecord {
@@ -26,10 +26,10 @@ interface AggregatedAttendanceRecord {
 }
 
 // Generate mock reports based on classes
-const generateMockClassReport = (): AggregatedAttendanceRecord[] => {
+const generateMockClassReport = (classes: SchoolClass[]): AggregatedAttendanceRecord[] => {
   const reports: AggregatedAttendanceRecord[] = [];
   const today = new Date();
-  mockSchoolClasses.forEach(cls => {
+  classes.forEach(cls => {
     // Generate a few reports for each class for the last few weeks (weekdays only)
     for (let i = 0; i < 5; i++) { 
       let reportDate = subDays(today, Math.floor(Math.random() * 30) +1); // Random day in last 30 days
@@ -39,7 +39,7 @@ const generateMockClassReport = (): AggregatedAttendanceRecord[] => {
       }
       const dateStr = format(reportDate, "yyyy-MM-dd");
       
-      const totalStudentsInClass = cls.studentCount; // Use the defined student count for the class
+      const totalStudentsInClass = Math.floor(Math.random() * 15) + 15; // Mock student count per class for demo
       const presentCount = Math.floor(Math.random() * (totalStudentsInClass + 1)); // Can be 0 to totalStudents
       const absentCount = totalStudentsInClass - presentCount;
       const attendanceRate = totalStudentsInClass > 0 ? parseFloat(((presentCount / totalStudentsInClass) * 100).toFixed(1)) : 0;
@@ -63,6 +63,7 @@ const generateMockClassReport = (): AggregatedAttendanceRecord[] => {
 
 export default function AttendanceReportPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
   const [reportData, setReportData] = useState<AggregatedAttendanceRecord[]>([]);
   const [filteredData, setFilteredData] = useState<AggregatedAttendanceRecord[]>([]);
   const [selectedClass, setSelectedClass] = useState<string | "all">("all");
@@ -71,7 +72,22 @@ export default function AttendanceReportPage() {
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
-    const initialReport = generateMockClassReport();
+
+    let currentClasses: SchoolClass[] = [];
+    if (typeof window !== 'undefined') {
+        const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                currentClasses = JSON.parse(storedClassesString);
+            } catch (e) {
+                currentClasses = defaultClasses;
+            }
+        } else {
+            currentClasses = defaultClasses;
+        }
+    }
+    setAllClasses(currentClasses);
+    const initialReport = generateMockClassReport(currentClasses);
     setReportData(initialReport);
     setFilteredData(initialReport);
   }, []);
@@ -127,7 +143,7 @@ export default function AttendanceReportPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Classes</SelectItem>
-                {mockSchoolClasses.map(cls => (
+                {allClasses.map(cls => (
                   <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
                 ))}
               </SelectContent>

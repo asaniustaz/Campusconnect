@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole } from "@/lib/constants";
-import { TERMS, SESSIONS, mockSchoolClasses } from "@/lib/constants"; 
+import type { UserRole, SchoolClass } from "@/lib/constants";
+import { TERMS, SESSIONS, mockSchoolClasses as defaultClasses } from "@/lib/constants"; 
 import { UploadCloud, FileSpreadsheet, FileText, FileType } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -52,6 +52,7 @@ export default function ResultUploadPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [templateFileName, setTemplateFileName] = useState<string | null>(null);
   const [resultsFileName, setResultsFileName] = useState<string | null>(null);
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
 
   const form = useForm<UploadFormData>({
     resolver: zodResolver(uploadSchema),
@@ -61,6 +62,19 @@ export default function ResultUploadPage() {
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
     setUserRole(role);
+
+    if (typeof window !== 'undefined') {
+      const storedClassesString = localStorage.getItem('schoolClasses');
+      if (storedClassesString) {
+        try {
+          setAllClasses(JSON.parse(storedClassesString));
+        } catch (e) {
+          setAllClasses(defaultClasses);
+        }
+      } else {
+        setAllClasses(defaultClasses);
+      }
+    }
   }, []);
   
   const onSubmit = (data: UploadFormData) => {
@@ -160,7 +174,7 @@ export default function ResultUploadPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mockSchoolClasses.map(cls => (
+                          {allClasses.map(cls => (
                             <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
                           ))}
                         </SelectContent>

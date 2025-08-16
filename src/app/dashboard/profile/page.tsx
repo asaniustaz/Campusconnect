@@ -11,8 +11,8 @@ import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolSection, Student, StaffMember } from "@/lib/constants";
-import { SCHOOL_SECTIONS, mockSchoolClasses, combineName } from "@/lib/constants"; 
+import type { UserRole, SchoolSection, Student, StaffMember, SchoolClass } from "@/lib/constants";
+import { SCHOOL_SECTIONS, mockSchoolClasses as defaultClasses, combineName } from "@/lib/constants"; 
 import { Edit3, School, Camera, GraduationCap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -54,6 +54,7 @@ export default function ProfilePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
   const { toast } = useToast();
 
   const form = useForm<ProfileFormData>({
@@ -64,6 +65,21 @@ export default function ProfilePage() {
     const currentUserName = localStorage.getItem("userName") || "User";
     const currentUserRole = (localStorage.getItem("userRole") as UserRole) || "student";
     const currentUserId = localStorage.getItem("userId") || (currentUserRole === "admin" ? "adm001" : (currentUserRole === "staff" ? "stf001" : `std-${Date.now()}`));
+
+    let currentClasses: SchoolClass[] = [];
+    if (typeof window !== 'undefined') {
+        const storedClassesString = localStorage.getItem('schoolClasses');
+        if (storedClassesString) {
+            try {
+                currentClasses = JSON.parse(storedClassesString);
+            } catch (e) {
+                currentClasses = defaultClasses;
+            }
+        } else {
+            currentClasses = defaultClasses;
+        }
+    }
+    setAllClasses(currentClasses);
     
     let profileData: UserProfile = {
       id: currentUserId,
@@ -95,7 +111,7 @@ export default function ProfilePage() {
                         const studentUser = foundUser as Student;
                         profileData.classId = studentUser.classId;
                         profileData.schoolSection = studentUser.schoolSection;
-                        profileData.className = studentUser.classId ? mockSchoolClasses.find(c => c.id === studentUser.classId)?.name : undefined;
+                        profileData.className = studentUser.classId ? currentClasses.find(c => c.id === studentUser.classId)?.name : undefined;
                     } else if (foundUser.role === 'staff' || foundUser.role === 'admin' || foundUser.role === 'head_of_section') {
                         const staffUser = foundUser as StaffMember;
                         profileData.department = staffUser.department || (currentUserRole === 'admin' ? "School Administration" : "General Staff");
@@ -129,7 +145,7 @@ export default function ProfilePage() {
       schoolSection: profileData.schoolSection,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.reset]); // form.reset is stable, other localStorage values are read once on mount effectively.
+  }, [form.reset]);
 
   const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -175,7 +191,7 @@ export default function ProfilePage() {
         avatarUrl: newAvatarUrl,
         classId: userProfile.role === 'student' ? data.classId : userProfile.classId,
         department: userProfile.role !== 'student' ? data.department : userProfile.department,
-        className: userProfile.role === 'student' && data.classId ? mockSchoolClasses.find(c => c.id === data.classId)?.name : userProfile.className,
+        className: userProfile.role === 'student' && data.classId ? allClasses.find(c => c.id === data.classId)?.name : userProfile.className,
       };
     
     setUserProfile(updatedProfile);
@@ -344,7 +360,7 @@ export default function ProfilePage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="">Unassigned</SelectItem>
-                            {mockSchoolClasses
+                            {allClasses
                               .filter(cls => !form.getValues("schoolSection") || cls.section === form.getValues("schoolSection"))
                               .map(cls => (
                               <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
