@@ -35,11 +35,22 @@ type StudentFormData = z.infer<typeof studentSchema>;
 const staffSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
+  role: z.custom<UserRole>((val) => ['staff', 'head_of_section', 'admin'].includes(val as UserRole), "Please select a valid role."),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
   password: z.string().min(6, "Password must be at least 6 characters for new staff.").optional(),
   assignedClasses: z.array(z.string()).optional(),
+  section: z.custom<SchoolSection>().optional(),
+}).refine(data => {
+    if (data.role === 'head_of_section') {
+        return !!data.section;
+    }
+    return true;
+}, {
+    message: "A section must be assigned for a Head of Section.",
+    path: ["section"],
 });
+
 type StaffFormData = z.infer<typeof staffSchema>;
 
 
@@ -51,7 +62,8 @@ interface StaffMember {
   title: string;
   password?: string; // Storing actual password for prototype login
   assignedClasses?: string[];
-  role: UserRole; // Added role
+  role: UserRole;
+  section?: SchoolSection;
 }
 
 const initialMockStaff: StaffMember[] = []; // Emptied for real user management
@@ -87,7 +99,9 @@ export default function ManageUsersPage() {
         department: "",
         title: "",
         password: "",
-        assignedClasses: []
+        assignedClasses: [],
+        role: "staff",
+        section: undefined,
     }
   });
 
@@ -102,7 +116,7 @@ export default function ManageUsersPage() {
         try {
           const allStoredUsers: (Student | StaffMember)[] = JSON.parse(storedUsersString);
           setStudentList(allStoredUsers.filter(u => u.role === 'student') as Student[]);
-          setStaffList(allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin') as StaffMember[]);
+          setStaffList(allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section') as StaffMember[]);
         } catch (e) {
           console.error("Failed to parse users from localStorage", e);
           setStudentList([]);
@@ -140,9 +154,11 @@ export default function ManageUsersPage() {
         title: editingStaff.title,
         password: "", // Clear password field on edit
         assignedClasses: editingStaff.assignedClasses || [],
+        role: editingStaff.role,
+        section: editingStaff.section,
       });
     } else {
-      staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+      staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
     }
   }, [editingStaff, staffForm]);
 
@@ -229,7 +245,8 @@ export default function ManageUsersPage() {
         title: data.title,
         password: data.password ? data.password : editingStaff.password, // Store actual password
         assignedClasses: data.assignedClasses || [],
-        role: editingStaff.role || 'staff', // Preserve role or default to staff
+        role: data.role,
+        section: data.role === 'head_of_section' ? data.section : undefined,
       };
       newStaffList = staffList.map(staff => staff.id === editingStaff.id ? updatedStaff : staff);
       setStaffList(newStaffList);
@@ -248,14 +265,15 @@ export default function ManageUsersPage() {
         title: data.title,
         password: data.password, // Store actual password
         assignedClasses: data.assignedClasses || [],
-        role: 'staff', // Default new staff to 'staff' role
+        role: data.role,
+        section: data.role === 'head_of_section' ? data.section : undefined,
       };
       newStaffList.push(newStaffMember);
       setStaffList(newStaffList);
       toast({ title: "Staff Added", description: `${data.name} has been added as a staff member.` });
     }
     saveUsersToLocalStorage(studentList, newStaffList);
-    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
   };
 
   const handleEditStaff = (staff: StaffMember) => {
@@ -265,7 +283,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStaffEdit = () => {
     setEditingStaff(null);
-    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [] });
+    staffForm.reset({ name: "", email: "", department: "", title: "", password: "", assignedClasses: [], role: 'staff', section: undefined });
   };
   
   const handleDeleteStaff = (staffId: string) => {
@@ -297,6 +315,9 @@ export default function ManageUsersPage() {
       </div>
     );
   }
+  
+  const roleForStaffForm = staffForm.watch("role");
+
 
   return (
     <div className="space-y-6">
@@ -543,9 +564,9 @@ export default function ManageUsersPage() {
                                       <TableHeader>
                                         <TableRow>
                                           <TableHead>Name</TableHead>
-                                          <TableHead>Email</TableHead>
+                                          <TableHead>Role</TableHead>
                                           <TableHead>Title</TableHead>
-                                          <TableHead>Assigned Classes (Master)</TableHead>
+                                          <TableHead>Section</TableHead>
                                           <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                       </TableHeader>
@@ -553,18 +574,14 @@ export default function ManageUsersPage() {
                                         {members.map((staff) => (
                                           <TableRow key={staff.id}>
                                             <TableCell>{staff.name}</TableCell>
-                                            <TableCell>{staff.email}</TableCell>
+                                            <TableCell className="capitalize">{staff.role.replace('_', ' ')}</TableCell>
                                             <TableCell>{staff.title}</TableCell>
-                                            <TableCell>
-                                                {staff.assignedClasses && staff.assignedClasses.length > 0
-                                                ? staff.assignedClasses.map(classId => mockSchoolClasses.find(c => c.id === classId)?.name || classId).join(', ')
-                                                : "None"}
-                                            </TableCell>
+                                            <TableCell>{staff.section || 'N/A'}</TableCell>
                                             <TableCell className="text-right">
                                               <Button variant="ghost" size="icon" onClick={() => handleEditStaff(staff)} className="mr-2">
                                                 <Edit className="h-4 w-4" />
                                               </Button>
-                                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80">
+                                              <Button variant="ghost" size="icon" onClick={() => handleDeleteStaff(staff.id)} className="text-destructive hover:text-destructive/80" disabled={staff.role === 'admin'}>
                                                 <Trash2 className="h-4 w-4" />
                                               </Button>
                                             </TableCell>
@@ -601,16 +618,57 @@ export default function ManageUsersPage() {
                     <Input id="staffEmail" type="email" {...staffForm.register("email")} />
                     {staffForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.email.message}</p>}
                   </div>
-                  <div>
-                    <Label htmlFor="department">Department / Subject Area</Label>
-                    <Input id="department" {...staffForm.register("department")} />
-                    {staffForm.formState.errors.department && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.department.message}</p>}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="department">Department / Subject Area</Label>
+                        <Input id="department" {...staffForm.register("department")} />
+                        {staffForm.formState.errors.department && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.department.message}</p>}
+                      </div>
+                       <div>
+                        <Label htmlFor="title">Job Title (e.g., Teacher, Admin Officer)</Label>
+                        <Input id="title" {...staffForm.register("title")} />
+                        {staffForm.formState.errors.title && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.title.message}</p>}
+                      </div>
                   </div>
-                  <div>
-                    <Label htmlFor="title">Job Title (e.g., Teacher, Admin Officer)</Label>
-                    <Input id="title" {...staffForm.register("title")} />
-                    {staffForm.formState.errors.title && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.title.message}</p>}
-                  </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <Controller
+                        name="role"
+                        control={staffForm.control}
+                        render={({ field }) => (
+                            <div className="space-y-1">
+                                <Label>Role</Label>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="staff">Staff</SelectItem>
+                                        <SelectItem value="head_of_section">Head of Section</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {staffForm.formState.errors.role && <p className="text-sm text-destructive">{staffForm.formState.errors.role.message}</p>}
+                            </div>
+                        )}
+                    />
+                    {roleForStaffForm === 'head_of_section' && (
+                        <Controller
+                            name="section"
+                            control={staffForm.control}
+                            render={({ field }) => (
+                                <div className="space-y-1">
+                                    <Label>Assign to Section</Label>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger><SelectValue placeholder="Select a section" /></SelectTrigger>
+                                        <SelectContent>
+                                            {SCHOOL_SECTIONS.map(section => (
+                                                <SelectItem key={section} value={section}>{section}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {staffForm.formState.errors.section && <p className="text-sm text-destructive">{staffForm.formState.errors.section.message}</p>}
+                                </div>
+                            )}
+                        />
+                    )}
+                   </div>
                   <div>
                     <Label htmlFor="staffPassword">Password</Label>
                     <Input id="staffPassword" type="password" {...staffForm.register("password")} placeholder={editingStaff ? "Leave blank to keep current password" : "Min. 6 characters"}/>
@@ -670,7 +728,3 @@ export default function ManageUsersPage() {
     </div>
   );
 }
-
-    
-
-    

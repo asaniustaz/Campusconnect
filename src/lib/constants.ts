@@ -2,7 +2,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck, Presentation, DollarSign } from 'lucide-react';
 
-export type UserRole = 'student' | 'staff' | 'admin';
+export type UserRole = 'student' | 'staff' | 'admin' | 'head_of_section';
 
 export type SchoolSection = 'College' | 'Islamiyya' | 'Tahfeez';
 
@@ -23,7 +23,6 @@ export interface SchoolClass {
   id: string;
   name: string; // e.g., "Nursery 1A", "Primary 5B", "JSS 2"
   section: SchoolSection;
-  studentCount: number; // Target student count
 }
 
 export type NavItem = {
@@ -63,15 +62,15 @@ export const defaultNigerianCurriculumSubjects: Subject[] = [
 
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['student', 'staff', 'admin'] },
-  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle, roles: ['student', 'staff', 'admin'] },
-  { href: '/dashboard/school-overview', label: 'School Overview', icon: Building, roles: ['admin', 'staff'] },
-  { href: '/dashboard/my-classes', label: 'My Classes', icon: Presentation, roles: ['staff', 'admin'] },
-  { href: '/dashboard/courses', label: 'Subjects', icon: BookOpen, roles: ['student', 'staff', 'admin'] },
-  { href: '/dashboard/staff', label: 'Staff Directory', icon: Users, roles: ['student', 'staff', 'admin'] },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['student', 'staff', 'admin', 'head_of_section'] },
+  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle, roles: ['student', 'staff', 'admin', 'head_of_section'] },
+  { href: '/dashboard/school-overview', label: 'School Overview', icon: Building, roles: ['admin', 'staff', 'head_of_section'] },
+  { href: '/dashboard/my-classes', label: 'My Classes', icon: Presentation, roles: ['staff', 'admin', 'head_of_section'] },
+  { href: '/dashboard/courses', label: 'Subjects', icon: BookOpen, roles: ['student', 'staff', 'admin', 'head_of_section'] },
+  { href: '/dashboard/staff', label: 'Staff Directory', icon: Users, roles: ['student', 'staff', 'admin', 'head_of_section'] },
   { href: '/dashboard/payments', label: 'Payment History', icon: CreditCard, roles: ['student'] },
-  { href: '/dashboard/attendance', label: 'Mark Attendance', icon: CalendarCheck, roles: ['staff', 'admin'] },
-  { href: '/dashboard/results', label: 'Results', icon: FileText, roles: ['student', 'staff', 'admin'] },
+  { href: '/dashboard/attendance', label: 'Mark Attendance', icon: CalendarCheck, roles: ['staff', 'admin', 'head_of_section'] },
+  { href: '/dashboard/results', label: 'Results', icon: FileText, roles: ['student', 'staff', 'admin', 'head_of_section'] },
   { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['admin'] },
   // Admin specific routes
   { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin'] },
@@ -116,21 +115,21 @@ export const subjectCategoryIcons: Record<SubjectCategory, LucideIcon> = {
 
 export const mockSchoolClasses: SchoolClass[] = [
   // College Classes
-  { id: 'jss1', name: 'JSS 1', section: 'College', studentCount: 0 },
-  { id: 'jss2', name: 'JSS 2', section: 'College', studentCount: 0 },
-  { id: 'jss3', name: 'JSS 3', section: 'College', studentCount: 0 },
-  { id: 'sss1', name: 'SSS 1', section: 'College', studentCount: 0 },
-  { id: 'sss2', name: 'SSS 2', section: 'College', studentCount: 0 },
-  { id: 'sss3', name: 'SSS 3', section: 'College', studentCount: 0 },
+  { id: 'jss1', name: 'JSS 1', section: 'College' },
+  { id: 'jss2', name: 'JSS 2', section: 'College' },
+  { id: 'jss3', name: 'JSS 3', section: 'College' },
+  { id: 'sss1', name: 'SSS 1', section: 'College' },
+  { id: 'sss2', name: 'SSS 2', section: 'College' },
+  { id: 'sss3', name: 'SSS 3', section: 'College' },
 
   // Islamiyya Classes
-  { id: 'islamiyya1', name: 'Islamiyya 1', section: 'Islamiyya', studentCount: 0 },
-  { id: 'islamiyya2', name: 'Islamiyya 2', section: 'Islamiyya', studentCount: 0 },
-  { id: 'islamiyya3', name: 'Islamiyya 3', section: 'Islamiyya', studentCount: 0 },
+  { id: 'islamiyya1', name: 'Islamiyya 1', section: 'Islamiyya' },
+  { id: 'islamiyya2', name: 'Islamiyya 2', section: 'Islamiyya' },
+  { id: 'islamiyya3', name: 'Islamiyya 3', section: 'Islamiyya' },
   
   // Tahfeez Classes
-  { id: 'tahfeez1', name: 'Tahfeez 1', section: 'Tahfeez', studentCount: 0 },
-  { id: 'tahfeez2', name: 'Tahfeez 2', section: 'Tahfeez', studentCount: 0 },
+  { id: 'tahfeez1', name: 'Tahfeez 1', section: 'Tahfeez' },
+  { id: 'tahfeez2', name: 'Tahfeez 2', section: 'Tahfeez' },
 ];
 
 export type PaymentStatus = "Paid" | "Pending" | "Failed";
@@ -223,4 +222,3 @@ export const deleteStudentFromGlobalList = (studentId: string) => {
   globalMockStudents = students;
 };
 
-    
