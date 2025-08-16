@@ -93,8 +93,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <Sidebar className="hidden border-r bg-sidebar text-sidebar-foreground md:block fixed h-full">
           <SidebarHeader className="p-4 flex items-center justify-between">
              <div className="flex items-center gap-2">
-                <LogIn className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-semibold font-headline text-primary">{APP_NAME}</h1>
+                <LogIn className="h-8 w-8 text-sidebar-primary" />
+                <h1 className="text-2xl font-semibold font-headline text-sidebar-primary">{APP_NAME}</h1>
               </div>
           </SidebarHeader>
           <SidebarContent className="p-2">

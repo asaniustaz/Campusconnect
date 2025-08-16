@@ -33,7 +33,7 @@ export default function AppHeader({ user, onLogout }: AppHeaderProps) {
   const userInitials = user.name.split(' ').map(n => n[0]).join('').toUpperCase() || user.email[0].toUpperCase();
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-card px-6 shadow-sm">
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-sidebar-border bg-sidebar text-sidebar-foreground px-6 shadow-sm">
       {isMobile && (
          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden">
            <PanelLeft className="h-5 w-5" />
@@ -45,7 +45,7 @@ export default function AppHeader({ user, onLogout }: AppHeaderProps) {
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+          <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-sidebar-accent">
             <Avatar className="h-9 w-9">
               <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${userInitials}`} alt={user.name} data-ai-hint="user avatar" />
               <AvatarFallback>{userInitials}</AvatarFallback>
