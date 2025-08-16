@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolClass, StaffMember } from "@/lib/constants";
+import type { UserRole, SchoolClass, StaffMember, StoredDocument } from "@/lib/constants";
 import { TERMS, SESSIONS, mockSchoolClasses as defaultClasses } from "@/lib/constants";
 import { UploadCloud, FileSpreadsheet, FileText, FileType, CheckCircle, ArrowRight, RefreshCw, AlertTriangle } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +34,16 @@ const uploadSchema = z.object({
 });
 
 type UploadFormData = z.infer<typeof uploadSchema>;
+
+// Helper function to convert a File to a Base64 Data URL
+const fileToDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+    });
+};
 
 export default function ResultUploadPage() {
   const { toast } = useToast();
@@ -99,19 +109,20 @@ export default function ResultUploadPage() {
       const resultsArrayBuffer = await resultsFile[0].arrayBuffer();
       const workbook = XLSX.read(resultsArrayBuffer, { type: 'array' });
       setSheetNames(workbook.SheetNames);
-      setSelectedSheet(workbook.SheetNames[0]);
+      const firstSheet = workbook.SheetNames[0];
+      setSelectedSheet(firstSheet);
       
-      const firstSheetData = XLSX.utils.sheet_to_json<any>(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+      const firstSheetData = XLSX.utils.sheet_to_json<any>(workbook.Sheets[firstSheet], { header: 1 });
       const headers = firstSheetData[0] || [];
-      setColumnHeaders(headers);
+      setColumnHeaders(headers.map(String)); // Ensure headers are strings
 
       // 3. Auto-map fields
       setProgress(75);
       const autoMapped: Record<string, string> = {};
       uniquePlaceholders.forEach(placeholder => {
-        const matchingHeader = headers.find((header: string) => header.toLowerCase().replace(/_/g, ' ') === placeholder.toLowerCase().replace(/_/g, ' '));
+        const matchingHeader = headers.find((header: any) => String(header).toLowerCase().replace(/[\s_]/g, '') === String(placeholder).toLowerCase().replace(/[\s_]/g, ''));
         if (matchingHeader) {
-          autoMapped[placeholder] = matchingHeader;
+          autoMapped[placeholder] = String(matchingHeader);
         }
       });
       setMappedFields(autoMapped);
@@ -128,17 +139,18 @@ export default function ResultUploadPage() {
   useEffect(() => {
       if(selectedSheet && sheetNames.length > 0) {
           const { resultsFile } = form.getValues();
-          if(!resultsFile) return;
+          if(!resultsFile || resultsFile.length === 0) return;
 
           resultsFile[0].arrayBuffer().then(buffer => {
               const workbook = XLSX.read(buffer, { type: 'array' });
               const sheetData = XLSX.utils.sheet_to_json<any>(workbook.Sheets[selectedSheet], { header: 1 });
               const headers = sheetData[0] || [];
-              setColumnHeaders(headers);
+              const stringHeaders = headers.map(String);
+              setColumnHeaders(stringHeaders);
 
               const autoMapped: Record<string, string> = {};
               placeholders.forEach(placeholder => {
-                const matchingHeader = headers.find((header: string) => header.toLowerCase().replace(/_/g, ' ') === placeholder.toLowerCase().replace(/_/g, ' '));
+                const matchingHeader = stringHeaders.find((header: string) => header.toLowerCase().replace(/[\s_]/g, '') === placeholder.toLowerCase().replace(/[\s_]/g, ''));
                 if (matchingHeader) {
                   autoMapped[placeholder] = matchingHeader;
                 }
@@ -160,23 +172,80 @@ export default function ResultUploadPage() {
     });
   };
 
-  const onSubmit = (data: UploadFormData) => {
+  const onSubmit = async (data: UploadFormData) => {
     if (Object.keys(mappedFields).length !== placeholders.length) {
         toast({ variant: "destructive", title: "Mapping Incomplete", description: "Please map all template placeholders to a data column."});
         return;
     }
-    console.log("Generating results with:", { ...data, mapping: mappedFields, sheet: selectedSheet });
-    toast({
-      title: "Processing Started",
-      description: `Generating results for ${data.classId} - ${data.term}, ${data.session}.`,
-    });
-    // Here you would typically send this data to a server-side function to generate PDFs.
-    // For this demo, we'll just log it and reset.
-    resetFlow();
+
+    try {
+        setProcessing(true);
+        setProgress(20);
+        toast({ title: "Processing...", description: "Saving uploaded files. Please wait." });
+
+        const [templateDataUrl, resultsDataUrl] = await Promise.all([
+            fileToDataUrl(data.templateFile[0]),
+            fileToDataUrl(data.resultsFile[0])
+        ]);
+
+        setProgress(60);
+
+        const selectedClass = allClasses.find(c => c.id === data.classId);
+        if (!selectedClass) {
+            throw new Error("Selected class not found.");
+        }
+
+        const documentId = `${data.session.replace('/', '-')}-${data.term.replace(' ', '-')}-${data.classId}`;
+        const newDocument: StoredDocument = {
+            id: documentId,
+            session: data.session,
+            term: data.term,
+            classId: data.classId,
+            className: selectedClass.name,
+            templateFile: { name: data.templateFile[0].name, dataUrl: templateDataUrl },
+            resultsFile: { name: data.resultsFile[0].name, dataUrl: resultsDataUrl },
+            uploadedAt: new Date().toISOString(),
+        };
+
+        const storedDocsString = localStorage.getItem('resultDocuments') || '[]';
+        const storedDocs: StoredDocument[] = JSON.parse(storedDocsString);
+        
+        const existingDocIndex = storedDocs.findIndex(doc => doc.id === documentId);
+        if (existingDocIndex > -1) {
+            storedDocs[existingDocIndex] = newDocument; // Overwrite existing
+        } else {
+            storedDocs.push(newDocument);
+        }
+
+        localStorage.setItem('resultDocuments', JSON.stringify(storedDocs));
+        
+        setProgress(100);
+        toast({
+          title: "Files Saved Successfully!",
+          description: `Documents for ${selectedClass.name} have been stored.`,
+        });
+
+        // Here you would typically send data to a server for PDF generation.
+        // For this demo, we'll just log it and reset.
+        console.log("Generating results with:", { ...data, mapping: mappedFields, sheet: selectedSheet });
+
+    } catch (error) {
+        console.error("Error saving documents:", error);
+        toast({ variant: "destructive", title: "Save Error", description: "Could not save the uploaded files." });
+    } finally {
+        setProcessing(false);
+        resetFlow();
+    }
   };
   
   const resetFlow = () => {
     form.reset({ session: "", term: "", classId: "" });
+    // Manually reset file inputs in the DOM if needed, although react-hook-form should handle it
+    const templateInput = document.getElementById('templateFile') as HTMLInputElement;
+    const resultsInput = document.getElementById('resultsFile') as HTMLInputElement;
+    if(templateInput) templateInput.value = "";
+    if(resultsInput) resultsInput.value = "";
+
     setStep(1);
     setPlaceholders([]);
     setSheetNames([]);
@@ -207,8 +276,8 @@ export default function ResultUploadPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Generate Student Results</h1>
-        <p className="text-muted-foreground">Upload a DOCX template and an Excel/CSV file to generate results.</p>
+        <h1 className="text-3xl font-bold font-headline text-foreground">Generate & Store Student Results</h1>
+        <p className="text-muted-foreground">Upload a DOCX template and an Excel/CSV file to generate and save results documents.</p>
       </header>
 
       {step === 1 && (
@@ -224,7 +293,7 @@ export default function ResultUploadPage() {
                     <FormField control={form.control} name="session" render={({ field }) => ( <FormItem><Label>Session</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Session" /></SelectTrigger></FormControl><SelectContent>{SESSIONS.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="term" render={({ field }) => ( <FormItem><Label>Term</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Term" /></SelectTrigger></FormControl><SelectContent>{TERMS.map(t => ( <SelectItem key={t} value={t}>{t}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
                   </div>
-                   <FormField control={form.control} name="classId" render={({ field }) => (<FormItem><Label>Class for DOCX Template</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger></FormControl><SelectContent>{getVisibleClasses().map(c => (<SelectItem key={c.id} value={c.id}>{c.name} ({c.displayLevel})</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="classId" render={({ field }) => (<FormItem><Label>Class</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger></FormControl><SelectContent>{getVisibleClasses().map(c => (<SelectItem key={c.id} value={c.id}>{c.name} ({c.displayLevel})</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="templateFile" render={({ field: { onChange, value, ...rest } }) => (<FormItem><Label htmlFor="templateFile" className="flex items-center gap-2"><FileType/> Report Card Template (.docx)</Label><FormControl><Input id="templateFile" type="file" accept={ACCEPTED_DOCX_TYPES.join(',')} onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>)} />
                  <FormField control={form.control} name="resultsFile" render={({ field: { onChange, value, ...rest } }) => (<FormItem><Label htmlFor="resultsFile" className="flex items-center gap-2"><FileText/> Scoresheet (.xlsx, .csv)</Label><FormControl><Input id="resultsFile" type="file" accept={ACCEPTED_EXCEL_TYPES.join(',')} onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>)} />
                 {processing && <Progress value={progress} className="w-full" />}
@@ -280,10 +349,11 @@ export default function ResultUploadPage() {
                
                <div className="flex justify-between mt-6">
                  <Button variant="outline" onClick={resetFlow}>Back</Button>
-                 <Button onClick={form.handleSubmit(onSubmit)} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={Object.keys(mappedFields).length !== placeholders.length}>
-                   <UploadCloud className="mr-2 h-4 w-4" /> Generate Results
+                 <Button onClick={form.handleSubmit(onSubmit)} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={Object.keys(mappedFields).length !== placeholders.length || processing}>
+                   {processing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/> Saving...</> : <><UploadCloud className="mr-2 h-4 w-4" /> Save Documents</>}
                  </Button>
                </div>
+                {processing && <Progress value={progress} className="w-full mt-4" />}
              </div>
           </CardContent>
         </Card>

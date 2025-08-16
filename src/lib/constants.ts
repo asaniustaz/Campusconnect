@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck, Presentation, DollarSign } from 'lucide-react';
+import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck, Presentation, DollarSign, FolderKanban } from 'lucide-react';
 
 export type UserRole = 'student' | 'staff' | 'admin' | 'head_of_section';
 
@@ -73,6 +73,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/attendance', label: 'Mark Attendance', icon: CalendarCheck, roles: ['staff', 'admin', 'head_of_section'] },
   { href: '/dashboard/results', label: 'Results', icon: FileText, roles: ['student', 'staff', 'admin', 'head_of_section'] },
   { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['admin', 'head_of_section'] },
+  { href: '/dashboard/documents', label: 'Documents', icon: FolderKanban, roles: ['student', 'staff', 'admin', 'head_of_section'] },
   // Admin specific routes
   { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin', 'head_of_section'] },
   { href: '/dashboard/admin/manage-classes', label: 'Manage Classes', icon: School, roles: ['admin', 'head_of_section'] },
@@ -191,3 +192,15 @@ export const mockSchoolPayments: PaymentRecord[] = [];
 
 // Mock user data for initial load
 export const mockManagedUsers: (Student | StaffMember)[] = [];
+
+// Define the structure for stored documents
+export interface StoredDocument {
+    id: string; // Composite key: `${session}-${term}-${classId}`
+    session: string;
+    term: string;
+    classId: string;
+    className: string; // For display purposes
+    templateFile: { name: string; dataUrl: string; };
+    resultsFile: { name: string; dataUrl: string; };
+    uploadedAt: string;
+}
