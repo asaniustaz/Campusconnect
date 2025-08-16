@@ -149,7 +149,15 @@ export default function ResultUploadPage() {
   }, [selectedSheet, sheetNames, form, placeholders]);
 
   const handleManualMapChange = (placeholder: string, header: string) => {
-    setMappedFields(prev => ({ ...prev, [placeholder]: header }));
+    setMappedFields(prev => {
+      const newMappedFields = { ...prev };
+      if (header === '__UNMAPPED__') {
+        delete newMappedFields[placeholder];
+      } else {
+        newMappedFields[placeholder] = header;
+      }
+      return newMappedFields;
+    });
   };
 
   const onSubmit = (data: UploadFormData) => {
@@ -251,10 +259,10 @@ export default function ResultUploadPage() {
                    <div key={placeholder} className="flex items-center gap-2">
                      <Badge variant="secondary" className="min-w-[150px] justify-center text-right break-all">{placeholder}</Badge>
                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0"/>
-                     <Select value={mappedFields[placeholder]} onValueChange={(value) => handleManualMapChange(placeholder, value)}>
+                     <Select value={mappedFields[placeholder] || "__UNMAPPED__"} onValueChange={(value) => handleManualMapChange(placeholder, value)}>
                        <SelectTrigger className="flex-1"><SelectValue placeholder="Select column..."/></SelectTrigger>
                        <SelectContent>
-                         <SelectItem value="">-- Unmapped --</SelectItem>
+                         <SelectItem value="__UNMAPPED__">-- Unmapped --</SelectItem>
                          {columnHeaders.map(header => <SelectItem key={header} value={header}>{header}</SelectItem>)}
                        </SelectContent>
                      </Select>
