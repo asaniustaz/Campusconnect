@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, SchoolSection, SchoolClass, Student } from "@/lib/constants";
 import { SCHOOL_SECTIONS, mockSchoolClasses } from "@/lib/constants";
-import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap } from "lucide-react";
+import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap, Upload } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import Papa from "papaparse";
 
 // Student Schema for Add/Edit
 const studentSchema = z.object({
@@ -168,6 +169,61 @@ export default function ManageUsersPage() {
       localStorage.setItem('managedUsers', JSON.stringify(allUsers));
     }
   };
+
+  const handleStudentFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      toast({ variant: "destructive", title: "File Error", description: "No file selected." });
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const requiredFields = ["name", "email", "password", "schoolSection", "classId", "rollNumber"];
+        const headers = results.meta.fields;
+        if (!headers || !requiredFields.every(field => headers.includes(field))) {
+          toast({ variant: "destructive", title: "Import Failed", description: `CSV must contain the following headers: ${requiredFields.join(", ")}` });
+          return;
+        }
+        
+        let newStudents: Student[] = [];
+        let errors: string[] = [];
+        results.data.forEach((row: any, index) => {
+          if (!row.name || !row.email || !row.password) {
+            errors.push(`Row ${index + 2}: Missing required name, email, or password.`);
+            return;
+          }
+          const newStudent: Student = {
+            id: `stud-${Date.now()}-${index}`,
+            name: row.name,
+            email: row.email,
+            password: row.password,
+            schoolSection: row.schoolSection as SchoolSection,
+            classId: row.classId,
+            rollNumber: row.rollNumber,
+            role: 'student',
+          };
+          newStudents.push(newStudent);
+        });
+
+        if (errors.length > 0) {
+          toast({ variant: "destructive", title: "Import Errors", description: errors.slice(0, 5).join("\n") });
+        } else {
+          const updatedStudentList = [...studentList, ...newStudents];
+          setStudentList(updatedStudentList);
+          saveUsersToLocalStorage(updatedStudentList, staffList);
+          toast({ title: "Import Successful", description: `${newStudents.length} students have been added.` });
+        }
+      },
+      error: (error) => {
+        toast({ variant: "destructive", title: "Parsing Error", description: error.message });
+      }
+    });
+    event.target.value = ""; // Reset file input
+  };
+
 
   const onStudentSubmit: SubmitHandler<StudentFormData> = (data) => {
     let newStudentList = [...studentList];
@@ -334,7 +390,7 @@ export default function ManageUsersPage() {
         
         <TabsContent value="manage-students">
           <div className="space-y-8">
-            <Card className="shadow-xl">
+             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle>Existing Students by Class</CardTitle>
                 <CardDescription>View, edit, or remove students, grouped by their classes. Click on a class name to expand/collapse.</CardDescription>
@@ -437,107 +493,136 @@ export default function ManageUsersPage() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-xl max-w-lg mx-auto">
-              <CardHeader>
-                <CardTitle>{editingStudent ? "Edit Student" : "Add New Student"}</CardTitle>
-                <CardDescription>{editingStudent ? `Update details for ${editingStudent.name}.` : "Fill in the details to register a new student."}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={studentForm.handleSubmit(onStudentSubmit)} className="space-y-4">
-                  <div>
-                    <Label htmlFor="studentName">Full Name</Label>
-                    <Input id="studentName" {...studentForm.register("name")} />
-                    {studentForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.name.message}</p>}
-                  </div>
-                  <div>
-                    <Label htmlFor="studentEmail">Email Address</Label>
-                    <Input id="studentEmail" type="email" {...studentForm.register("email")} />
-                    {studentForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.email.message}</p>}
-                  </div>
-                  <div>
-                    <Label htmlFor="studentRollNumber">Roll Number</Label>
-                    <Input id="studentRollNumber" {...studentForm.register("rollNumber")} />
-                    {studentForm.formState.errors.rollNumber && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.rollNumber.message}</p>}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle>{editingStudent ? "Edit Student" : "Add New Student"}</CardTitle>
+                  <CardDescription>{editingStudent ? `Update details for ${editingStudent.name}.` : "Fill in the details to register a new student."}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={studentForm.handleSubmit(onStudentSubmit)} className="space-y-4">
                     <div>
-                      <Label htmlFor="schoolSection">School Section</Label>
-                      <Controller
-                        name="schoolSection"
-                        control={studentForm.control}
-                        render={({ field }) => (
-                          <Select 
-                            onValueChange={(value) => {
-                                field.onChange(value);
-                                studentForm.setValue("classId", undefined); 
-                            }} 
-                            value={field.value || ""}
-                          >
-                            <SelectTrigger id="schoolSection">
-                              <SelectValue placeholder="Select school section" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {SCHOOL_SECTIONS.map(section => (
-                                <SelectItem key={section} value={section}>{section}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {studentForm.formState.errors.schoolSection && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolSection.message}</p>}
+                      <Label htmlFor="studentName">Full Name</Label>
+                      <Input id="studentName" {...studentForm.register("name")} />
+                      {studentForm.formState.errors.name && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.name.message}</p>}
                     </div>
                     <div>
-                      <Label htmlFor="classId">Assign to Class</Label>
-                      <Controller
-                        name="classId"
-                        control={studentForm.control}
-                        render={({ field }) => (
-                          <Select 
-                            onValueChange={(value) => {
-                                field.onChange(value === "__UNASSIGNED__" ? undefined : value);
-                            }} 
-                            value={field.value ?? "__UNASSIGNED__"}
-                          >
-                            <SelectTrigger id="classId">
-                              <SelectValue placeholder="Select class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
-                              {mockSchoolClasses
-                                .filter(cls => !studentForm.getValues("schoolSection") || cls.section === studentForm.getValues("schoolSection")) 
-                                .map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {studentForm.formState.errors.classId && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.classId.message}</p>}
+                      <Label htmlFor="studentEmail">Email Address</Label>
+                      <Input id="studentEmail" type="email" {...studentForm.register("email")} />
+                      {studentForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.email.message}</p>}
                     </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="studentPassword">Password</Label>
-                    <Input 
-                        id="studentPassword" 
-                        type="password" 
-                        {...studentForm.register("password")} 
-                        placeholder={editingStudent ? "Leave blank to keep current" : "Min. 6 characters"} 
-                    />
-                    {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                    <Button type="submit" className="w-full sm:flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
-                      <UserPlus className="mr-2 h-4 w-4"/> {editingStudent ? "Update Student" : "Add Student"}
-                    </Button>
-                    {editingStudent && (
-                      <Button type="button" variant="outline" onClick={handleCancelStudentEdit} className="w-full sm:w-auto">
-                        Cancel Edit
+                    <div>
+                      <Label htmlFor="studentRollNumber">Roll Number</Label>
+                      <Input id="studentRollNumber" {...studentForm.register("rollNumber")} />
+                      {studentForm.formState.errors.rollNumber && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.rollNumber.message}</p>}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="schoolSection">School Section</Label>
+                        <Controller
+                          name="schoolSection"
+                          control={studentForm.control}
+                          render={({ field }) => (
+                            <Select 
+                              onValueChange={(value) => {
+                                  field.onChange(value);
+                                  studentForm.setValue("classId", undefined); 
+                              }} 
+                              value={field.value || ""}
+                            >
+                              <SelectTrigger id="schoolSection">
+                                <SelectValue placeholder="Select school section" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SCHOOL_SECTIONS.map(section => (
+                                  <SelectItem key={section} value={section}>{section}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {studentForm.formState.errors.schoolSection && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolSection.message}</p>}
+                      </div>
+                      <div>
+                        <Label htmlFor="classId">Assign to Class</Label>
+                        <Controller
+                          name="classId"
+                          control={studentForm.control}
+                          render={({ field }) => (
+                            <Select 
+                              onValueChange={(value) => {
+                                  field.onChange(value === "__UNASSIGNED__" ? undefined : value);
+                              }} 
+                              value={field.value ?? "__UNASSIGNED__"}
+                            >
+                              <SelectTrigger id="classId">
+                                <SelectValue placeholder="Select class" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
+                                {mockSchoolClasses
+                                  .filter(cls => !studentForm.getValues("schoolSection") || cls.section === studentForm.getValues("schoolSection")) 
+                                  .map(cls => (
+                                  <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {studentForm.formState.errors.classId && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.classId.message}</p>}
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="studentPassword">Password</Label>
+                      <Input 
+                          id="studentPassword" 
+                          type="password" 
+                          {...studentForm.register("password")} 
+                          placeholder={editingStudent ? "Leave blank to keep current" : "Min. 6 characters"} 
+                      />
+                      {studentForm.formState.errors.password && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.password.message}</p>}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                      <Button type="submit" className="w-full sm:flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+                        <UserPlus className="mr-2 h-4 w-4"/> {editingStudent ? "Update Student" : "Add Student"}
                       </Button>
-                    )}
+                      {editingStudent && (
+                        <Button type="button" variant="outline" onClick={handleCancelStudentEdit} className="w-full sm:w-auto">
+                          Cancel Edit
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+
+               <Card className="shadow-xl">
+                <CardHeader>
+                  <CardTitle>Import Students from CSV</CardTitle>
+                  <CardDescription>Bulk upload students using a CSV file. Ensure the file has the correct columns.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="student-csv-upload" className="flex items-center gap-2 mb-2"><Upload/> Upload Student List</Label>
+                      <Input id="student-csv-upload" type="file" accept=".csv" onChange={handleStudentFileUpload} />
+                    </div>
+                    <div className="text-sm text-muted-foreground p-3 bg-secondary/50 rounded-md">
+                      <h4 className="font-semibold text-foreground mb-1">CSV File Instructions:</h4>
+                      <p>Your file must be a `.csv` format and include the following headers in the first row:</p>
+                      <ul className="list-disc list-inside mt-2 space-y-1">
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">name</span>: Full name of the student.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: Unique email address.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">password</span>: Temporary password.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">schoolSection</span>: Must be one of: `College`, `Islamiyya`, `Tahfeez`.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">classId</span>: The ID for the class (e.g., `jss1`, `islamiyya2`). Leave empty for unassigned.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span>: The student's roll number.</li>
+                      </ul>
+                    </div>
                   </div>
-                </form>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 
