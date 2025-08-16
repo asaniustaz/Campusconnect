@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/lib/constants";
 import { APP_NAME } from "@/lib/constants";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +33,6 @@ type ManagedUser = {
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(1, { message: "Password is required." }),
-  role: z.enum(["student", "staff", "admin"], { required_error: "Please select a role." }),
 });
 
 export default function AuthForm() {
@@ -54,14 +52,14 @@ export default function AuthForm() {
 
     let loggedIn = false;
     let userName = values.email.split('@')[0] || "User";
-    let userRole: UserRole = values.role;
-    let loggedInUserId: string | null = null; // To store the actual ID of the logged-in user
+    let userRole: UserRole | null = null;
+    let loggedInUserId: string | null = null;
 
     // 1. Check for the "real" admin
     if (values.email === REAL_ADMIN_EMAIL && values.password === REAL_ADMIN_PASS) {
       userRole = "admin";
       userName = "Asani Ustaz";
-      loggedInUserId = values.email; // For the real admin, use email as ID for consistency if needed elsewhere
+      loggedInUserId = values.email; 
       loggedIn = true;
     }
 
@@ -75,7 +73,7 @@ export default function AuthForm() {
           if (matchedUser) {
             userRole = matchedUser.role;
             userName = matchedUser.name;
-            loggedInUserId = matchedUser.id; // Store the actual ID from managedUsers
+            loggedInUserId = matchedUser.id;
             loggedIn = true;
           }
         } catch (error) {
@@ -86,29 +84,30 @@ export default function AuthForm() {
     
     // 3. Fallback to existing test user credentials if not logged in yet
     if (!loggedIn && values.password === "password") {
-      if (values.email === "student@test.com") {
-        userRole = "student";
-        userName = "Test Student";
-        loggedInUserId = "test-student-id"; // Example fixed ID for test user
-        loggedIn = true;
-      } else if (values.email === "staff@test.com") {
-        userRole = "staff";
-        userName = "Test Staff";
-        loggedInUserId = "test-staff-id"; // Example fixed ID for test user
-        loggedIn = true;
-      } else if (values.email === "admin@test.com" && values.email !== REAL_ADMIN_EMAIL) {
-        userRole = "admin";
-        userName = "Test Admin";
-        loggedInUserId = "test-admin-id"; // Example fixed ID for test user
-        loggedIn = true;
-      }
+        if (values.email.startsWith("student")) {
+            userRole = "student";
+            userName = "Test Student";
+            loggedInUserId = "test-student-id";
+            loggedIn = true;
+        } else if (values.email.startsWith("staff")) {
+            userRole = "staff";
+            userName = "Test Staff";
+            loggedInUserId = "test-staff-id";
+            loggedIn = true;
+        } else if (values.email.startsWith("admin")) {
+            userRole = "admin";
+            userName = "Test Admin";
+            loggedInUserId = "test-admin-id";
+            loggedIn = true;
+        }
     }
 
-    if (loggedIn) {
+
+    if (loggedIn && userRole) {
       if (typeof window !== 'undefined') {
         localStorage.setItem("userRole", userRole);
         localStorage.setItem("userName", userName);
-        localStorage.setItem("userId", loggedInUserId || values.email); // Use the actual ID if available, otherwise fallback
+        localStorage.setItem("userId", loggedInUserId || values.email);
       }
       toast({
         title: "Login Successful",
@@ -119,10 +118,10 @@ export default function AuthForm() {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email, password, or role selected.",
+        description: "Invalid email or password.",
       });
       form.setError("email", { type: "manual", message: " " }); 
-      form.setError("password", { type: "manual", message: "Invalid credentials or role mismatch." });
+      form.setError("password", { type: "manual", message: "Invalid credentials." });
     }
   }
 
@@ -157,28 +156,6 @@ export default function AuthForm() {
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role (Select if not using managed credentials)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your role" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="staff">Staff</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
