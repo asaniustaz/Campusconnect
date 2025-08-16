@@ -46,6 +46,13 @@ export default function AuthForm() {
     },
   });
 
+  const handleForgotPassword = () => {
+    toast({
+      title: "Password Reset",
+      description: "Please contact school administration to reset your password.",
+    });
+  };
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     const REAL_ADMIN_EMAIL = "asaniustaz@gmail.com";
     const REAL_ADMIN_PASS = "Aa12345678@";
@@ -59,7 +66,7 @@ export default function AuthForm() {
     if (values.email === REAL_ADMIN_EMAIL && values.password === REAL_ADMIN_PASS) {
       userRole = "admin";
       userName = "Asani Ustaz";
-      loggedInUserId = values.email; 
+      loggedInUserId = `admin-${REAL_ADMIN_EMAIL}`; // Assign a unique ID for the admin
       loggedIn = true;
     }
 
@@ -133,7 +140,7 @@ export default function AuthForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="email"
@@ -152,7 +159,16 @@ export default function AuthForm() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                   <div className="flex justify-between items-center">
+                    <FormLabel>Password</FormLabel>
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-sm text-muted-foreground hover:underline"
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
@@ -160,9 +176,11 @@ export default function AuthForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <LogIn className="mr-2 h-4 w-4" /> Login
-            </Button>
+            <div className="pt-2">
+                <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                <LogIn className="mr-2 h-4 w-4" /> Login
+                </Button>
+            </div>
           </form>
         </Form>
       </CardContent>

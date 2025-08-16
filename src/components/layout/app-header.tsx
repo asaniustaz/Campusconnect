@@ -11,10 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, UserCircle, Settings, PanelLeft } from "lucide-react";
+import { LogOut, UserCircle, Settings, PanelLeft, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useSidebar } from "@/components/ui/sidebar";
 import type { UserRole } from "@/lib/constants";
+import { APP_NAME } from "@/lib/constants";
 
 type User = {
   name: string;
@@ -34,12 +35,18 @@ export default function AppHeader({ user, onLogout }: AppHeaderProps) {
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-sidebar-border bg-sidebar text-sidebar-foreground px-6 shadow-sm">
-      {isMobile && (
-         <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden">
-           <PanelLeft className="h-5 w-5" />
-           <span className="sr-only">Toggle Menu</span>
-         </Button>
-      )}
+      <div className="flex items-center gap-2">
+        {isMobile && (
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden -ml-2">
+            <PanelLeft className="h-5 w-5" />
+            <span className="sr-only">Toggle Menu</span>
+          </Button>
+        )}
+         <div className="flex items-center gap-2 md:hidden">
+            <LogIn className="h-6 w-6 text-sidebar-primary" />
+            <h1 className="text-xl font-semibold font-headline text-sidebar-primary">{APP_NAME}</h1>
+        </div>
+      </div>
       <div className="flex-1">
         {/* Placeholder for dynamic page title or breadcrumbs if needed */}
       </div>
