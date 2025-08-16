@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck, Presentation } from 'lucide-react';
+import { LayoutDashboard, UserCircle, BookOpen, Users, CalendarCheck, FileText, UploadCloud, Settings, LogOut, UserPlus, BookUser, CreditCard, School, NotebookPen, Calculator, FlaskConical, Landmark, Palette, Laptop, Briefcase, HeartPulse, BookOpenCheck, Puzzle, ClipboardList, Building, UserCheck, Presentation, DollarSign } from 'lucide-react';
 
 export type UserRole = 'student' | 'staff' | 'admin';
 
@@ -104,7 +104,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin'] },
   { href: '/dashboard/admin/manage-staff-allocations', label: 'Staff Allocations', icon: BookUser, roles: ['admin'] },
   { href: '/dashboard/admin/attendance-report', label: 'Attendance Report', icon: ClipboardList, roles: ['admin'] },
-  // { href: '/dashboard/settings', label: 'Settings', icon: Settings, roles: ['student', 'staff', 'admin'] },
+  { href: '/dashboard/admin/manage-payments', label: 'Manage Payments', icon: DollarSign, roles: ['admin'] },
 ];
 
 export const APP_NAME = "BAMCHISE";
@@ -173,6 +173,19 @@ export const mockSchoolClasses: SchoolClass[] = [
   { id: 'sss3_sci', name: 'SSS 3 Science', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
   { id: 'sss3_art', name: 'SSS 3 Arts', level: 'Secondary', displayLevel: 'Senior Secondary', studentCount: 0 },
 ];
+
+export type PaymentStatus = "Paid" | "Pending" | "Failed";
+
+export interface PaymentRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  date: string;
+  description: string;
+  amount: number;
+  status: PaymentStatus;
+  term: string;
+}
 
 
 // Define Student interface here to be used across relevant files
