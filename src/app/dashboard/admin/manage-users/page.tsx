@@ -73,6 +73,10 @@ export default function ManageUsersPage() {
 
   const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
 
+  // State for the import functionality
+  const [importSection, setImportSection] = useState<SchoolSection | "">("");
+  const [importClassId, setImportClassId] = useState<string | "">("");
+
   const studentForm = useForm<StudentFormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
@@ -183,8 +187,8 @@ export default function ManageUsersPage() {
     }
   };
 
-  const processImportedData = (data: any[]) => {
-    const requiredFields = ["firstName", "surname", "schoolSection", "classId", "rollNumber"];
+  const processImportedData = (data: any[], section: SchoolSection, classId: string) => {
+    const requiredFields = ["firstName", "surname", "rollNumber"];
     const headers = data.length > 0 ? Object.keys(data[0]).map(h => h.trim()) : [];
 
     if (!requiredFields.every(field => headers.includes(field))) {
@@ -194,31 +198,19 @@ export default function ManageUsersPage() {
     
     let newStudents: Student[] = [];
     let errors: string[] = [];
-    const existingClassIds = allClasses.map(c => c.id.toLowerCase());
 
     data.forEach((row: any, index) => {
       const rowNumber = index + 2;
-      // Trim all row data
       const trimmedRow = Object.keys(row).reduce((acc, key) => {
           acc[key.trim()] = typeof row[key] === 'string' ? row[key].trim() : row[key];
           return acc;
       }, {} as any);
 
-      if (userRole === 'head_of_section' && trimmedRow.schoolSection !== currentUser?.section) {
-        errors.push(`Row ${rowNumber}: You can only add students to your own section (${currentUser?.section}).`);
-        return;
-      }
       if (!trimmedRow.firstName || !trimmedRow.surname) {
         errors.push(`Row ${rowNumber}: Missing required firstName or surname.`);
         return;
       }
-
-      const importedClassId = trimmedRow.classId ? String(trimmedRow.classId).toLowerCase() : undefined;
-      if (importedClassId && !existingClassIds.includes(importedClassId)) {
-         errors.push(`Row ${rowNumber}: Class ID '${trimmedRow.classId}' does not exist. Please check 'Manage Classes' for valid IDs.`);
-         return;
-      }
-
+      
       const newStudent: Student = {
         id: `stud-${Date.now()}-${index}`,
         firstName: String(trimmedRow.firstName),
@@ -226,8 +218,8 @@ export default function ManageUsersPage() {
         middleName: String(trimmedRow.middleName || ''),
         email: String(trimmedRow.email || ''),
         password: String(trimmedRow.surname).toLowerCase(), 
-        schoolSection: trimmedRow.schoolSection as SchoolSection,
-        classId: importedClassId,
+        schoolSection: section,
+        classId: classId,
         rollNumber: trimmedRow.rollNumber ? String(trimmedRow.rollNumber) : undefined,
         role: 'student',
       };
@@ -251,19 +243,25 @@ export default function ManageUsersPage() {
       return;
     }
 
+    if (!importSection || !importClassId) {
+        toast({ variant: "destructive", title: "Selection Required", description: "Please select a school section and class before uploading." });
+        event.target.value = ""; 
+        return;
+    }
+
     const fileType = file.type;
     const reader = new FileReader();
+
+    const onDataProcessed = (data: any[]) => {
+      processImportedData(data, importSection as SchoolSection, importClassId);
+    };
 
     if (fileType === "text/csv") {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            complete: (results) => {
-                processImportedData(results.data);
-            },
-            error: (error) => {
-                toast({ variant: "destructive", title: "CSV Parsing Error", description: error.message });
-            }
+            complete: (results) => onDataProcessed(results.data),
+            error: (error) => toast({ variant: "destructive", title: "CSV Parsing Error", description: error.message })
         });
     } else if (fileType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || fileType === "application/vnd.ms-excel") {
         reader.onload = (e) => {
@@ -274,21 +272,19 @@ export default function ManageUsersPage() {
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(worksheet);
-                    processImportedData(json);
+                    onDataProcessed(json);
                 } catch (error: any) {
                      toast({ variant: "destructive", title: "Excel Parsing Error", description: error.message });
                 }
             }
         };
-        reader.onerror = (e) => {
-             toast({ variant: "destructive", title: "File Read Error", description: "Could not read the selected file." });
-        };
+        reader.onerror = () => toast({ variant: "destructive", title: "File Read Error", description: "Could not read the selected file." });
         reader.readAsArrayBuffer(file);
     } else {
         toast({ variant: "destructive", title: "Unsupported File Type", description: "Please upload a .csv or .xlsx file." });
     }
 
-    event.target.value = ""; // Reset file input
+    event.target.value = ""; 
   };
 
 
@@ -683,28 +679,61 @@ export default function ManageUsersPage() {
                <Card className="shadow-xl">
                 <CardHeader>
                   <CardTitle>Import Students from File</CardTitle>
-                  <CardDescription>Bulk upload students using a CSV or Excel file. Ensure the file has the correct columns.</CardDescription>
+                  <CardDescription>Bulk upload students by selecting a class and providing a file with student details.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="importSection">School Section</Label>
+                         <Select 
+                            value={importSection} 
+                            onValueChange={value => {
+                                setImportSection(value as SchoolSection);
+                                setImportClassId(""); 
+                            }}
+                            disabled={userRole === 'head_of_section'}
+                        >
+                            <SelectTrigger id="importSection">
+                                <SelectValue placeholder="Select section" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SCHOOL_SECTIONS.map(section => (
+                                  <SelectItem key={section} value={section} disabled={userRole === 'head_of_section' && section !== currentUser?.section}>{section}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="importClass">Class</Label>
+                        <Select value={importClassId} onValueChange={setImportClassId} disabled={!importSection}>
+                            <SelectTrigger id="importClass">
+                                <SelectValue placeholder="Select class" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allClasses.filter(c => c.section === importSection).map(cls => (
+                                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div>
                       <Label htmlFor="student-csv-upload" className="flex items-center gap-2 mb-2"><Upload/> Upload Student List</Label>
                       <Input id="student-csv-upload" type="file" accept=".csv, .xlsx, .xls" onChange={handleStudentFileUpload} />
                     </div>
                     <div className="text-sm text-muted-foreground p-3 bg-secondary/50 rounded-md">
                       <h4 className="font-semibold text-foreground mb-1">File Instructions:</h4>
-                      <p>Your file must be a `.csv`, `.xlsx`, or `.xls` format and include the following headers in the first row:</p>
+                      <p>Your file must be a `.csv`, `.xlsx`, or `.xls` and include the following headers:</p>
                       <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">firstName</span>: First name of the student.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">surname</span>: Surname of the student.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">middleName</span>: (Optional) Middle name.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: (Optional) Unique email address.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">schoolSection</span>: Must be one of: `College`, `Islamiyya`, `Tahfeez`.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">classId</span>: The ID for the class (e.g., `jss1`, `islamiyya2`). Leave empty for unassigned. This is case-insensitive.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span>: The student's roll number.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">firstName</span></li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">surname</span></li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span></li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">middleName</span> (Optional)</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span> (Optional)</li>
                       </ul>
                        <p className="mt-2">The student's password will be automatically set to their <span className="font-semibold">surname in lowercase</span>.</p>
-                       {userRole === 'head_of_section' && <p className="mt-2 font-semibold text-destructive">Note: You can only import students for the {currentUser?.section} section. Rows for other sections will be ignored.</p>}
+                       {userRole === 'head_of_section' && <p className="mt-2 font-semibold text-destructive">Note: You can only import students for the {currentUser?.section} section.</p>}
                     </div>
                   </div>
                 </CardContent>
