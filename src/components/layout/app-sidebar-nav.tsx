@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, type NavItem, type UserRole } from "@/lib/constants";
-import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
+import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 type AppSidebarNavProps = {
@@ -13,8 +13,15 @@ type AppSidebarNavProps = {
 
 export default function AppSidebarNav({ userRole }: AppSidebarNavProps) {
   const pathname = usePathname();
+  const { setOpenMobile, isMobile } = useSidebar();
 
   const filteredNavItems = NAV_ITEMS.filter(item => item.roles.includes(userRole));
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <SidebarMenu>
@@ -22,6 +29,7 @@ export default function AppSidebarNav({ userRole }: AppSidebarNavProps) {
         <SidebarMenuItem key={item.href}>
           <Link href={item.href} passHref legacyBehavior>
             <SidebarMenuButton
+              onClick={handleLinkClick}
               isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
               className={cn(
                 "w-full justify-start",
