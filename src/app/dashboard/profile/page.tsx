@@ -23,7 +23,7 @@ const profileSchema = z.object({
   firstName: z.string().min(2, "First Name must be at least 2 characters"),
   surname: z.string().min(2, "Surname must be at least 2 characters"),
   middleName: z.string().optional(),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional().or(z.literal('')),
   phone: z.string().optional(),
   classId: z.string().optional(), 
   department: z.string().optional(), 
@@ -303,7 +303,7 @@ export default function ProfilePage() {
               <Input id="middleName" {...form.register("middleName")} disabled={!isEditing} />
             </div>
             <div>
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Email Address (Optional)</Label>
               <Input id="email" type="email" {...form.register("email")} disabled={!isEditing} />
               {form.formState.errors.email && <p className="text-sm text-destructive mt-1">{form.formState.errors.email.message}</p>}
             </div>

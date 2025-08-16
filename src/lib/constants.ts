@@ -72,11 +72,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/payments', label: 'Payment History', icon: CreditCard, roles: ['student'] },
   { href: '/dashboard/attendance', label: 'Mark Attendance', icon: CalendarCheck, roles: ['staff', 'admin', 'head_of_section'] },
   { href: '/dashboard/results', label: 'Results', icon: FileText, roles: ['student', 'staff', 'admin', 'head_of_section'] },
-  { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['admin'] },
+  { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['admin', 'head_of_section'] },
   // Admin specific routes
-  { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin'] },
-  { href: '/dashboard/admin/manage-classes', label: 'Manage Classes', icon: School, roles: ['admin'] },
-  { href: '/dashboard/admin/manage-staff-allocations', label: 'Staff Allocations', icon: BookUser, roles: ['admin'] },
+  { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin', 'head_of_section'] },
+  { href: '/dashboard/admin/manage-classes', label: 'Manage Classes', icon: School, roles: ['admin', 'head_of_section'] },
+  { href: '/dashboard/admin/manage-staff-allocations', label: 'Staff Allocations', icon: BookUser, roles: ['admin', 'head_of_section'] },
   { href: '/dashboard/admin/attendance-report', label: 'Attendance Report', icon: ClipboardList, roles: ['admin'] },
   { href: '/dashboard/admin/manage-payments', label: 'Manage Payments', icon: DollarSign, roles: ['admin'] },
 ];
@@ -153,7 +153,7 @@ export interface User {
     firstName: string;
     surname: string;
     middleName?: string;
-    email: string;
+    email?: string;
     role: UserRole;
     password?: string;
     avatarUrl?: string;

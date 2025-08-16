@@ -13,7 +13,7 @@ interface StaffMemberDisplay {
   name: string;
   title: string;
   department: string;
-  email: string;
+  email?: string;
   phone?: string;
   avatarUrl: string;
   aiHint: string;
@@ -25,7 +25,7 @@ interface StaffMemberDisplay {
 interface ManagedUser {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   role: UserRole;
   department?: string;
   title?: string;
@@ -45,11 +45,11 @@ export default function StaffDirectoryPage() {
         try {
           const allManagedUsers: ManagedUser[] = JSON.parse(storedUsersString);
           const staffAndAdminUsers = allManagedUsers.filter(
-            (user) => user.role === 'staff' || user.role === 'admin'
+            (user) => user.role === 'staff' || user.role === 'admin' || user.role === 'head_of_section'
           );
 
           staffToDisplay = staffAndAdminUsers.map((user) => {
-            const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase() || user.email[0].toUpperCase();
+            const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase() || (user.email ? user.email[0].toUpperCase() : 'S');
             return {
               id: user.id,
               name: user.name,
@@ -106,9 +106,11 @@ export default function StaffDirectoryPage() {
                 <div className="flex items-center justify-center">
                   <Briefcase className="h-4 w-4 mr-2" /> {staff.department}
                 </div>
-                <div className="flex items-center justify-center">
-                  <Mail className="h-4 w-4 mr-2" /> {staff.email}
-                </div>
+                {staff.email && (
+                  <div className="flex items-center justify-center">
+                    <Mail className="h-4 w-4 mr-2" /> {staff.email}
+                  </div>
+                )}
                 {staff.phone && (
                   <div className="flex items-center justify-center">
                     <Phone className="h-4 w-4 mr-2" /> {staff.phone}
@@ -150,5 +152,3 @@ export default function StaffDirectoryPage() {
     </div>
   );
 }
-
-    

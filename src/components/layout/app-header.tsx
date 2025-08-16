@@ -19,7 +19,7 @@ import { APP_NAME } from "@/lib/constants";
 
 type User = {
   name: string;
-  email: string;
+  email?: string;
   role: UserRole;
   avatarUrl?: string;
 };
@@ -31,7 +31,7 @@ type AppHeaderProps = {
 
 export default function AppHeader({ user, onLogout }: AppHeaderProps) {
   const { toggleSidebar, isMobile } = useSidebar();
-  const userInitials = user.name.split(' ').map(n => n[0]).join('').toUpperCase() || user.email[0].toUpperCase();
+  const userInitials = user.name.split(' ').map(n => n[0]).join('').toUpperCase() || (user.email ? user.email[0].toUpperCase() : 'U');
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b border-sidebar-border bg-sidebar text-sidebar-foreground px-6 shadow-sm">
@@ -63,9 +63,9 @@ export default function AppHeader({ user, onLogout }: AppHeaderProps) {
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">{user.name}</p>
-              <p className="text-xs leading-none text-muted-foreground">
+              {user.email && <p className="text-xs leading-none text-muted-foreground">
                 {user.email}
-              </p>
+              </p>}
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

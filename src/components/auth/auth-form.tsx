@@ -24,7 +24,7 @@ import { LogIn } from "lucide-react";
 type ManagedUser = Student | StaffMember;
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
+  identifier: z.string().min(1, { message: "Email or Roll Number is required." }),
   password: z.string().min(1, { message: "Password is required." }),
 });
 
@@ -34,7 +34,7 @@ export default function AuthForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
@@ -56,7 +56,7 @@ export default function AuthForm() {
     let loggedInUserId: string | null = null;
 
     // 1. Check for the "real" admin
-    if (values.email === REAL_ADMIN_EMAIL && values.password === REAL_ADMIN_PASS) {
+    if (values.identifier === REAL_ADMIN_EMAIL && values.password === REAL_ADMIN_PASS) {
       userRole = "admin";
       userName = "Asani Ustaz";
       loggedInUserId = `admin-${REAL_ADMIN_EMAIL}`; // Assign a unique ID for the admin
@@ -69,7 +69,11 @@ export default function AuthForm() {
       if (storedUsersString) {
         try {
           const managedUsers: ManagedUser[] = JSON.parse(storedUsersString);
-          const matchedUser = managedUsers.find(u => u.email.toLowerCase() === values.email.toLowerCase() && u.password === values.password);
+          const identifier = values.identifier.toLowerCase();
+          const matchedUser = managedUsers.find(u => 
+            (u.email?.toLowerCase() === identifier || (u as Student).rollNumber?.toLowerCase() === identifier) 
+            && u.password === values.password
+          );
           if (matchedUser) {
             userRole = matchedUser.role;
             userName = combineName(matchedUser);
@@ -84,17 +88,17 @@ export default function AuthForm() {
     
     // 3. Fallback to existing test user credentials if not logged in yet
     if (!loggedIn && values.password === "password") {
-        if (values.email.startsWith("student")) {
+        if (values.identifier.startsWith("student")) {
             userRole = "student";
             userName = "Test Student";
             loggedInUserId = "test-student-id";
             loggedIn = true;
-        } else if (values.email.startsWith("staff")) {
+        } else if (values.identifier.startsWith("staff")) {
             userRole = "staff";
             userName = "Test Staff";
             loggedInUserId = "test-staff-id";
             loggedIn = true;
-        } else if (values.email.startsWith("admin")) {
+        } else if (values.identifier.startsWith("admin")) {
             userRole = "admin";
             userName = "Test Admin";
             loggedInUserId = "test-admin-id";
@@ -107,7 +111,7 @@ export default function AuthForm() {
       if (typeof window !== 'undefined') {
         localStorage.setItem("userRole", userRole);
         localStorage.setItem("userName", userName);
-        localStorage.setItem("userId", loggedInUserId || values.email);
+        localStorage.setItem("userId", loggedInUserId || values.identifier);
       }
       toast({
         title: "Login Successful",
@@ -118,9 +122,9 @@ export default function AuthForm() {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email or password.",
+        description: "Invalid credentials.",
       });
-      form.setError("email", { type: "manual", message: " " }); 
+      form.setError("identifier", { type: "manual", message: " " }); 
       form.setError("password", { type: "manual", message: "Invalid credentials." });
     }
   }
@@ -136,12 +140,12 @@ export default function AuthForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="email"
+              name="identifier"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Email or Roll Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="your.email@example.com" {...field} />
+                    <Input placeholder="your.email@example.com or Roll Number" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -12,7 +12,7 @@ import { LogIn } from 'lucide-react'; // For logo/icon
 
 type User = {
   name: string;
-  email: string;
+  email?: string;
   role: UserRole;
   avatarUrl?: string;
 };
@@ -29,14 +29,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     if (mockUserRole && mockUserName && currentUserId) {
       let userAvatarUrl: string | undefined = undefined;
-      let userEmail = `${mockUserName.toLowerCase().replace(' ', '.').replace(/[^a-z0-9.]/g, '')}@campus.edu`; // Default email
+      let userEmail: string | undefined = `${mockUserName.toLowerCase().replace(' ', '.').replace(/[^a-z0-9.]/g, '')}@campus.edu`; // Default email
 
       if (typeof window !== "undefined") {
         const storedUsersString = localStorage.getItem('managedUsers');
         if (storedUsersString) {
           try {
             // Define a more specific type for users from managedUsers for clarity
-            type StoredUser = { id: string; name: string; email: string; role: UserRole; avatarUrl?: string; [key: string]: any };
+            type StoredUser = { id: string; name: string; email?: string; role: UserRole; avatarUrl?: string; [key: string]: any };
             const allManagedUsers: StoredUser[] = JSON.parse(storedUsersString);
             const foundUser = allManagedUsers.find(u => u.id === currentUserId);
             

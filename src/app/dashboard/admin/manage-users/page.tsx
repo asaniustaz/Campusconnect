@@ -27,7 +27,7 @@ const studentSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
   surname: z.string().min(2, "Surname is required"),
   middleName: z.string().optional(),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional().or(z.literal('')),
   schoolSection: z.custom<SchoolSection>((val) => SCHOOL_SECTIONS.includes(val as SchoolSection), "Please select a school section"),
   classId: z.string().optional(), 
   password: z.string().min(6, "Password must be at least 6 characters.").optional(), 
@@ -40,7 +40,7 @@ const staffSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
   surname: z.string().min(2, "Surname is required"),
   middleName: z.string().optional(),
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").optional().or(z.literal('')),
   role: z.custom<UserRole>((val) => ['staff', 'head_of_section'].includes(val as UserRole), "Please select a valid role."),
   department: z.string().min(2, "Department is required"),
   title: z.string().min(2, "Job title is required"),
@@ -184,7 +184,7 @@ export default function ManageUsersPage() {
   };
 
   const processImportedData = (data: any[]) => {
-    const requiredFields = ["firstName", "surname", "email", "schoolSection", "classId", "rollNumber"];
+    const requiredFields = ["firstName", "surname", "schoolSection", "classId", "rollNumber"];
     const headers = data.length > 0 ? Object.keys(data[0]) : [];
 
     if (!requiredFields.every(field => headers.includes(field))) {
@@ -199,8 +199,8 @@ export default function ManageUsersPage() {
         errors.push(`Row ${index + 2}: You can only add students to your own section (${currentUser?.section}).`);
         return;
       }
-      if (!row.firstName || !row.surname || !row.email) {
-        errors.push(`Row ${index + 2}: Missing required firstName, surname, or email.`);
+      if (!row.firstName || !row.surname) {
+        errors.push(`Row ${index + 2}: Missing required firstName or surname.`);
         return;
       }
       const newStudent: Student = {
@@ -208,7 +208,7 @@ export default function ManageUsersPage() {
         firstName: String(row.firstName),
         surname: String(row.surname),
         middleName: String(row.middleName || ''),
-        email: String(row.email),
+        email: String(row.email || ''),
         password: String(row.surname).toLowerCase(), // Set password to surname
         schoolSection: row.schoolSection as SchoolSection,
         classId: row.classId ? String(row.classId) : undefined,
@@ -476,7 +476,7 @@ export default function ManageUsersPage() {
                                   {studentsInThisClass.map((student) => (
                                     <TableRow key={student.id}>
                                       <TableCell>{combineName(student)}</TableCell>
-                                      <TableCell>{student.email}</TableCell>
+                                      <TableCell>{student.email || 'N/A'}</TableCell>
                                       <TableCell>{student.schoolSection}</TableCell>
                                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                                       <TableCell className="text-right">
@@ -520,7 +520,7 @@ export default function ManageUsersPage() {
                                   {unassignedStudents.map((student) => (
                                     <TableRow key={student.id}>
                                       <TableCell>{combineName(student)}</TableCell>
-                                      <TableCell>{student.email}</TableCell>
+                                      <TableCell>{student.email || 'N/A'}</TableCell>
                                       <TableCell>{student.schoolSection}</TableCell>
                                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                                       <TableCell className="text-right">
@@ -572,7 +572,7 @@ export default function ManageUsersPage() {
                       <Input id="middleName" {...studentForm.register("middleName")} />
                     </div>
                     <div>
-                      <Label htmlFor="studentEmail">Email Address</Label>
+                      <Label htmlFor="studentEmail">Email Address (Optional)</Label>
                       <Input id="studentEmail" type="email" {...studentForm.register("email")} />
                       {studentForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.email.message}</p>}
                     </div>
@@ -682,7 +682,7 @@ export default function ManageUsersPage() {
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">firstName</span>: First name of the student.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">surname</span>: Surname of the student.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">middleName</span>: (Optional) Middle name.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: Unique email address.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: (Optional) Unique email address.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">schoolSection</span>: Must be one of: `College`, `Islamiyya`, `Tahfeez`.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">classId</span>: The ID for the class (e.g., `jss1`, `islamiyya2`). Leave empty for unassigned.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span>: The student's roll number.</li>
@@ -781,7 +781,7 @@ export default function ManageUsersPage() {
                     <Input id="staffMiddleName" {...staffForm.register("middleName")} />
                   </div>
                   <div>
-                    <Label htmlFor="staffEmail">Email Address</Label>
+                    <Label htmlFor="staffEmail">Email Address (Optional)</Label>
                     <Input id="staffEmail" type="email" {...staffForm.register("email")} />
                     {staffForm.formState.errors.email && <p className="text-sm text-destructive mt-1">{staffForm.formState.errors.email.message}</p>}
                   </div>

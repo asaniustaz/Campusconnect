@@ -116,7 +116,7 @@ export default function StudentProfileViewPage() {
   }
 
   const studentName = combineName(studentProfile);
-  const studentInitials = studentName.split(" ").map((n) => n[0]).join("").toUpperCase() || studentProfile.email[0].toUpperCase();
+  const studentInitials = studentName.split(" ").map((n) => n[0]).join("").toUpperCase() || (studentProfile.email ? studentProfile.email[0].toUpperCase() : 'S');
 
   return (
     <div className="space-y-6 p-4 md:p-8">
@@ -142,7 +142,7 @@ export default function StudentProfileViewPage() {
                     <Mail className="h-5 w-5 text-primary" />
                     <div>
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="font-medium">{studentProfile.email}</p>
+                        <p className="font-medium">{studentProfile.email || "Not Provided"}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 p-3 border rounded-md bg-secondary/30">
@@ -176,5 +176,3 @@ export default function StudentProfileViewPage() {
     </div>
   );
 }
-
-    
