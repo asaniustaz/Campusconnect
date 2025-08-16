@@ -123,7 +123,12 @@ export default function ManageUsersPage() {
 
           if (userId && (role === 'admin' || role === 'head_of_section')) {
             const foundUser = staffAndAdmins.find(u => u.id === userId);
-            if(foundUser) setCurrentUser(foundUser);
+            if(foundUser) {
+                setCurrentUser(foundUser);
+                if (role === 'head_of_section') {
+                    setImportSection(foundUser.section || "");
+                }
+            }
           }
         } catch (e) {
           console.error("Failed to parse users from localStorage", e);
@@ -692,7 +697,7 @@ export default function ManageUsersPage() {
                                 setImportSection(value as SchoolSection);
                                 setImportClassId(""); 
                             }}
-                            disabled={userRole === 'head_of_section'}
+                            disabled={userRole === 'head_of_section' && !!currentUser?.section}
                         >
                             <SelectTrigger id="importSection">
                                 <SelectValue placeholder="Select section" />
@@ -940,3 +945,5 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+    
