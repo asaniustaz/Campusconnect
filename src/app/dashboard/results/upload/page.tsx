@@ -17,9 +17,11 @@ import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import * as XLSX from "xlsx";
-import Papa from "papaparse";
 import mammoth from "mammoth";
 import { Progress } from "@/components/ui/progress";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, setDoc } from "firebase/firestore";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_DOCX_TYPES = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
@@ -34,16 +36,6 @@ const uploadSchema = z.object({
 });
 
 type UploadFormData = z.infer<typeof uploadSchema>;
-
-// Helper function to convert a File to a Base64 Data URL
-const fileToDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-    });
-};
 
 export default function ResultUploadPage() {
   const { toast } = useToast();
@@ -178,60 +170,57 @@ export default function ResultUploadPage() {
         return;
     }
 
+    setProcessing(true);
+    toast({ title: "Uploading...", description: "Your files are being uploaded to the cloud." });
+
     try {
-        setProcessing(true);
-        setProgress(20);
-        toast({ title: "Processing...", description: "Saving uploaded files. Please wait." });
-
-        const [templateDataUrl, resultsDataUrl] = await Promise.all([
-            fileToDataUrl(data.templateFile[0]),
-            fileToDataUrl(data.resultsFile[0])
-        ]);
-
-        setProgress(60);
-
+        const templateFile = data.templateFile[0];
+        const resultsFile = data.resultsFile[0];
         const selectedClass = allClasses.find(c => c.id === data.classId);
-        if (!selectedClass) {
-            throw new Error("Selected class not found.");
-        }
+
+        if (!selectedClass) throw new Error("Selected class not found.");
 
         const documentId = `${data.session.replace('/', '-')}-${data.term.replace(' ', '-')}-${data.classId}`;
+        
+        // 1. Upload Template File
+        setProgress(25);
+        const templatePath = `documents/${documentId}/template-${templateFile.name}`;
+        const templateRef = ref(storage, templatePath);
+        await uploadBytes(templateRef, templateFile);
+        const templateDownloadUrl = await getDownloadURL(templateRef);
+        
+        // 2. Upload Results File
+        setProgress(50);
+        const resultsPath = `documents/${documentId}/results-${resultsFile.name}`;
+        const resultsRef = ref(storage, resultsPath);
+        await uploadBytes(resultsRef, resultsFile);
+        const resultsDownloadUrl = await getDownloadURL(resultsRef);
+        
+        setProgress(75);
+        
+        // 3. Save metadata to Firestore
         const newDocument: StoredDocument = {
             id: documentId,
             session: data.session,
             term: data.term,
             classId: data.classId,
             className: selectedClass.name,
-            templateFile: { name: data.templateFile[0].name, dataUrl: templateDataUrl },
-            resultsFile: { name: data.resultsFile[0].name, dataUrl: resultsDataUrl },
+            templateFile: { name: templateFile.name, dataUrl: templateDownloadUrl },
+            resultsFile: { name: resultsFile.name, dataUrl: resultsDownloadUrl },
             uploadedAt: new Date().toISOString(),
         };
 
-        const storedDocsString = localStorage.getItem('resultDocuments') || '[]';
-        const storedDocs: StoredDocument[] = JSON.parse(storedDocsString);
-        
-        const existingDocIndex = storedDocs.findIndex(doc => doc.id === documentId);
-        if (existingDocIndex > -1) {
-            storedDocs[existingDocIndex] = newDocument; // Overwrite existing
-        } else {
-            storedDocs.push(newDocument);
-        }
-
-        localStorage.setItem('resultDocuments', JSON.stringify(storedDocs));
+        await setDoc(doc(db, "documents", documentId), newDocument);
         
         setProgress(100);
         toast({
-          title: "Files Saved Successfully!",
-          description: `Documents for ${selectedClass.name} have been stored.`,
+          title: "Upload Successful!",
+          description: `Documents for ${selectedClass.name} have been stored securely.`,
         });
 
-        // Here you would typically send data to a server for PDF generation.
-        // For this demo, we'll just log it and reset.
-        console.log("Generating results with:", { ...data, mapping: mappedFields, sheet: selectedSheet });
-
     } catch (error) {
-        console.error("Error saving documents:", error);
-        toast({ variant: "destructive", title: "Save Error", description: "Could not save the uploaded files." });
+        console.error("Error saving documents to Firebase:", error);
+        toast({ variant: "destructive", title: "Upload Error", description: "Could not save the uploaded files to the cloud." });
     } finally {
         setProcessing(false);
         resetFlow();
@@ -240,7 +229,6 @@ export default function ResultUploadPage() {
   
   const resetFlow = () => {
     form.reset({ session: "", term: "", classId: "" });
-    // Manually reset file inputs in the DOM if needed, although react-hook-form should handle it
     const templateInput = document.getElementById('templateFile') as HTMLInputElement;
     const resultsInput = document.getElementById('resultsFile') as HTMLInputElement;
     if(templateInput) templateInput.value = "";

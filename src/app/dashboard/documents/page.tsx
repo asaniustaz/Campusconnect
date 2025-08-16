@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Download, FolderKanban, FileText, FileSpreadsheet, Trash2, AlertTriangle } from "lucide-react";
+import { Download, FolderKanban, FileText, FileSpreadsheet, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { UserRole, SchoolClass, Student, StaffMember, StoredDocument } from "@/lib/constants";
 import { mockSchoolClasses as defaultClasses } from "@/lib/constants";
@@ -22,6 +22,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { db, storage } from "@/lib/firebase";
+import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { ref, deleteObject } from "firebase/storage";
 
 
 export default function DocumentsPage() {
@@ -30,6 +33,7 @@ export default function DocumentsPage() {
   const [allDocuments, setAllDocuments] = useState<StoredDocument[]>([]);
   const [visibleDocuments, setVisibleDocuments] = useState<StoredDocument[]>([]);
   const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -37,69 +41,100 @@ export default function DocumentsPage() {
     const userId = localStorage.getItem("userId");
     setUserRole(role);
 
-    // Load all necessary data from localStorage
-    const storedDocsStr = localStorage.getItem('resultDocuments') || '[]';
-    const allDocs: StoredDocument[] = JSON.parse(storedDocsStr);
-    setAllDocuments(allDocs);
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Load classes and users from localStorage
+        const storedClassesStr = localStorage.getItem('schoolClasses') || '[]';
+        const currentClasses: SchoolClass[] = JSON.parse(storedClassesStr);
+        setAllClasses(currentClasses);
 
-    const storedClassesStr = localStorage.getItem('schoolClasses') || '[]';
-    const currentClasses: SchoolClass[] = JSON.parse(storedClassesStr);
-    setAllClasses(currentClasses);
+        const storedUsersStr = localStorage.getItem('managedUsers') || '[]';
+        const allUsers: (Student | StaffMember)[] = JSON.parse(storedUsersStr);
+        const foundUser = userId ? allUsers.find(u => u.id === userId) : null;
+        setCurrentUser(foundUser || null);
+        
+        // Load documents from Firestore
+        const querySnapshot = await getDocs(collection(db, "documents"));
+        const allDocs = querySnapshot.docs.map(doc => doc.data() as StoredDocument);
+        setAllDocuments(allDocs);
 
-    const storedUsersStr = localStorage.getItem('managedUsers') || '[]';
-    const allUsers: (Student | StaffMember)[] = JSON.parse(storedUsersStr);
-    const foundUser = userId ? allUsers.find(u => u.id === userId) : null;
-    setCurrentUser(foundUser || null);
-
-    // Determine visible documents based on user role
-    if (!foundUser) {
-        setVisibleDocuments([]);
-        return;
-    }
+        // Determine visible documents based on user role
+        if (!foundUser) {
+            setVisibleDocuments([]);
+            setIsLoading(false);
+            return;
+        }
+        
+        let userVisibleDocs: StoredDocument[] = [];
+        switch (role) {
+            case 'admin':
+                userVisibleDocs = allDocs;
+                break;
+            case 'head_of_section':
+                const hos = foundUser as StaffMember;
+                if (hos.section) {
+                    const classIdsInSection = currentClasses.filter(c => c.section === hos.section).map(c => c.id);
+                    userVisibleDocs = allDocs.filter(doc => classIdsInSection.includes(doc.classId));
+                }
+                break;
+            case 'staff':
+                const staff = foundUser as StaffMember;
+                if (staff.assignedClasses && staff.assignedClasses.length > 0) {
+                    userVisibleDocs = allDocs.filter(doc => staff.assignedClasses!.includes(doc.classId));
+                }
+                break;
+            case 'student':
+                const student = foundUser as Student;
+                if (student.classId) {
+                    userVisibleDocs = allDocs.filter(doc => doc.classId === student.classId);
+                }
+                break;
+        }
+        setVisibleDocuments(userVisibleDocs.sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()));
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not fetch documents from the cloud." });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    let userVisibleDocs: StoredDocument[] = [];
-    switch (role) {
-        case 'admin':
-            userVisibleDocs = allDocs;
-            break;
-        case 'head_of_section':
-            const hos = foundUser as StaffMember;
-            if (hos.section) {
-                const classIdsInSection = currentClasses.filter(c => c.section === hos.section).map(c => c.id);
-                userVisibleDocs = allDocs.filter(doc => classIdsInSection.includes(doc.classId));
-            }
-            break;
-        case 'staff':
-            const staff = foundUser as StaffMember;
-            if (staff.assignedClasses && staff.assignedClasses.length > 0) {
-                userVisibleDocs = allDocs.filter(doc => staff.assignedClasses!.includes(doc.classId));
-            }
-            break;
-        case 'student':
-            const student = foundUser as Student;
-            if (student.classId) {
-                userVisibleDocs = allDocs.filter(doc => doc.classId === student.classId);
-            }
-            break;
-    }
-    setVisibleDocuments(userVisibleDocs.sort((a,b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()));
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDownload = (dataUrl: string, fileName: string) => {
-    const link = document.createElement("a");
-    link.href = dataUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Firebase Storage download URLs are public by default and can be opened directly
+    window.open(dataUrl, '_blank');
   };
   
-  const handleDelete = (documentId: string) => {
-    const updatedDocuments = allDocuments.filter(doc => doc.id !== documentId);
-    localStorage.setItem('resultDocuments', JSON.stringify(updatedDocuments));
-    setAllDocuments(updatedDocuments);
-    setVisibleDocuments(updatedDocuments.filter(doc => visibleDocuments.some(v => v.id === doc.id)));
-    toast({ title: "Document Deleted", description: "The document set has been removed." });
+  const handleDelete = async (documentId: string) => {
+    const docToDelete = allDocuments.find(doc => doc.id === documentId);
+    if (!docToDelete) return;
+
+    try {
+        toast({ title: "Deleting...", description: "Removing document and files from the cloud." });
+
+        // Delete Firestore document
+        await deleteDoc(doc(db, "documents", documentId));
+
+        // Delete files from Storage
+        const templateRef = ref(storage, `documents/${documentId}/template-${docToDelete.templateFile.name}`);
+        const resultsRef = ref(storage, `documents/${documentId}/results-${docToDelete.resultsFile.name}`);
+        await deleteObject(templateRef);
+        await deleteObject(resultsRef);
+
+        const updatedDocuments = allDocuments.filter(doc => doc.id !== documentId);
+        setAllDocuments(updatedDocuments);
+        // Re-filter visible documents
+        setVisibleDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        
+        toast({ title: "Document Deleted", description: "The document set has been removed." });
+    } catch (error) {
+        console.error("Error deleting document from Firebase:", error);
+        toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the document." });
+    }
   };
 
 
@@ -118,7 +153,12 @@ export default function DocumentsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {visibleDocuments.length > 0 ? (
+          {isLoading ? (
+             <div className="flex items-center justify-center py-10">
+                <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
+                <p className="ml-4 text-muted-foreground">Loading documents from the cloud...</p>
+             </div>
+          ) : visibleDocuments.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -155,7 +195,7 @@ export default function DocumentsPage() {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action will permanently delete this document set (template and scoresheet). It cannot be undone.
+                                            This action will permanently delete this document set (template and scoresheet) from the cloud. It cannot be undone.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
