@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 
 // Student Schema for Add/Edit
 const studentSchema = z.object({
@@ -170,6 +171,46 @@ export default function ManageUsersPage() {
     }
   };
 
+  const processImportedData = (data: any[]) => {
+    const requiredFields = ["name", "email", "password", "schoolSection", "classId", "rollNumber"];
+    // Assuming first object keys are headers for excel, and for csv we check meta.fields
+    const headers = data.length > 0 ? Object.keys(data[0]) : [];
+
+    if (!requiredFields.every(field => headers.includes(field))) {
+      toast({ variant: "destructive", title: "Import Failed", description: `File must contain the following headers: ${requiredFields.join(", ")}` });
+      return;
+    }
+    
+    let newStudents: Student[] = [];
+    let errors: string[] = [];
+    data.forEach((row: any, index) => {
+      if (!row.name || !row.email || !row.password) {
+        errors.push(`Row ${index + 2}: Missing required name, email, or password.`);
+        return;
+      }
+      const newStudent: Student = {
+        id: `stud-${Date.now()}-${index}`,
+        name: String(row.name),
+        email: String(row.email),
+        password: String(row.password),
+        schoolSection: row.schoolSection as SchoolSection,
+        classId: row.classId ? String(row.classId) : undefined,
+        rollNumber: row.rollNumber ? String(row.rollNumber) : undefined,
+        role: 'student',
+      };
+      newStudents.push(newStudent);
+    });
+
+    if (errors.length > 0) {
+      toast({ variant: "destructive", title: "Import Errors", description: errors.slice(0, 5).join("\n") });
+    } else {
+      const updatedStudentList = [...studentList, ...newStudents];
+      setStudentList(updatedStudentList);
+      saveUsersToLocalStorage(updatedStudentList, staffList);
+      toast({ title: "Import Successful", description: `${newStudents.length} students have been added.` });
+    }
+  };
+
   const handleStudentFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
@@ -177,50 +218,43 @@ export default function ManageUsersPage() {
       return;
     }
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const requiredFields = ["name", "email", "password", "schoolSection", "classId", "rollNumber"];
-        const headers = results.meta.fields;
-        if (!headers || !requiredFields.every(field => headers.includes(field))) {
-          toast({ variant: "destructive", title: "Import Failed", description: `CSV must contain the following headers: ${requiredFields.join(", ")}` });
-          return;
-        }
-        
-        let newStudents: Student[] = [];
-        let errors: string[] = [];
-        results.data.forEach((row: any, index) => {
-          if (!row.name || !row.email || !row.password) {
-            errors.push(`Row ${index + 2}: Missing required name, email, or password.`);
-            return;
-          }
-          const newStudent: Student = {
-            id: `stud-${Date.now()}-${index}`,
-            name: row.name,
-            email: row.email,
-            password: row.password,
-            schoolSection: row.schoolSection as SchoolSection,
-            classId: row.classId,
-            rollNumber: row.rollNumber,
-            role: 'student',
-          };
-          newStudents.push(newStudent);
-        });
+    const fileType = file.type;
+    const reader = new FileReader();
 
-        if (errors.length > 0) {
-          toast({ variant: "destructive", title: "Import Errors", description: errors.slice(0, 5).join("\n") });
-        } else {
-          const updatedStudentList = [...studentList, ...newStudents];
-          setStudentList(updatedStudentList);
-          saveUsersToLocalStorage(updatedStudentList, staffList);
-          toast({ title: "Import Successful", description: `${newStudents.length} students have been added.` });
-        }
-      },
-      error: (error) => {
-        toast({ variant: "destructive", title: "Parsing Error", description: error.message });
-      }
-    });
+    if (fileType === "text/csv") {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                processImportedData(results.data);
+            },
+            error: (error) => {
+                toast({ variant: "destructive", title: "CSV Parsing Error", description: error.message });
+            }
+        });
+    } else if (fileType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || fileType === "application/vnd.ms-excel") {
+        reader.onload = (e) => {
+            const data = e.target?.result;
+            if(data) {
+                try {
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    processImportedData(json);
+                } catch (error: any) {
+                     toast({ variant: "destructive", title: "Excel Parsing Error", description: error.message });
+                }
+            }
+        };
+        reader.onerror = (e) => {
+             toast({ variant: "destructive", title: "File Read Error", description: "Could not read the selected file." });
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        toast({ variant: "destructive", title: "Unsupported File Type", description: "Please upload a .csv or .xlsx file." });
+    }
+
     event.target.value = ""; // Reset file input
   };
 
@@ -598,18 +632,18 @@ export default function ManageUsersPage() {
 
                <Card className="shadow-xl">
                 <CardHeader>
-                  <CardTitle>Import Students from CSV</CardTitle>
-                  <CardDescription>Bulk upload students using a CSV file. Ensure the file has the correct columns.</CardDescription>
+                  <CardTitle>Import Students from File</CardTitle>
+                  <CardDescription>Bulk upload students using a CSV or Excel file. Ensure the file has the correct columns.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="student-csv-upload" className="flex items-center gap-2 mb-2"><Upload/> Upload Student List</Label>
-                      <Input id="student-csv-upload" type="file" accept=".csv" onChange={handleStudentFileUpload} />
+                      <Input id="student-csv-upload" type="file" accept=".csv, .xlsx, .xls" onChange={handleStudentFileUpload} />
                     </div>
                     <div className="text-sm text-muted-foreground p-3 bg-secondary/50 rounded-md">
-                      <h4 className="font-semibold text-foreground mb-1">CSV File Instructions:</h4>
-                      <p>Your file must be a `.csv` format and include the following headers in the first row:</p>
+                      <h4 className="font-semibold text-foreground mb-1">File Instructions:</h4>
+                      <p>Your file must be a `.csv`, `.xlsx`, or `.xls` format and include the following headers in the first row:</p>
                       <ul className="list-disc list-inside mt-2 space-y-1">
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">name</span>: Full name of the student.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: Unique email address.</li>
