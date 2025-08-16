@@ -185,7 +185,7 @@ export default function ManageUsersPage() {
 
   const processImportedData = (data: any[]) => {
     const requiredFields = ["firstName", "surname", "schoolSection", "classId", "rollNumber"];
-    const headers = data.length > 0 ? Object.keys(data[0]) : [];
+    const headers = data.length > 0 ? Object.keys(data[0]).map(h => h.trim()) : [];
 
     if (!requiredFields.every(field => headers.includes(field))) {
       toast({ variant: "destructive", title: "Import Failed", description: `File must contain the following headers: ${requiredFields.join(", ")}` });
@@ -194,25 +194,41 @@ export default function ManageUsersPage() {
     
     let newStudents: Student[] = [];
     let errors: string[] = [];
+    const existingClassIds = allClasses.map(c => c.id.toLowerCase());
+
     data.forEach((row: any, index) => {
-       if (userRole === 'head_of_section' && row.schoolSection !== currentUser?.section) {
-        errors.push(`Row ${index + 2}: You can only add students to your own section (${currentUser?.section}).`);
+      const rowNumber = index + 2;
+      // Trim all row data
+      const trimmedRow = Object.keys(row).reduce((acc, key) => {
+          acc[key.trim()] = typeof row[key] === 'string' ? row[key].trim() : row[key];
+          return acc;
+      }, {} as any);
+
+      if (userRole === 'head_of_section' && trimmedRow.schoolSection !== currentUser?.section) {
+        errors.push(`Row ${rowNumber}: You can only add students to your own section (${currentUser?.section}).`);
         return;
       }
-      if (!row.firstName || !row.surname) {
-        errors.push(`Row ${index + 2}: Missing required firstName or surname.`);
+      if (!trimmedRow.firstName || !trimmedRow.surname) {
+        errors.push(`Row ${rowNumber}: Missing required firstName or surname.`);
         return;
       }
+
+      const importedClassId = trimmedRow.classId ? String(trimmedRow.classId).toLowerCase() : undefined;
+      if (importedClassId && !existingClassIds.includes(importedClassId)) {
+         errors.push(`Row ${rowNumber}: Class ID '${trimmedRow.classId}' does not exist. Please check 'Manage Classes' for valid IDs.`);
+         return;
+      }
+
       const newStudent: Student = {
         id: `stud-${Date.now()}-${index}`,
-        firstName: String(row.firstName),
-        surname: String(row.surname),
-        middleName: String(row.middleName || ''),
-        email: String(row.email || ''),
-        password: String(row.surname).toLowerCase(), // Set password to surname
-        schoolSection: row.schoolSection as SchoolSection,
-        classId: row.classId ? String(row.classId) : undefined,
-        rollNumber: row.rollNumber ? String(row.rollNumber) : undefined,
+        firstName: String(trimmedRow.firstName),
+        surname: String(trimmedRow.surname),
+        middleName: String(trimmedRow.middleName || ''),
+        email: String(trimmedRow.email || ''),
+        password: String(trimmedRow.surname).toLowerCase(), 
+        schoolSection: trimmedRow.schoolSection as SchoolSection,
+        classId: importedClassId,
+        rollNumber: trimmedRow.rollNumber ? String(trimmedRow.rollNumber) : undefined,
         role: 'student',
       };
       newStudents.push(newStudent);
@@ -684,7 +700,7 @@ export default function ManageUsersPage() {
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">middleName</span>: (Optional) Middle name.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">email</span>: (Optional) Unique email address.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">schoolSection</span>: Must be one of: `College`, `Islamiyya`, `Tahfeez`.</li>
-                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">classId</span>: The ID for the class (e.g., `jss1`, `islamiyya2`). Leave empty for unassigned.</li>
+                        <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">classId</span>: The ID for the class (e.g., `jss1`, `islamiyya2`). Leave empty for unassigned. This is case-insensitive.</li>
                         <li><span className="font-mono text-primary bg-primary/10 px-1 rounded">rollNumber</span>: The student's roll number.</li>
                       </ul>
                        <p className="mt-2">The student's password will be automatically set to their <span className="font-semibold">surname in lowercase</span>.</p>
@@ -895,3 +911,5 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+    
