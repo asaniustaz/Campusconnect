@@ -11,8 +11,8 @@ import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel, Student } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants"; 
+import type { UserRole, SchoolSection, Student } from "@/lib/constants";
+import { SCHOOL_SECTIONS, mockSchoolClasses } from "@/lib/constants"; 
 import { Edit3, School, Camera, GraduationCap } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -25,7 +25,7 @@ const profileSchema = z.object({
   phone: z.string().optional(),
   classId: z.string().optional(), 
   department: z.string().optional(), 
-  schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level").optional(), 
+  schoolSection: z.custom<SchoolSection>((val) => SCHOOL_SECTIONS.includes(val as SchoolSection), "Please select a school section").optional(), 
   avatarFile: z
     .custom<FileList>()
     .optional()
@@ -89,7 +89,7 @@ export default function ProfilePage() {
 
                     if (foundUser.role === 'student') {
                         profileData.classId = (foundUser as Student).classId;
-                        profileData.schoolLevel = (foundUser as Student).schoolLevel;
+                        profileData.schoolSection = (foundUser as Student).schoolSection;
                         profileData.className = (foundUser as Student).classId ? mockSchoolClasses.find(c => c.id === (foundUser as Student).classId)?.name : undefined;
                     } else if (foundUser.role === 'staff' || foundUser.role === 'admin') {
                         profileData.department = (foundUser as UserProfile).department || (currentUserRole === 'admin' ? "School Administration" : "General Staff");
@@ -102,11 +102,10 @@ export default function ProfilePage() {
     }
     
     // Fallbacks if user not in localStorage or if certain fields are missing
-    if (profileData.role === "student" && !profileData.schoolLevel) { 
-      if (profileData.name.toLowerCase().includes("kinder")) profileData.schoolLevel = "Kindergarten";
-      else if (profileData.name.toLowerCase().includes("nursery")) profileData.schoolLevel = "Nursery";
-      else if (profileData.name.toLowerCase().includes("primary")) profileData.schoolLevel = "Primary";
-      else profileData.schoolLevel = "Secondary";
+    if (profileData.role === "student" && !profileData.schoolSection) { 
+      if (profileData.name.toLowerCase().includes("college")) profileData.schoolSection = "College";
+      else if (profileData.name.toLowerCase().includes("islamiyya")) profileData.schoolSection = "Islamiyya";
+      else profileData.schoolSection = "Tahfeez";
     } else if (profileData.role === "staff" && !profileData.department) {
       profileData.department = profileData.name.toLowerCase().includes("teacher") || profileData.name.toLowerCase().includes("bola") ? "Academics" : "Administration"; 
     } else if (profileData.role === "admin" && !profileData.department) {
@@ -121,7 +120,7 @@ export default function ProfilePage() {
       phone: profileData.phone,
       department: profileData.department,
       classId: profileData.classId,
-      schoolLevel: profileData.schoolLevel,
+      schoolSection: profileData.schoolSection,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.reset]); // form.reset is stable, other localStorage values are read once on mount effectively.
@@ -167,7 +166,7 @@ export default function ProfilePage() {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        schoolLevel: data.schoolLevel,
+        schoolSection: data.schoolSection,
         avatarUrl: newAvatarUrl,
         classId: userProfile.role === 'student' ? data.classId : userProfile.classId,
         department: userProfile.role !== 'student' ? data.department : userProfile.department,
@@ -194,7 +193,7 @@ export default function ProfilePage() {
              department: updatedProfile.department,
              title: (userToUpdate as UserProfile).title, // Preserve existing title
              classId: updatedProfile.classId,
-             schoolLevel: updatedProfile.schoolLevel,
+             schoolSection: updatedProfile.schoolSection,
              // ensure all other fields from 'Student' or 'StaffMember' interfaces are preserved if they exist on userToUpdate
            };
         } else {
@@ -251,9 +250,9 @@ export default function ProfilePage() {
             {userProfile.role.charAt(0).toUpperCase() + userProfile.role.slice(1)} - ID: {userProfile.id}
              {userProfile.role === 'student' && (
                 <>
-                    {userProfile.schoolLevel && (
+                    {userProfile.schoolSection && (
                     <span className="block mt-1 text-sm text-muted-foreground">
-                        <School className="inline-block h-4 w-4 mr-1 text-primary" /> Level: {userProfile.schoolLevel}
+                        <School className="inline-block h-4 w-4 mr-1 text-primary" /> Section: {userProfile.schoolSection}
                     </span>
                     )}
                     {userProfile.className && (
@@ -285,35 +284,35 @@ export default function ProfilePage() {
             {userProfile.role === 'student' && (
               <>
                 <div>
-                  <Label htmlFor="schoolLevel">School Level</Label>
+                  <Label htmlFor="schoolSection">School Section</Label>
                   {isEditing ? (
                     <Controller
-                      name="schoolLevel"
+                      name="schoolSection"
                       control={form.control}
-                      defaultValue={userProfile.schoolLevel}
+                      defaultValue={userProfile.schoolSection}
                       render={({ field }) => (
                         <Select 
                             onValueChange={(value) => {
-                                field.onChange(value as SchoolLevel);
-                                if (userProfile.schoolLevel !== value) {
+                                field.onChange(value as SchoolSection);
+                                if (userProfile.schoolSection !== value) {
                                     form.setValue("classId", undefined); // Reset class if level changes
                                 }
                             }} 
                             value={field.value || ""}
                         >
-                          <SelectTrigger id="schoolLevel">
-                            <SelectValue placeholder="Select school level" />
+                          <SelectTrigger id="schoolSection">
+                            <SelectValue placeholder="Select school section" />
                           </SelectTrigger>
                           <SelectContent>
-                            {SCHOOL_LEVELS.map(level => (
-                              <SelectItem key={level} value={level}>{level}</SelectItem>
+                            {SCHOOL_SECTIONS.map(section => (
+                              <SelectItem key={section} value={section}>{section}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       )}
                     />
                   ) : (
-                    <Input id="schoolLevelInput" value={userProfile.schoolLevel || 'N/A'} disabled />
+                    <Input id="schoolSectionInput" value={userProfile.schoolSection || 'N/A'} disabled />
                   )}
                 </div>
                 <div>
@@ -331,9 +330,9 @@ export default function ProfilePage() {
                           <SelectContent>
                             <SelectItem value="">Unassigned</SelectItem>
                             {mockSchoolClasses
-                              .filter(cls => !form.getValues("schoolLevel") || cls.level === form.getValues("schoolLevel"))
+                              .filter(cls => !form.getValues("schoolSection") || cls.section === form.getValues("schoolSection"))
                               .map(cls => (
-                              <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                              <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -367,7 +366,7 @@ export default function ProfilePage() {
                         phone: userProfile.phone,
                         department: userProfile.department,
                         classId: userProfile.classId,
-                        schoolLevel: userProfile.schoolLevel,
+                        schoolSection: userProfile.schoolSection,
                         avatarFile: undefined
                     });
                     setAvatarPreview(userProfile.avatarUrl || null);
@@ -387,7 +386,7 @@ export default function ProfilePage() {
                 phone: userProfile.phone,
                 department: userProfile.department,
                 classId: userProfile.classId,
-                schoolLevel: userProfile.schoolLevel,
+                schoolSection: userProfile.schoolSection,
                 avatarFile: undefined
               });
               setAvatarPreview(userProfile.avatarUrl || null);
@@ -400,3 +399,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

@@ -5,8 +5,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Layers, Users, CalendarDays, PlusCircle, Edit, Trash2 } from "lucide-react";
-import type { UserRole, SchoolLevel, SubjectCategory, Subject } from "@/lib/constants";
-import { SCHOOL_LEVELS, SUBJECT_CATEGORIES, subjectCategoryIcons, defaultNigerianCurriculumSubjects } from "@/lib/constants";
+import type { UserRole, SchoolSection, SubjectCategory, Subject } from "@/lib/constants";
+import { SCHOOL_SECTIONS, SUBJECT_CATEGORIES, subjectCategoryIcons, defaultNigerianCurriculumSubjects } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -24,7 +24,7 @@ const subjectSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   instructor: z.string().min(2, "Instructor name is required"), // Default/Coordinating Instructor
   schedule: z.string().min(3, "Schedule is required"),
-  schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
+  schoolSection: z.custom<SchoolSection>((val) => SCHOOL_SECTIONS.includes(val as SchoolSection), "Please select a school section"),
   subjectCategory: z.custom<SubjectCategory>((val) => SUBJECT_CATEGORIES.includes(val as SubjectCategory), "Please select a subject category"),
   sssStream: z.enum(['Core', 'Science', 'Art', 'Commercial', 'Trade']).optional(),
 });
@@ -42,7 +42,7 @@ interface StaffDetail {
 
 export default function SubjectsPage() {
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
-  const [selectedLevel, setSelectedLevel] = useState<SchoolLevel | "all">("all");
+  const [selectedSection, setSelectedSection] = useState<SchoolSection | "all">("all");
   const [selectedCategory, setSelectedCategory] = useState<SubjectCategory | "all">("all");
   const [selectedSssStream, setSelectedSssStream] = useState<'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade' | 'all'>("all");
   
@@ -50,7 +50,7 @@ export default function SubjectsPage() {
   const [allocatedSubjectIdsForStaff, setAllocatedSubjectIdsForStaff] = useState<string[]>([]);
   const [allStaffAllocations, setAllStaffAllocations] = useState<StaffAllocation>({});
   const [allStaffDetails, setAllStaffDetails] = useState<StaffDetail[]>([]);
-  const [pageDescription, setPageDescription] = useState("Browse available subjects. Filter by school level, subject category, and SSS stream.");
+  const [pageDescription, setPageDescription] = useState("Browse available subjects. Filter by school section, subject category, and SSS stream.");
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
@@ -60,7 +60,7 @@ export default function SubjectsPage() {
     resolver: zodResolver(subjectSchema),
     defaultValues: {
       title: "", code: "", description: "", instructor: "", schedule: "",
-      schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
+      schoolSection: undefined, subjectCategory: undefined, sssStream: undefined,
     },
   });
 
@@ -115,7 +115,7 @@ export default function SubjectsPage() {
     setAllStaffDetails(loadedStaffDetails);
 
     if (role !== 'staff') {
-        setPageDescription("Browse available subjects. Filter by school level, subject category, and SSS stream.");
+        setPageDescription("Browse available subjects. Filter by school section, subject category, and SSS stream.");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
@@ -129,7 +129,7 @@ export default function SubjectsPage() {
         const staffAllocationsForThisUser = allStaffAllocations[currentUserId];
         if (staffAllocationsForThisUser && staffAllocationsForThisUser.length > 0) {
             setAllocatedSubjectIdsForStaff(staffAllocationsForThisUser);
-            setPageDescription("Browse your allocated subjects. Filter by school level, subject category, and SSS stream.");
+            setPageDescription("Browse your allocated subjects. Filter by school section, subject category, and SSS stream.");
         } else {
             setPageDescription("You currently have no subjects allocated. Contact an administrator.");
             setAllocatedSubjectIdsForStaff([]); 
@@ -157,7 +157,7 @@ export default function SubjectsPage() {
     } else {
       subjectForm.reset({
         title: "", code: "", description: "", instructor: "", schedule: "",
-        schoolLevel: undefined, subjectCategory: undefined, sssStream: undefined,
+        schoolSection: undefined, subjectCategory: undefined, sssStream: undefined,
       });
     }
     setIsDialogOpen(true);
@@ -222,11 +222,11 @@ export default function SubjectsPage() {
     }
 
     subjectsToDisplay = subjectsToDisplay.filter(subject => 
-      (selectedLevel === "all" || subject.schoolLevel === selectedLevel) &&
+      (selectedSection === "all" || subject.schoolSection === selectedSection) &&
       (selectedCategory === "all" || subject.subjectCategory === selectedCategory)
     );
     
-    if (selectedLevel === "Secondary" && selectedSssStream !== "all") {
+    if (selectedSection === "College" && selectedSssStream !== "all") {
       subjectsToDisplay = subjectsToDisplay.filter(subject => {
         if (selectedSssStream === "Core") return subject.sssStream === "Core";
         return subject.sssStream === selectedSssStream || subject.sssStream === "Core"; 
@@ -286,14 +286,14 @@ export default function SubjectsPage() {
       </header>
 
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <Select value={selectedLevel} onValueChange={(value) => {setSelectedLevel(value as SchoolLevel | "all"); if (value !== "Secondary") setSelectedSssStream("all");}}>
+        <Select value={selectedSection} onValueChange={(value) => {setSelectedSection(value as SchoolSection | "all"); if (value !== "College") setSelectedSssStream("all");}}>
           <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="School Level" />
+            <SelectValue placeholder="School Section" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Levels</SelectItem>
-            {SCHOOL_LEVELS.map(level => (
-              <SelectItem key={level} value={level}>{level}</SelectItem>
+            <SelectItem value="all">All Sections</SelectItem>
+            {SCHOOL_SECTIONS.map(section => (
+              <SelectItem key={section} value={section}>{section}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -308,7 +308,7 @@ export default function SubjectsPage() {
             ))}
           </SelectContent>
         </Select>
-         {selectedLevel === "Secondary" && (
+         {selectedSection === "College" && (
           <Select value={selectedSssStream} onValueChange={(value) => setSelectedSssStream(value as 'Core' | 'Science' | 'Art' | 'Commercial' | 'Trade' | 'all')}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="SSS Stream" />
@@ -331,12 +331,12 @@ export default function SubjectsPage() {
                 <CardTitle className="font-headline text-xl text-primary">{subject.title}</CardTitle>
                 <div className="flex flex-wrap gap-2 mt-1">
                   <Badge variant="secondary" className="flex items-center">
-                    <Layers className="h-3 w-3 mr-1" /> {subject.schoolLevel}
+                    <Layers className="h-3 w-3 mr-1" /> {subject.schoolSection}
                   </Badge>
                   <Badge variant="secondary" className="flex items-center">
                     {getCategoryIcon(subject.subjectCategory)} {subject.subjectCategory}
                   </Badge>
-                   {subject.sssStream && subject.schoolLevel === "Secondary" && (
+                   {subject.sssStream && subject.schoolSection === "College" && (
                      <Badge variant="outline" className="capitalize">{subject.sssStream}</Badge>
                    )}
                 </div>
@@ -415,20 +415,20 @@ export default function SubjectsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="schoolLevel">School Level</Label>
+                    <Label htmlFor="schoolSection">School Section</Label>
                     <Controller
-                        name="schoolLevel"
+                        name="schoolSection"
                         control={subjectForm.control}
                         render={({ field }) => (
-                        <Select onValueChange={(value) => field.onChange(value as SchoolLevel)} value={field.value || ""}>
-                            <SelectTrigger id="schoolLevel"><SelectValue placeholder="Select school level" /></SelectTrigger>
+                        <Select onValueChange={(value) => field.onChange(value as SchoolSection)} value={field.value || ""}>
+                            <SelectTrigger id="schoolSection"><SelectValue placeholder="Select school section" /></SelectTrigger>
                             <SelectContent>
-                            {SCHOOL_LEVELS.map(level => (<SelectItem key={level} value={level}>{level}</SelectItem>))}
+                            {SCHOOL_SECTIONS.map(section => (<SelectItem key={section} value={section}>{section}</SelectItem>))}
                             </SelectContent>
                         </Select>
                         )}
                     />
-                    {subjectForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.schoolLevel.message}</p>}
+                    {subjectForm.formState.errors.schoolSection && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.schoolSection.message}</p>}
                 </div>
                 <div>
                     <Label htmlFor="subjectCategory">Subject Category</Label>
@@ -447,7 +447,7 @@ export default function SubjectsPage() {
                     {subjectForm.formState.errors.subjectCategory && <p className="text-sm text-destructive mt-1">{subjectForm.formState.errors.subjectCategory.message}</p>}
                 </div>
             </div>
-            {subjectForm.watch("schoolLevel") === "Secondary" && (
+            {subjectForm.watch("schoolSection") === "College" && (
                  <div>
                     <Label htmlFor="sssStream">SSS Stream (For Secondary: 'Core' for JSS & SSS core, specific for SSS electives)</Label>
                      <Controller
@@ -482,5 +482,7 @@ export default function SubjectsPage() {
     </div>
   );
 }
+
+    
 
     

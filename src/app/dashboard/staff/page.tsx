@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Mail, Phone, Briefcase, BookOpen, Layers, Users } from "lucide-react";
-import type { SchoolLevel, UserRole } from "@/lib/constants";
+import type { SchoolSection, UserRole } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 
 interface StaffMemberDisplay {
@@ -17,7 +17,7 @@ interface StaffMemberDisplay {
   phone?: string;
   avatarUrl: string;
   aiHint: string;
-  schoolLevel: SchoolLevel[];
+  schoolSections: SchoolSection[];
   subjectsTaught: string[];
 }
 
@@ -59,7 +59,7 @@ export default function StaffDirectoryPage() {
               phone: undefined, // Phone is not typically stored in ManagedUser, can be added to profile
               avatarUrl: `https://placehold.co/150x150.png?text=${initials}`,
               aiHint: "user avatar",
-              schoolLevel: [], // Placeholder, as this is not in ManagedUser
+              schoolSections: [], // Placeholder, as this is not in ManagedUser
               subjectsTaught: ["General Duties"], // Placeholder
             };
           });
@@ -114,10 +114,10 @@ export default function StaffDirectoryPage() {
                     <Phone className="h-4 w-4 mr-2" /> {staff.phone}
                   </div>
                 )}
-                {staff.schoolLevel.length > 0 && (
+                {staff.schoolSections.length > 0 && (
                   <div className="flex items-center justify-center">
                     <Layers className="h-4 w-4 mr-2" /> 
-                    {staff.schoolLevel.join(', ')}
+                    {staff.schoolSections.join(', ')}
                   </div>
                 )}
                 {staff.subjectsTaught.length > 0 && (
@@ -150,3 +150,5 @@ export default function StaffDirectoryPage() {
     </div>
   );
 }
+
+    

@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel, SchoolClass, Student } from "@/lib/constants";
-import { SCHOOL_LEVELS, mockSchoolClasses } from "@/lib/constants";
+import type { UserRole, SchoolSection, SchoolClass, Student } from "@/lib/constants";
+import { SCHOOL_SECTIONS, mockSchoolClasses } from "@/lib/constants";
 import { UserPlus, Users, Briefcase, Edit, Trash2, ListChecks, GraduationCap } from "lucide-react";
 import { useForm, type SubmitHandler, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +24,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const studentSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
-  schoolLevel: z.custom<SchoolLevel>((val) => SCHOOL_LEVELS.includes(val as SchoolLevel), "Please select a school level"),
+  schoolSection: z.custom<SchoolSection>((val) => SCHOOL_SECTIONS.includes(val as SchoolSection), "Please select a school section"),
   classId: z.string().optional(), 
   password: z.string().min(6, "Password must be at least 6 characters for new students.").optional(), 
   rollNumber: z.string().optional(),
@@ -72,7 +72,7 @@ export default function ManageUsersPage() {
     defaultValues: {
         name: "",
         email: "",
-        schoolLevel: undefined,
+        schoolSection: undefined,
         classId: undefined,
         password: "",
         rollNumber: ""
@@ -121,13 +121,13 @@ export default function ManageUsersPage() {
       studentForm.reset({
         name: editingStudent.name,
         email: editingStudent.email,
-        schoolLevel: editingStudent.schoolLevel,
+        schoolSection: editingStudent.schoolSection,
         classId: editingStudent.classId,
         password: "", // Clear password field on edit
         rollNumber: editingStudent.rollNumber,
       });
     } else {
-      studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: "" });
+      studentForm.reset({ name: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: "" });
     }
   }, [editingStudent, studentForm]);
 
@@ -164,7 +164,7 @@ export default function ManageUsersPage() {
         ...editingStudent,
         name: data.name,
         email: data.email,
-        schoolLevel: data.schoolLevel!,
+        schoolSection: data.schoolSection!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
         password: data.password ? data.password : editingStudent.password, // Store actual password for prototype
@@ -183,7 +183,7 @@ export default function ManageUsersPage() {
         id: `stud-${Date.now()}`,
         name: data.name,
         email: data.email,
-        schoolLevel: data.schoolLevel!,
+        schoolSection: data.schoolSection!,
         classId: data.classId, 
         rollNumber: data.rollNumber,
         password: data.password, // Store actual password for prototype
@@ -194,7 +194,7 @@ export default function ManageUsersPage() {
       toast({ title: "Student Added", description: `${data.name} has been added.` });
     }
     saveUsersToLocalStorage(newStudentList, staffList);
-    studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
+    studentForm.reset({ name: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleEditStudent = (student: Student) => {
@@ -204,7 +204,7 @@ export default function ManageUsersPage() {
 
   const handleCancelStudentEdit = () => {
     setEditingStudent(null);
-    studentForm.reset({ name: "", email: "", schoolLevel: undefined, classId: undefined, password: "", rollNumber: ""});
+    studentForm.reset({ name: "", email: "", schoolSection: undefined, classId: undefined, password: "", rollNumber: ""});
   };
 
   const handleDeleteStudent = (studentId: string) => {
@@ -328,7 +328,7 @@ export default function ManageUsersPage() {
                         return (
                           <AccordionItem value={cls.id} key={cls.id}>
                             <AccordionTrigger>
-                              <h3 className="text-lg font-semibold text-primary">{cls.name} ({cls.displayLevel}) - {studentsInThisClass.length} Student(s)</h3>
+                              <h3 className="text-lg font-semibold text-primary">{cls.name} ({cls.section}) - {studentsInThisClass.length} Student(s)</h3>
                             </AccordionTrigger>
                             <AccordionContent>
                               <Table>
@@ -336,7 +336,7 @@ export default function ManageUsersPage() {
                                   <TableRow>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Email</TableHead>
-                                    <TableHead>School Level</TableHead>
+                                    <TableHead>School Section</TableHead>
                                     <TableHead>Roll No.</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                   </TableRow>
@@ -346,7 +346,7 @@ export default function ManageUsersPage() {
                                     <TableRow key={student.id}>
                                       <TableCell>{student.name}</TableCell>
                                       <TableCell>{student.email}</TableCell>
-                                      <TableCell>{student.schoolLevel}</TableCell>
+                                      <TableCell>{student.schoolSection}</TableCell>
                                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                                       <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
@@ -380,7 +380,7 @@ export default function ManageUsersPage() {
                                   <TableRow>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Email</TableHead>
-                                    <TableHead>School Level</TableHead>
+                                    <TableHead>School Section</TableHead>
                                     <TableHead>Roll No.</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                   </TableRow>
@@ -390,7 +390,7 @@ export default function ManageUsersPage() {
                                     <TableRow key={student.id}>
                                       <TableCell>{student.name}</TableCell>
                                       <TableCell>{student.email}</TableCell>
-                                      <TableCell>{student.schoolLevel}</TableCell>
+                                      <TableCell>{student.schoolSection}</TableCell>
                                       <TableCell>{student.rollNumber || 'N/A'}</TableCell>
                                       <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditStudent(student)} className="mr-2">
@@ -440,9 +440,9 @@ export default function ManageUsersPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="schoolLevel">School Level</Label>
+                      <Label htmlFor="schoolSection">School Section</Label>
                       <Controller
-                        name="schoolLevel"
+                        name="schoolSection"
                         control={studentForm.control}
                         render={({ field }) => (
                           <Select 
@@ -452,18 +452,18 @@ export default function ManageUsersPage() {
                             }} 
                             value={field.value || ""}
                           >
-                            <SelectTrigger id="schoolLevel">
-                              <SelectValue placeholder="Select school level" />
+                            <SelectTrigger id="schoolSection">
+                              <SelectValue placeholder="Select school section" />
                             </SelectTrigger>
                             <SelectContent>
-                              {SCHOOL_LEVELS.map(level => (
-                                <SelectItem key={level} value={level}>{level}</SelectItem>
+                              {SCHOOL_SECTIONS.map(section => (
+                                <SelectItem key={section} value={section}>{section}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         )}
                       />
-                      {studentForm.formState.errors.schoolLevel && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolLevel.message}</p>}
+                      {studentForm.formState.errors.schoolSection && <p className="text-sm text-destructive mt-1">{studentForm.formState.errors.schoolSection.message}</p>}
                     </div>
                     <div>
                       <Label htmlFor="classId">Assign to Class</Label>
@@ -483,9 +483,9 @@ export default function ManageUsersPage() {
                             <SelectContent>
                               <SelectItem value="__UNASSIGNED__">Unassigned</SelectItem>
                               {mockSchoolClasses
-                                .filter(cls => !studentForm.getValues("schoolLevel") || cls.level === studentForm.getValues("schoolLevel")) 
+                                .filter(cls => !studentForm.getValues("schoolSection") || cls.section === studentForm.getValues("schoolSection")) 
                                 .map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                                <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -640,7 +640,7 @@ export default function ManageUsersPage() {
                                 }}
                               />
                               <Label htmlFor={`class-assign-${cls.id}`} className="font-normal cursor-pointer flex-grow">
-                                {cls.name} <span className="text-xs text-muted-foreground">({cls.displayLevel})</span>
+                                {cls.name} <span className="text-xs text-muted-foreground">({cls.section})</span>
                               </Label>
                             </div>
                           ))}
@@ -670,5 +670,7 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+    
 
     

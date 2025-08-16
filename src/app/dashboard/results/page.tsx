@@ -201,9 +201,9 @@ export default function ResultsPage() {
                 { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
                 { id: "NUR_BSC", name: "Basic Science (Nursery)"},
             ];
-            if (classDetails.level === "Primary") MOCK_SUBJECTS_IN_CLASS = [{ id: "PRI_ENG", name: "English (Pri)" }, { id: "PRI_MTH", name: "Math (Pri)" }];
-            else if (classDetails.level === "Secondary" && classDetails.displayLevel.startsWith("Junior")) MOCK_SUBJECTS_IN_CLASS = [{ id: "JSS_ENG", name: "English (JSS)" }, { id: "JSS_MTH", name: "Math (JSS)" }];
-            else if (classDetails.level === "Secondary" && classDetails.displayLevel.startsWith("Senior")) MOCK_SUBJECTS_IN_CLASS = [{ id: "SSS_ENG_C", name: "English (SSS)" }, { id: "SSS_PHY_S", name: "Physics (SSS)" }];
+            if (classDetails.section === "College") MOCK_SUBJECTS_IN_CLASS = [{ id: "JSS_ENG", name: "English (JSS)" }, { id: "JSS_MTH", name: "Math (JSS)" }];
+            else if (classDetails.section === "Islamiyya") MOCK_SUBJECTS_IN_CLASS = [{ id: "ISL_QUR", name: "Quran" }, { id: "ISL_ARB", name: "Arabic" }];
+            else if (classDetails.section === "Tahfeez") MOCK_SUBJECTS_IN_CLASS = [{ id: "TAH_MEM", name: "Memorization" }];
             else MOCK_SUBJECTS_IN_CLASS = [{ id: "GEN_SUB", name: "General Subject" }];
             
             setSubjectsInSelectedClassForStaff(MOCK_SUBJECTS_IN_CLASS);
@@ -340,7 +340,7 @@ export default function ResultsPage() {
                 </SelectTrigger>
                 <SelectContent>
                     {staffAllocatedClasses.length > 0 ? staffAllocatedClasses.map(cls => (
-                    <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
                     )) : <SelectItem value="no-class" disabled>No classes available/assigned</SelectItem>}
                 </SelectContent>
             </Select>
@@ -405,5 +405,7 @@ export default function ResultsPage() {
     </div>
   );
 }
+
+    
 
     

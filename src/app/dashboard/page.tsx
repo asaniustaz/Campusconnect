@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { BookOpen, Users, CalendarCheck, FileText, Bell, ShieldCheck, School, UserPlus, CreditCard } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { UserRole, SchoolLevel } from "@/lib/constants";
+import type { UserRole, SchoolSection } from "@/lib/constants";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -13,7 +13,7 @@ type UserInfo = {
   name: string;
   role: UserRole;
   email: string;
-  schoolLevel?: SchoolLevel; // Added for students
+  schoolSection?: SchoolSection; // Updated for students
   avatarUrl?: string;
 }
 
@@ -47,7 +47,7 @@ export default function DashboardPage() {
     
     if (name && role && userId) {
       let email = `${name.toLowerCase().replace(/[^a-z0-9.]/g, "").split(" ").join(".")}@campus.edu`;
-      let schoolLevel: SchoolLevel | undefined = undefined;
+      let schoolSection: SchoolSection | undefined = undefined;
       let avatarUrl = `https://placehold.co/100x100.png?text=${name[0]}`;
 
       if (typeof window !== 'undefined') {
@@ -62,7 +62,7 @@ export default function DashboardPage() {
                         avatarUrl = foundUser.avatarUrl; // Use stored avatar
                     }
                      if (role === 'student') {
-                        schoolLevel = foundUser.schoolLevel;
+                        schoolSection = foundUser.schoolSection;
                     }
                 }
             } catch (e) {
@@ -71,14 +71,14 @@ export default function DashboardPage() {
         }
       }
       
-      // Fallback schoolLevel for student if not found in managedUsers
-      if (role === 'student' && !schoolLevel) { 
-        if (name.toLowerCase().includes("kinder")) schoolLevel = "Kindergarten";
-        else if (name.toLowerCase().includes("primary")) schoolLevel = "Primary";
-        else schoolLevel = "Secondary";
+      // Fallback schoolSection for student if not found in managedUsers
+      if (role === 'student' && !schoolSection) { 
+        if (name.toLowerCase().includes("college")) schoolSection = "College";
+        else if (name.toLowerCase().includes("islamiyya")) schoolSection = "Islamiyya";
+        else schoolSection = "Tahfeez";
       }
       
-      setUserInfo({ name, role, email, schoolLevel, avatarUrl });
+      setUserInfo({ name, role, email, schoolSection, avatarUrl });
     }
   }, []);
 
@@ -132,7 +132,7 @@ export default function DashboardPage() {
                     : `Your ${userInfo.role.charAt(0).toUpperCase() + userInfo.role.slice(1)} portal.`
                 }
                 </p>
-                {userInfo.schoolLevel && <p className="text-sm text-primary flex items-center justify-center sm:justify-start mt-1"><School className="h-4 w-4 mr-1"/> {userInfo.schoolLevel} Level</p>}
+                {userInfo.schoolSection && <p className="text-sm text-primary flex items-center justify-center sm:justify-start mt-1"><School className="h-4 w-4 mr-1"/> {userInfo.schoolSection} Section</p>}
             </div>
         </CardHeader>
       </Card>
@@ -172,3 +172,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

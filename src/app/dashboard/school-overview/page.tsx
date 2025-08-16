@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Building, Users, HelpCircle, Eye, UserCircle as UserIcon } from "lucide-react"; // Added UserIcon
-import type { UserRole, SchoolClass, Student } from "@/lib/constants"; 
-import { mockSchoolClasses } from "@/lib/constants";
+import type { UserRole, SchoolClass, Student, SchoolSection } from "@/lib/constants"; 
+import { mockSchoolClasses, SCHOOL_SECTIONS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -88,8 +88,6 @@ export default function SchoolOverviewPage() {
     : [];
 
 
-  const displayLevels: SchoolClass['displayLevel'][] = ['Kindergarten', 'Nursery', 'Primary', 'Junior Secondary', 'Senior Secondary'];
-
   return (
     <div className="space-y-8">
       <header>
@@ -97,15 +95,15 @@ export default function SchoolOverviewPage() {
         <p className="text-muted-foreground">View class distributions, student counts, assigned class masters, and student details.</p>
       </header>
 
-      {displayLevels.map((displayLevel) => {
-        const classesForLevel = mockSchoolClasses.filter(cls => cls.displayLevel === displayLevel);
-        if (classesForLevel.length === 0) return null;
+      {SCHOOL_SECTIONS.map((section) => {
+        const classesForSection = mockSchoolClasses.filter(cls => cls.section === section);
+        if (classesForSection.length === 0) return null;
 
         return (
-          <Card key={displayLevel} className="shadow-xl">
+          <Card key={section} className="shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center text-2xl text-primary">
-                <Building className="mr-3 h-7 w-7" /> {displayLevel} Section
+                <Building className="mr-3 h-7 w-7" /> {section} Section
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -119,7 +117,7 @@ export default function SchoolOverviewPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {classesForLevel.map((cls) => {
+                  {classesForSection.map((cls) => {
                     const classMaster = getClassMasterForClass(cls.id);
                     const studentCount = getStudentCountForClass(cls.id);
                     const masterInitials = classMaster ? classMaster.name.split(' ').map(n=>n[0]).join('') : '?';
@@ -169,7 +167,7 @@ export default function SchoolOverviewPage() {
           <DialogHeader>
             <DialogTitle>Students in {selectedClassForStudentList?.name || "Class"}</DialogTitle>
             <DialogDescription>
-              List of students enrolled in {selectedClassForStudentList?.displayLevel} - {selectedClassForStudentList?.name}.
+              List of students enrolled in {selectedClassForStudentList?.section} - {selectedClassForStudentList?.name}.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] mt-4">
@@ -214,3 +212,4 @@ export default function SchoolOverviewPage() {
   );
 }
 
+    

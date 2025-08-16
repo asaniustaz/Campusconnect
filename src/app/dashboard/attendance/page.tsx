@@ -152,7 +152,7 @@ export default function AttendancePage() {
               </SelectTrigger>
               <SelectContent>
                 {availableClassesForStaff.length > 0 ? availableClassesForStaff.map(cls => (
-                  <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                  <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
                 )) : <SelectItem value="no-class" disabled>No classes assigned/available</SelectItem>}
               </SelectContent>
             </Select>
@@ -234,4 +234,6 @@ export default function AttendancePage() {
     </div>
   );
 }
+    
+
     
