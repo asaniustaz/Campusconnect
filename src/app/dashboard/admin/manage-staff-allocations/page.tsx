@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, SchoolLevel, SubjectCategory } from "@/lib/constants";
-import { SCHOOL_LEVELS } from "@/lib/constants"; 
+import type { UserRole, SchoolSection, SubjectCategory } from "@/lib/constants";
+import { SCHOOL_SECTIONS } from "@/lib/constants"; 
 import { BookUser, Save } from "lucide-react";
 
 // ManagedUser is a user from localStorage, could be student, staff, or admin
@@ -26,32 +26,25 @@ interface ManagedUser {
 interface CourseForAllocation {
   id: string;
   name: string;
-  schoolLevel: SchoolLevel;
+  schoolSection: SchoolSection;
   subjectCategory: SubjectCategory;
 }
 
 const mockCourseListForAllocation: CourseForAllocation[] = [
-  // Kindergarten
-  { id: "KG_LIT", name: "Literacy (KG)", schoolLevel: "Kindergarten", subjectCategory: "Languages" },
-  { id: "KG_NUM", name: "Numeracy (KG)", schoolLevel: "Kindergarten", subjectCategory: "Mathematics" },
-  // Nursery
-  { id: "NUR_ENG", name: "English Language (Nursery)", schoolLevel: "Nursery", subjectCategory: "Languages" },
-  { id: "NUR_MTH", name: "Mathematics (Nursery)", schoolLevel: "Nursery", subjectCategory: "Mathematics" },
-  { id: "NUR_BSC", name: "Basic Science (Nursery)", schoolLevel: "Nursery", subjectCategory: "Sciences" },
-  // Primary
-  { id: "PRI_ENG", name: "English Language (Primary)", schoolLevel: "Primary", subjectCategory: "Languages" },
-  { id: "PRI_MTH", name: "Mathematics (Primary)", schoolLevel: "Primary", subjectCategory: "Mathematics" },
-  { id: "PRI_BST", name: "Basic Science & Tech (Primary)", schoolLevel: "Primary", subjectCategory: "Sciences" },
-  // JSS (Secondary Level)
-  { id: "JSS_ENG", name: "English Studies (JSS)", schoolLevel: "Secondary", subjectCategory: "Languages" },
-  { id: "JSS_MTH", name: "Mathematics (JSS)", schoolLevel: "Secondary", subjectCategory: "Mathematics" },
-  { id: "JSS_BSC", name: "Basic Science (JSS)", schoolLevel: "Secondary", subjectCategory: "Sciences" },
-  // SSS (Secondary Level) - Core
-  { id: "SSS_ENG_C", name: "English Language (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Languages" },
-  { id: "SSS_MTH_C", name: "Mathematics (SSS Core)", schoolLevel: "Secondary", subjectCategory: "Mathematics" },
-  // SSS - Science
-  { id: "SSS_BIO_S", name: "Biology (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences" },
-  { id: "SSS_CHM_S", name: "Chemistry (SSS Science)", schoolLevel: "Secondary", subjectCategory: "Sciences" },
+  // College
+  { id: "JSS_ENG", name: "English Studies (JSS)", schoolSection: "College", subjectCategory: "Languages" },
+  { id: "JSS_MTH", name: "Mathematics (JSS)", schoolSection: "College", subjectCategory: "Mathematics" },
+  { id: "JSS_BSC", name: "Basic Science (JSS)", schoolSection: "College", subjectCategory: "Sciences" },
+  { id: "SSS_ENG_C", name: "English Language (SSS Core)", schoolSection: "College", subjectCategory: "Languages" },
+  { id: "SSS_MTH_C", name: "Mathematics (SSS Core)", schoolSection: "College", subjectCategory: "Mathematics" },
+  { id: "SSS_BIO_S", name: "Biology (SSS Science)", schoolSection: "College", subjectCategory: "Sciences" },
+  { id: "SSS_CHM_S", name: "Chemistry (SSS Science)", schoolSection: "College", subjectCategory: "Sciences" },
+  // Islamiyya
+  { id: "ISL_QUR", name: "Quranic Studies", schoolSection: "Islamiyya", subjectCategory: "Religious Studies" },
+  { id: "ISL_ARB", name: "Arabic Language", schoolSection: "Islamiyya", subjectCategory: "Languages" },
+  // Tahfeez
+  { id: "TAH_MEM", name: "Quran Memorization", schoolSection: "Tahfeez", subjectCategory: "Religious Studies" },
+  { id: "TAH_TAJ", name: "Tajweed", schoolSection: "Tahfeez", subjectCategory: "Religious Studies" },
 ];
 
 
@@ -65,7 +58,7 @@ export default function ManageStaffAllocationsPage() {
   const [selectedStaffId, setSelectedStaffId] = useState<string | undefined>();
   const [allocations, setAllocations] = useState<StaffAllocation>({});
   const [filteredCourses, setFilteredCourses] = useState<CourseForAllocation[]>(mockCourseListForAllocation);
-  const [selectedLevelFilter, setSelectedLevelFilter] = useState<SchoolLevel | "all">("all");
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState<SchoolSection | "all">("all");
   const [availableStaff, setAvailableStaff] = useState<ManagedUser[]>([]);
 
   useEffect(() => {
@@ -79,7 +72,7 @@ export default function ManageStaffAllocationsPage() {
         try {
           const allStoredUsers: ManagedUser[] = JSON.parse(storedUsersString);
           // Filter for users who are staff or admin, as admins might also be assigned subjects
-          const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin');
+          const staffUsers = allStoredUsers.filter(u => u.role === 'staff' || u.role === 'admin' || u.role === 'head_of_section');
           setAvailableStaff(staffUsers);
         } catch (e) {
           console.error("Failed to parse users from localStorage for staff allocations:", e);
@@ -105,12 +98,12 @@ export default function ManageStaffAllocationsPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedLevelFilter === "all") {
+    if (selectedSectionFilter === "all") {
       setFilteredCourses(mockCourseListForAllocation);
     } else {
-      setFilteredCourses(mockCourseListForAllocation.filter(course => course.schoolLevel === selectedLevelFilter));
+      setFilteredCourses(mockCourseListForAllocation.filter(course => course.schoolSection === selectedSectionFilter));
     }
-  }, [selectedLevelFilter]);
+  }, [selectedSectionFilter]);
 
   const handleCourseToggle = (courseId: string) => {
     if (!selectedStaffId) return;
@@ -179,15 +172,15 @@ export default function ManageStaffAllocationsPage() {
               </Select>
             </div>
             <div>
-              <Label htmlFor="levelFilter">Filter Subjects by Level</Label>
-              <Select value={selectedLevelFilter} onValueChange={(value) => setSelectedLevelFilter(value as SchoolLevel | "all")}>
+              <Label htmlFor="levelFilter">Filter Subjects by Section</Label>
+              <Select value={selectedSectionFilter} onValueChange={(value) => setSelectedSectionFilter(value as SchoolSection | "all")}>
                 <SelectTrigger id="levelFilter" className="w-full">
-                  <SelectValue placeholder="Filter by school level" />
+                  <SelectValue placeholder="Filter by school section" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  {SCHOOL_LEVELS.map(level => (
-                    <SelectItem key={level} value={level}>{level}</SelectItem>
+                  <SelectItem value="all">All Sections</SelectItem>
+                  {SCHOOL_SECTIONS.map(section => (
+                    <SelectItem key={section} value={section}>{section}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -210,13 +203,13 @@ export default function ManageStaffAllocationsPage() {
                       />
                       <Label htmlFor={`course-${course.id}`} className="flex flex-col cursor-pointer">
                         <span>{course.name}</span>
-                        <span className="text-xs text-muted-foreground">{course.schoolLevel} - {course.subjectCategory}</span>
+                        <span className="text-xs text-muted-foreground">{course.schoolSection} - {course.subjectCategory}</span>
                       </Label>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted-foreground text-center py-4">No subjects match the selected level filter.</p>
+                <p className="text-muted-foreground text-center py-4">No subjects match the selected section filter.</p>
               )}
               <div className="flex justify-end mt-6">
                 <Button onClick={handleSaveChanges} className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -225,7 +218,7 @@ export default function ManageStaffAllocationsPage() {
               </div>
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-4">Please select a staff member and level filter to manage their allocations.</p>
+            <p className="text-muted-foreground text-center py-4">Please select a staff member to manage their allocations.</p>
           )}
         </CardContent>
       </Card>
