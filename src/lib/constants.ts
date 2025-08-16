@@ -99,7 +99,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/payments', label: 'Payment History', icon: CreditCard, roles: ['student'] },
   { href: '/dashboard/attendance', label: 'Mark Attendance', icon: CalendarCheck, roles: ['staff', 'admin'] },
   { href: '/dashboard/results', label: 'Results', icon: FileText, roles: ['student', 'staff', 'admin'] },
-  { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['staff', 'admin'] },
+  { href: '/dashboard/results/upload', label: 'Upload Results', icon: UploadCloud, roles: ['admin'] },
   // Admin specific routes
   { href: '/dashboard/admin/manage-users', label: 'Manage Users', icon: UserPlus, roles: ['admin'] },
   { href: '/dashboard/admin/manage-staff-allocations', label: 'Staff Allocations', icon: BookUser, roles: ['admin'] },
@@ -125,6 +125,7 @@ export const SUBJECT_CATEGORIES: SubjectCategory[] = [
   'General Studies'
 ];
 
+export const SESSIONS: string[] = ["2023/2024", "2024/2025", "2025/2026"];
 export const TERMS: string[] = ["First Term", "Second Term", "Third Term"];
 
 export const subjectCategoryIcons: Record<SubjectCategory, LucideIcon> = {

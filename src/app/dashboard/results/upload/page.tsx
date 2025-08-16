@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/lib/constants";
-import { TERMS } from "@/lib/constants"; // Using TERMS from constants
-import { UploadCloud, FileSpreadsheet } from "lucide-react";
+import { TERMS, SESSIONS, mockSchoolClasses } from "@/lib/constants"; 
+import { UploadCloud, FileSpreadsheet, FileText, FileType } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -18,36 +18,40 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_FILE_TYPES = ["text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"];
+const ACCEPTED_DOCX_TYPES = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+const ACCEPTED_EXCEL_TYPES = ["text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"];
 
 
 const uploadSchema = z.object({
-  subjectId: z.string().min(1, "Please select a subject."), // Changed from courseId
-  term: z.string().min(1, "Please select a term."), // Changed from semester
+  session: z.string().min(1, "Please select a session."),
+  term: z.string().min(1, "Please select a term."),
+  classId: z.string().min(1, "Please select a class."),
+  templateFile: z
+    .custom<FileList>()
+    .refine((files) => files && files.length > 0, "Template file is required.")
+    .refine((files) => files && files[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .refine(
+      (files) => files && ACCEPTED_DOCX_TYPES.includes(files[0]?.type),
+      "Only .docx files are accepted."
+    ),
   resultsFile: z
     .custom<FileList>()
     .refine((files) => files && files.length > 0, "Results file is required.")
     .refine((files) => files && files[0]?.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
     .refine(
-      (files) => files && ACCEPTED_FILE_TYPES.includes(files[0]?.type),
+      (files) => files && ACCEPTED_EXCEL_TYPES.includes(files[0]?.type),
       ".csv, .xlsx, .xls files are accepted."
     ),
 });
 
 type UploadFormData = z.infer<typeof uploadSchema>;
 
-// K-12 Focused Mock Subjects
-const mockSubjectsForUpload = [
-  { id: "PRI_ENG", name: "English Language (Primary)" },
-  { id: "JSS_MTH", name: "Mathematics (JSS)" },
-  { id: "SSS_PHY_S", name: "Physics (SSS Science)" },
-  { id: "NUR_BSC", name: "Basic Science (Nursery)"},
-];
 
 export default function ResultUploadPage() {
   const { toast } = useToast();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [templateFileName, setTemplateFileName] = useState<string | null>(null);
+  const [resultsFileName, setResultsFileName] = useState<string | null>(null);
 
   const form = useForm<UploadFormData>({
     resolver: zodResolver(uploadSchema),
@@ -60,21 +64,22 @@ export default function ResultUploadPage() {
   }, []);
   
   const onSubmit = (data: UploadFormData) => {
-    console.log("Uploading results:", data.resultsFile[0].name, "for subject:", data.subjectId, "term:", data.term);
+    console.log("Generating results with:", data);
     toast({
-      title: "Upload Successful",
-      description: `Results file "${data.resultsFile[0].name}" has been uploaded.`,
+      title: "Processing Started",
+      description: `Generating results for ${data.classId} - ${data.term}, ${data.session}.`,
     });
     form.reset();
-    setFileName(null);
+    setTemplateFileName(null);
+    setResultsFileName(null);
   };
 
-  if (userRole !== 'staff' && userRole !== 'admin') {
+  if (userRole !== 'admin') {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="w-full max-w-md p-8 text-center">
           <CardTitle className="text-2xl text-destructive mb-4">Access Denied</CardTitle>
-          <CardDescription>This page is only accessible to staff or admin members.</CardDescription>
+          <CardDescription>This page is only accessible to admin members.</CardDescription>
         </Card>
       </div>
     );
@@ -84,70 +89,117 @@ export default function ResultUploadPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Upload Results</h1>
-        <p className="text-muted-foreground">Securely upload student results for subjects and terms.</p>
+        <h1 className="text-3xl font-bold font-headline text-foreground">Generate Student Results</h1>
+        <p className="text-muted-foreground">Upload a DOCX template and an Excel file to generate PDF results.</p>
       </header>
 
-      <Card className="max-w-lg mx-auto shadow-xl">
+      <Card className="max-w-2xl mx-auto shadow-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FileSpreadsheet /> Result Upload Form</CardTitle>
-          <CardDescription>Please ensure the file is in CSV, XLSX, or XLS format.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><FileSpreadsheet /> Result Generation Form</CardTitle>
+          <CardDescription>Select the session, term, and class, then upload the required files.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="session"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Label>Session</Label>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Session" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {SESSIONS.map(session => (
+                              <SelectItem key={session} value={session}>{session}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="term"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Label>Term</Label>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Term" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TERMS.map(term => ( 
+                              <SelectItem key={term} value={term}>{term}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                 <FormField
+                  control={form.control}
+                  name="classId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Label>Class for DOCX Template</Label>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Class" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {mockSchoolClasses.map(cls => (
+                            <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.displayLevel})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              
               <FormField
                 control={form.control}
-                name="subjectId"
-                render={({ field }) => (
+                name="templateFile"
+                render={({ field: { onChange, value, ...rest } }) => (
                   <FormItem>
-                    <Label>Subject</Label>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Subject" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {mockSubjectsForUpload.map(subject => (
-                          <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="templateFile" className="flex items-center gap-2"><FileType/> Report Card Template (.docx)</Label>
+                    <FormControl>
+                      <Input 
+                        id="templateFile" 
+                        type="file"
+                        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={(e) => {
+                          onChange(e.target.files);
+                          setTemplateFileName(e.target.files?.[0]?.name || null);
+                        }}
+                        {...rest}
+                       />
+                    </FormControl>
+                     {templateFileName && <p className="text-sm text-muted-foreground mt-1">Selected: {templateFileName}</p>}
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="term"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Term</Label>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Term" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {TERMS.map(term => ( // Using TERMS from constants
-                          <SelectItem key={term} value={term}>{term}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
+               <FormField
                 control={form.control}
                 name="resultsFile"
                 render={({ field: { onChange, value, ...rest } }) => (
                   <FormItem>
-                    <Label htmlFor="resultsFile">Results File</Label>
+                    <Label htmlFor="resultsFile" className="flex items-center gap-2"><FileText/> Scoresheet for All Classes (.xlsx, .csv)</Label>
                     <FormControl>
                       <Input 
                         id="resultsFile" 
@@ -155,19 +207,19 @@ export default function ResultUploadPage() {
                         accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                         onChange={(e) => {
                           onChange(e.target.files);
-                          setFileName(e.target.files?.[0]?.name || null);
+                          setResultsFileName(e.target.files?.[0]?.name || null);
                         }}
                         {...rest}
                        />
                     </FormControl>
-                     {fileName && <p className="text-sm text-muted-foreground mt-1">Selected file: {fileName}</p>}
+                     {resultsFileName && <p className="text-sm text-muted-foreground mt-1">Selected: {resultsFileName}</p>}
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
               <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                <UploadCloud className="mr-2 h-4 w-4" /> Upload File
+                <UploadCloud className="mr-2 h-4 w-4" /> Generate and Distribute Results
               </Button>
             </form>
           </Form>
@@ -176,5 +228,3 @@ export default function ResultUploadPage() {
     </div>
   );
 }
-
-    
