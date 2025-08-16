@@ -5,415 +5,322 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserRole, SchoolClass } from "@/lib/constants";
-import { TERMS, mockSchoolClasses as defaultClasses } from "@/lib/constants"; 
-import { FileSpreadsheet, Printer, BookOpen } from "lucide-react";
+import type { UserRole, SchoolClass, Student, StaffMember, Subject } from "@/lib/constants";
+import { TERMS, mockSchoolClasses as defaultClasses, defaultNigerianCurriculumSubjects, combineName } from "@/lib/constants"; 
+import { FileSpreadsheet, Printer, BookOpen, AlertTriangle, FileText, CheckCircle, BarChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// --- Data Structures ---
 interface SubjectResult {
-  subjectCode: string;
+  subjectId: string;
   subjectName: string;
   grade: string;
-  marks: number;
-  totalMarks: number;
+  score: number;
 }
 
-interface TermResult {
-  term: string;
-  classId: string; 
-  className: string; 
-  results: SubjectResult[];
-  termAverage?: number; 
-}
-
-interface StudentOverallResult {
+interface StudentTermResult {
   studentId: string;
   studentName: string;
-  overallAverage: number; 
-  termResults: TermResult[];
+  results: SubjectResult[];
+  termAverage: number;
+  termPosition: string; // e.g., "1st", "2nd"
 }
 
-const mockStudentResults: StudentOverallResult = {
-  studentId: "std001",
-  studentName: "Alice Wonderland",
-  overallAverage: 88.5,
-  termResults: [
-    {
-      term: "First Term",
-      classId: "jss1",
-      className: "JSS 1",
-      termAverage: 88.5,
-      results: [
-        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "A", marks: 92, totalMarks: 100 },
-        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "B+", marks: 85, totalMarks: 100 },
-      ],
-    },
-    {
-      term: "Second Term",
-      classId: "jss1",
-      className: "JSS 1",
-      termAverage: 89,
-      results: [
-        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "A-", marks: 88, totalMarks: 100 },
-        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A", marks: 90, totalMarks: 100 },
-      ],
-    },
-     {
-      term: "Third Term",
-      classId: "jss1",
-      className: "JSS 1",
-      termAverage: 87,
-      results: [
-        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "B+", marks: 86, totalMarks: 100 },
-        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "B+", marks: 88, totalMarks: 100 },
-      ],
-    },
-    {
-      term: "First Term", // New academic year
-      classId: "jss2",
-      className: "JSS 2",
-      termAverage: 90.5,
-      results: [
-        { subjectCode: "JSS_ENG", subjectName: "English Studies (JSS)", grade: "A", marks: 95, totalMarks: 100 },
-        { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A-", marks: 86, totalMarks: 100 },
-      ],
-    },
-  ],
+// --- MOCK DATA GENERATION ---
+const generateMockResults = (allStudents: Student[], allClasses: SchoolClass[], allSubjects: Subject[]): Record<string, StudentTermResult[]> => {
+  const allResults: Record<string, StudentTermResult[]> = {};
+
+  TERMS.forEach(term => {
+    allClasses.forEach(cls => {
+        const studentsInClass = allStudents.filter(s => s.classId === cls.id);
+        if (studentsInClass.length === 0) return;
+
+        const subjectsForClass = allSubjects.filter(sub => sub.schoolSection === cls.section);
+        if (subjectsForClass.length === 0) return;
+
+        const studentTermResults: StudentTermResult[] = studentsInClass.map(student => {
+            let totalScore = 0;
+            const results: SubjectResult[] = subjectsForClass.map(subject => {
+                const score = Math.floor(Math.random() * 61) + 40; // Score between 40 and 100
+                totalScore += score;
+                let grade = "F";
+                if (score >= 75) grade = "A";
+                else if (score >= 65) grade = "B";
+                else if (score >= 50) grade = "C";
+                else if (score >= 45) grade = "D";
+                else if (score >= 40) grade = "E";
+                return { subjectId: subject.id, subjectName: subject.title, score, grade };
+            });
+            const termAverage = totalScore / subjectsForClass.length;
+            return { studentId: student.id, studentName: combineName(student), results, termAverage, termPosition: "N/A" };
+        });
+
+        // Calculate positions
+        studentTermResults.sort((a, b) => b.termAverage - a.termAverage);
+        studentTermResults.forEach((result, index) => {
+            const pos = index + 1;
+            let suffix = "th";
+            if (pos === 1) suffix = "st";
+            else if (pos === 2) suffix = "nd";
+            else if (pos === 3) suffix = "rd";
+            result.termPosition = `${pos}${suffix}`;
+        });
+        
+        const key = `${cls.id}-${term}`;
+        allResults[key] = studentTermResults;
+    });
+  });
+  return allResults;
 };
 
-// Adjusted to reflect K-12 subject structure and mock classes
-const mockStaffSubjectResults: { [subjectId: string]: { term: string, classId: string, className: string, studentResults: Omit<StudentOverallResult, 'termResults' | 'overallAverage'> & { subjectResult: SubjectResult }[] }[] } = {
-  PRI_ENG: [
-    {
-      term: "First Term",
-      classId: "pri1", 
-      className: "Primary 1",
-      studentResults: [
-        { studentId: "std001", studentName: "Alice Wonderland", subjectResult: { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "A", marks: 92, totalMarks: 100 } },
-        { studentId: "std002", studentName: "Bob The Builder", subjectResult: { subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B", marks: 85, totalMarks: 100 } },
-      ]
+const getStudentSpecificResults = (studentId: string, allMockResults: Record<string, StudentTermResult[]>) => {
+    const studentResults: Record<string, { term: string; className: string; results: SubjectResult[]; termAverage: number; termPosition: string }> = {};
+    for (const key in allMockResults) {
+        const [classId, term] = key.split('-');
+        const termResults = allMockResults[key];
+        const studentResult = termResults.find(r => r.studentId === studentId);
+        if (studentResult) {
+            studentResults[key] = {
+                term,
+                className: classId,
+                results: studentResult.results,
+                termAverage: studentResult.termAverage,
+                termPosition: studentResult.termPosition,
+            };
+        }
     }
-  ],
-  JSS_MTH: [
-     {
-      term: "Second Term",
-      classId: "jss1",
-      className: "JSS 1",
-      studentResults: [
-        { studentId: "std001", studentName: "Alice Wonderland", subjectResult: { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "A-", marks: 88, totalMarks: 100 } },
-        { studentId: "std003", studentName: "Charlie Brown", subjectResult: { subjectCode: "JSS_MTH", subjectName: "Mathematics (JSS)", grade: "C+", marks: 72, totalMarks: 100 } },
-      ]
-    }
-  ],
-};
-
-// Staff now select a CLASS they are master of, then a SUBJECT taught in that class, then a TERM
-interface StaffClassSubjectInfo {
-  classId: string;
-  className: string;
-  subjects: { id: string; name: string }[]; // Subjects taught by this staff in this class
+    return studentResults;
 }
 
 
 export default function ResultsPage() {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
   
-  // Student state
-  const [studentData, setStudentData] = useState<StudentOverallResult | null>(null);
-  const [availableClassesForStudent, setAvailableClassesForStudent] = useState<{id: string; name: string}[]>([]);
-  const [selectedClassIdForStudent, setSelectedClassIdForStudent] = useState<string | undefined>();
+  // Data State
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
+  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
+  const [allMockResults, setAllMockResults] = useState<Record<string, StudentTermResult[]>>({});
+
+  // Student State
+  const [studentResults, setStudentResults] = useState<Record<string, any> | null>(null);
   const [selectedTermForStudent, setSelectedTermForStudent] = useState<string | undefined>(TERMS[0]);
 
-  // Staff/Admin state
-  const [selectedSubjectIdForStaff, setSelectedSubjectIdForStaff] = useState<string | undefined>();
-  const [selectedClassIdForStaff, setSelectedClassIdForStaff] = useState<string | undefined>();
+  // Staff/Admin State
+  const [managedClasses, setManagedClasses] = useState<SchoolClass[]>([]);
+  const [selectedClassIdForStaff, setSelectedClassIdForStaff] =useState<string | undefined>();
   const [selectedTermForStaff, setSelectedTermForStaff] = useState<string | undefined>(TERMS[0]);
-  const [subjectsInSelectedClassForStaff, setSubjectsInSelectedClassForStaff] = useState<{id: string; name: string}[]>([]);
-  const [staffAllocatedClasses, setStaffAllocatedClasses] = useState<SchoolClass[]>([]);
-  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
-
-
+  
   useEffect(() => {
     const role = localStorage.getItem("userRole") as UserRole;
-    const name = localStorage.getItem("userName");
     const userId = localStorage.getItem("userId");
     setUserRole(role);
-    setUserName(name);
 
-    let currentClasses: SchoolClass[] = [];
-    if (typeof window !== 'undefined') {
-        const storedClassesString = localStorage.getItem('schoolClasses');
-        if (storedClassesString) {
-            try {
-                currentClasses = JSON.parse(storedClassesString);
-            } catch (e) {
-                currentClasses = defaultClasses;
-            }
-        } else {
-            currentClasses = defaultClasses;
-        }
-    }
+    // --- Load all necessary data from localStorage ---
+    const storedUsersStr = localStorage.getItem('managedUsers') || '[]';
+    const allUsers: (Student | StaffMember)[] = JSON.parse(storedUsersStr);
+    const allStudents: Student[] = allUsers.filter(u => u.role === 'student') as Student[];
+    
+    const storedClassesStr = localStorage.getItem('schoolClasses');
+    const currentClasses: SchoolClass[] = storedClassesStr ? JSON.parse(storedClassesStr) : defaultClasses;
     setAllClasses(currentClasses);
 
-    if (role === "student") {
-      let data = mockStudentResults;
-      // Basic name matching for demo, in real app this would be fetched by ID
-      if (name && name.toLowerCase().includes("test student")) {
-          data = {
-              studentId: "teststd001", studentName: "Test Student", overallAverage: 82.0,
-              termResults: [
-                  { term: "First Term", classId: "pri1", className: "Primary 1", termAverage: 84, results: [{ subjectCode: "PRI_ENG", subjectName: "English Language (Primary)", grade: "B+", marks: 84, totalMarks: 100 }]},
-                  { term: "Second Term", classId: "pri1", className: "Primary 1", termAverage: 80, results: [{ subjectCode: "PRI_MTH", subjectName: "Mathematics (Primary)", grade: "B", marks: 80, totalMarks: 100 }]},
-              ]
-          };
-      } else if (name && !name.toLowerCase().includes("alice")) {
-          data = { ...mockStudentResults, studentName: name, overallAverage: 75, termResults: mockStudentResults.termResults.map(tr => ({...tr, termAverage: 75, results: tr.results.map(r => ({...r, grade: "C", marks: 70}))})) };
-      }
-      setStudentData(data);
-      
-      const uniqueClasses = Array.from(new Set(data.termResults.map(tr => JSON.stringify({id: tr.classId, name: tr.className}))))
-                                .map(s => JSON.parse(s));
-      setAvailableClassesForStudent(uniqueClasses);
-      if (uniqueClasses.length > 0) {
-        setSelectedClassIdForStudent(uniqueClasses[0].id);
-      }
+    const storedSubjectsStr = localStorage.getItem('schoolSubjectsData');
+    const currentSubjects: Subject[] = storedSubjectsStr ? JSON.parse(storedSubjectsStr) : defaultNigerianCurriculumSubjects;
+    setAllSubjects(currentSubjects);
 
-    } else if (role === "staff" || role === "admin") {
-        let assignedClasses = currentClasses;
-        if (role === 'staff' && userId) {
-            const storedUsersString = localStorage.getItem('managedUsers');
-            if (storedUsersString) {
-                const allManagedUsers = JSON.parse(storedUsersString);
-                const staffUser = allManagedUsers.find((u: any) => u.id === userId && u.role === 'staff');
-                if (staffUser && staffUser.assignedClasses) {
-                    assignedClasses = currentClasses.filter(cls => staffUser.assignedClasses.includes(cls.id));
-                } else {
-                    assignedClasses = []; // No classes assigned to this staff
-                }
-            } else {
-                 assignedClasses = [];
+    // --- Generate mock results based on loaded data ---
+    const mockResults = generateMockResults(allStudents, currentClasses, currentSubjects);
+    setAllMockResults(mockResults);
+
+    // --- Role-specific setup ---
+    if (role === 'student' && userId) {
+      setStudentResults(getStudentSpecificResults(userId, mockResults));
+
+    } else if (role === 'staff' && userId) {
+        const staffUser = allUsers.find(u => u.id === userId) as StaffMember | undefined;
+        if(staffUser?.assignedClasses) {
+            const assigned = currentClasses.filter(c => staffUser.assignedClasses!.includes(c.id));
+            setManagedClasses(assigned);
+            if (assigned.length > 0) setSelectedClassIdForStaff(assigned[0].id);
+        }
+    } else if (role === 'admin' || role === 'head_of_section') {
+        let visibleClasses = currentClasses;
+        if(role === 'head_of_section') {
+            const hosUser = allUsers.find(u => u.id === userId) as StaffMember | undefined;
+            if (hosUser?.section) {
+                visibleClasses = currentClasses.filter(c => c.section === hosUser.section);
             }
         }
-        setStaffAllocatedClasses(assignedClasses);
-        if (assignedClasses.length > 0) {
-            setSelectedClassIdForStaff(assignedClasses[0].id);
-        }
+        setManagedClasses(visibleClasses);
+        if (visibleClasses.length > 0) setSelectedClassIdForStaff(visibleClasses[0].id);
     }
-  }, [userRole, userName]);
+  }, []);
 
-  // Effect to update subjects when staff selects a class
-  useEffect(() => {
-    if ((userRole === 'staff' || userRole === 'admin') && selectedClassIdForStaff) {
-        const classDetails = allClasses.find(c => c.id === selectedClassIdForStaff);
-        if (classDetails) {
-            let MOCK_SUBJECTS_IN_CLASS = [
-                { id: "JSS_ENG", name: "English (JSS)" }, { id: "JSS_MTH", name: "Math (JSS)" },
-                { id: "SSS_BIO_S", name: "Biology (SSS Science)" },
-                { id: "ISL_QUR", name: "Quran" }, { id: "ISL_ARB", name: "Arabic" },
-                { id: "TAH_MEM", name: "Memorization" },
-            ];
-            
-            setSubjectsInSelectedClassForStaff(MOCK_SUBJECTS_IN_CLASS);
-            if (MOCK_SUBJECTS_IN_CLASS.length > 0) {
-                 setSelectedSubjectIdForStaff(MOCK_SUBJECTS_IN_CLASS[0].id);
-            } else {
-                 setSelectedSubjectIdForStaff(undefined);
-            }
-        }
-    }
-  }, [selectedClassIdForStaff, userRole, allClasses]);
+  const handlePrint = () => window.print();
 
-  const handlePrint = () => {
-    window.print();
-  };
+  // --- RENDER STUDENT VIEW ---
+  if (userRole === 'student') {
+    if (!studentResults) return <div className="text-center p-10">Loading results...</div>;
 
-  if (!userRole || !userName) {
-    return <div className="text-center p-10 print:hidden">Loading results...</div>;
-  }
-
-  if (userRole === "student") {
-    if (!studentData) return <div className="text-center p-10 print:hidden">Loading student data...</div>;
-    
-    const filteredTermResultsForClass = studentData.termResults.filter(tr => tr.classId === selectedClassIdForStudent);
-    const currentTermData = filteredTermResultsForClass.find(tr => tr.term === selectedTermForStudent);
+    const studentTermData = Object.values(studentResults).find(res => res.term === selectedTermForStudent);
+    const studentClassName = studentTermData ? (allClasses.find(c=> c.id === studentTermData.className)?.name || studentTermData.className) : "N/A";
 
     return (
       <div className="space-y-6">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center print:hidden">
           <div>
             <h1 className="text-3xl font-bold font-headline text-foreground">My Results</h1>
-            <p className="text-muted-foreground">View your academic performance by class and term.</p>
+            <p className="text-muted-foreground">View your academic performance by term.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
-            <Select value={selectedClassIdForStudent} onValueChange={setSelectedClassIdForStudent}>
-              <SelectTrigger className="w-full sm:w-[240px]">
-                <SelectValue placeholder="Select Class" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableClassesForStudent.map(cls => (
-                  <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Select value={selectedTermForStudent} onValueChange={setSelectedTermForStudent}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Select Term" />
               </SelectTrigger>
               <SelectContent>
-                {TERMS.map(term => (
-                  <SelectItem key={term} value={term}>{term}</SelectItem>
-                ))}
+                {TERMS.map(term => (<SelectItem key={term} value={term}>{term}</SelectItem>))}
               </SelectContent>
             </Select>
+             <Button onClick={handlePrint} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={!studentTermData}>
+                <Printer className="mr-2 h-4 w-4" /> Print Results
+            </Button>
           </div>
         </header>
 
         <Card className="shadow-xl printable-area print:shadow-none print:border-none print:p-0">
           <CardHeader className="print:text-center">
-            <div className="flex justify-between items-center print:flex-col print:items-center">
-              <CardTitle className="text-2xl">{studentData.studentName}</CardTitle>
-              <CardDescription className="text-right print:text-center print:mt-1">
-                Overall Average: <span className="font-semibold text-primary">{studentData.overallAverage.toFixed(1)}%</span>
-              </CardDescription>
-            </div>
-            {currentTermData && (
-              <CardDescription className="mt-1 print:text-center">
-                Results for: <span className="font-semibold text-primary">{currentTermData.className}</span> - <span className="font-semibold text-primary">{currentTermData.term}</span>
-                {currentTermData.termAverage !== undefined && (
-                  <> (Term Average: <span className="font-semibold text-primary">{currentTermData.termAverage.toFixed(1)}%</span>)</>
-                )}
-              </CardDescription>
-            )}
+            <CardTitle className="text-2xl">Results for {selectedTermForStudent}</CardTitle>
+            <CardDescription>Class: {studentClassName}</CardDescription>
           </CardHeader>
-          <CardContent className="print:p-0">
-            {currentTermData && currentTermData.results.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject Code</TableHead>
-                    <TableHead>Subject Name</TableHead>
-                    <TableHead>Grade</TableHead>
-                    <TableHead className="text-right">Marks</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentTermData.results.map((result) => (
-                    <TableRow key={result.subjectCode}>
-                      <TableCell>{result.subjectCode}</TableCell>
-                      <TableCell>{result.subjectName}</TableCell>
-                      <TableCell>{result.grade}</TableCell>
-                      <TableCell className="text-right">{result.marks}/{result.totalMarks}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          <CardContent>
+            {studentTermData ? (
+                <>
+                 <div className="grid grid-cols-2 gap-4 mb-6">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Term Average</CardTitle>
+                            <BarChart className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{studentTermData.termAverage.toFixed(1)}%</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Class Position</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{studentTermData.termPosition}</div>
+                        </CardContent>
+                    </Card>
+                 </div>
+                 <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Subject</TableHead>
+                        <TableHead className="text-center">Score</TableHead>
+                        <TableHead className="text-center">Grade</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {studentTermData.results.map((res: SubjectResult) => (
+                        <TableRow key={res.subjectId}>
+                          <TableCell className="font-medium">{res.subjectName}</TableCell>
+                          <TableCell className="text-center">{res.score}/100</TableCell>
+                          <TableCell className="text-center font-semibold">{res.grade}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </>
             ) : (
-              <p className="text-muted-foreground text-center py-4">No results found for the selected class and term.</p>
+                <p className="text-muted-foreground text-center py-10">No results found for {selectedTermForStudent}.</p>
             )}
           </CardContent>
-           {currentTermData && currentTermData.results.length > 0 && (
-            <CardContent className="pt-6 print:hidden">
-                 <Button onClick={handlePrint} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-                    <Printer className="mr-2 h-4 w-4" /> Print Results
-                </Button>
-            </CardContent>
-           )}
         </Card>
       </div>
     );
   }
 
-  // Staff or Admin View
-  const staffResultsForClassSubjectTerm = (selectedClassIdForStaff && selectedSubjectIdForStaff && selectedTermForStaff) ? 
-    (mockStaffSubjectResults[selectedSubjectIdForStaff]?.find(
-        ct => ct.term === selectedTermForStaff && ct.classId === selectedClassIdForStaff
-    )?.studentResults || []) 
+  // --- RENDER STAFF/ADMIN VIEW ---
+  const resultsKey = `${selectedClassIdForStaff}-${selectedTermForStaff}`;
+  const broadsheetResults = allMockResults[resultsKey] || [];
+  const subjectsForBroadsheet = selectedClassIdForStaff 
+    ? allSubjects.filter(s => s.schoolSection === allClasses.find(c => c.id === selectedClassIdForStaff)?.section)
     : [];
-
 
   return (
     <div className="space-y-6 print:hidden">
       <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Student Results</h1>
-        <p className="text-muted-foreground">View collective results by class, subject, and term.</p>
+        <h1 className="text-3xl font-bold font-headline text-foreground">Class Broadsheet</h1>
+        <p className="text-muted-foreground">View and manage comprehensive results for classes.</p>
       </header>
+
       <Card className="shadow-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><FileSpreadsheet/> Results Overview</CardTitle>
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <CardTitle className="flex items-center gap-2"><FileSpreadsheet/> Broadsheet Filters</CardTitle>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Select value={selectedClassIdForStaff} onValueChange={setSelectedClassIdForStaff}>
-                <SelectTrigger>
-                    <SelectValue placeholder="Select Class" />
-                </SelectTrigger>
-                <SelectContent>
-                    {staffAllocatedClasses.length > 0 ? staffAllocatedClasses.map(cls => (
-                    <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
-                    )) : <SelectItem value="no-class" disabled>No classes available/assigned</SelectItem>}
-                </SelectContent>
-            </Select>
-
-            <Select value={selectedSubjectIdForStaff} onValueChange={setSelectedSubjectIdForStaff} disabled={!selectedClassIdForStaff || subjectsInSelectedClassForStaff.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Subject" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger>
               <SelectContent>
-                 {subjectsInSelectedClassForStaff.length > 0 ? subjectsInSelectedClassForStaff.map(subject => (
-                  <SelectItem key={subject.id} value={subject.id}>{subject.name}</SelectItem>
-                )) : <SelectItem value="no-subject" disabled>No subjects for this class</SelectItem>}
+                {managedClasses.length > 0 ? managedClasses.map(cls => (
+                  <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.section})</SelectItem>
+                )) : <SelectItem value="no-class" disabled>No classes available/assigned</SelectItem>}
               </SelectContent>
             </Select>
-
             <Select value={selectedTermForStaff} onValueChange={setSelectedTermForStaff}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Term" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select Term" /></SelectTrigger>
               <SelectContent>
-                {TERMS.map(term => (
-                  <SelectItem key={term} value={term}>{term}</SelectItem>
-                ))}
+                {TERMS.map(term => (<SelectItem key={term} value={term}>{term}</SelectItem>))}
               </SelectContent>
             </Select>
+             <Button onClick={handlePrint} className="w-full lg:w-auto" disabled={broadsheetResults.length === 0}>
+                <Printer className="mr-2 h-4 w-4" /> Print Broadsheet
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {selectedClassIdForStaff && selectedSubjectIdForStaff && staffResultsForClassSubjectTerm.length > 0 ? (
-            <>
-            <h3 className="text-lg font-semibold mb-2 text-foreground">
-              {allClasses.find(c=>c.id === selectedClassIdForStaff)?.name} - {subjectsInSelectedClassForStaff.find(s => s.id === selectedSubjectIdForStaff)?.name} - {selectedTermForStaff}
-            </h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student ID</TableHead>
-                  <TableHead>Student Name</TableHead>
-                  <TableHead>Grade</TableHead>
-                  <TableHead className="text-right">Marks</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staffResultsForClassSubjectTerm.map((studentResult) => (
-                  <TableRow key={studentResult.studentId + studentResult.subjectResult.subjectCode}>
-                    <TableCell>{studentResult.studentId}</TableCell>
-                    <TableCell>{studentResult.studentName}</TableCell>
-                    <TableCell>{studentResult.subjectResult.grade}</TableCell>
-                    <TableCell className="text-right">{studentResult.subjectResult.marks}/{studentResult.subjectResult.totalMarks}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            </>
-          ) : selectedClassIdForStaff && selectedSubjectIdForStaff ? (
-             <p className="text-muted-foreground p-4 text-center">No results found for the selected class, subject, and term.</p>
+          {broadsheetResults.length > 0 ? (
+            <div className="overflow-x-auto">
+                <Table className="min-w-full">
+                <TableHeader>
+                    <TableRow>
+                    <TableHead className="sticky left-0 bg-card z-10">Student Name</TableHead>
+                    {subjectsForBroadsheet.map(sub => <TableHead key={sub.id} className="text-center">{sub.code}</TableHead>)}
+                    <TableHead className="text-center font-bold text-primary">Avg.</TableHead>
+                    <TableHead className="text-center font-bold text-primary">Pos.</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {broadsheetResults.map(studentResult => (
+                    <TableRow key={studentResult.studentId}>
+                        <TableCell className="font-medium sticky left-0 bg-card z-10">{studentResult.studentName}</TableCell>
+                        {subjectsForBroadsheet.map(sub => {
+                            const result = studentResult.results.find(r => r.subjectId === sub.id);
+                            return <TableCell key={sub.id} className="text-center">{result ? result.score : '-'}</TableCell>
+                        })}
+                        <TableCell className="text-center font-semibold">{studentResult.termAverage.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center font-semibold">{studentResult.termPosition}</TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            </div>
           ) : (
-             <p className="text-muted-foreground p-4 text-center">Please select a class, subject and term to view results.</p>
+            <div className="text-center py-10">
+                <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">No Results Found</h3>
+                <p className="text-muted-foreground mt-1">There are no results available for the selected class and term.</p>
+                <Button variant="outline" className="mt-4" asChild>
+                    <Link href="/dashboard/results/upload">Upload Results</Link>
+                </Button>
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    
 
     
