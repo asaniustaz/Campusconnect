@@ -100,8 +100,9 @@ export default function ResultUploadPage() {
       setProgress(50);
       const resultsArrayBuffer = await resultsFile[0].arrayBuffer();
       const workbook = XLSX.read(resultsArrayBuffer, { type: 'array' });
-      setSheetNames(workbook.SheetNames);
-      const firstSheet = workbook.SheetNames[0];
+      const sheetNames = workbook.SheetNames;
+      setSheetNames(sheetNames);
+      const firstSheet = sheetNames[0];
       setSelectedSheet(firstSheet);
       
       const firstSheetData = XLSX.utils.sheet_to_json<any>(workbook.Sheets[firstSheet], { header: 1 });
@@ -165,8 +166,8 @@ export default function ResultUploadPage() {
   };
 
   const onSubmit = async (data: UploadFormData) => {
-    if (Object.keys(mappedFields).length !== placeholders.length) {
-        toast({ variant: "destructive", title: "Mapping Incomplete", description: "Please map all template placeholders to a data column."});
+    if (placeholders.length > 0 && Object.keys(mappedFields).length === 0) {
+        toast({ variant: "destructive", title: "Mapping Required", description: "Please map at least one placeholder to a data column."});
         return;
     }
 
@@ -217,13 +218,13 @@ export default function ResultUploadPage() {
           title: "Upload Successful!",
           description: `Documents for ${selectedClass.name} have been stored securely.`,
         });
+        resetFlow();
 
     } catch (error) {
         console.error("Error saving documents to Firebase:", error);
         toast({ variant: "destructive", title: "Upload Error", description: "Could not save the uploaded files to the cloud." });
     } finally {
         setProcessing(false);
-        resetFlow();
     }
   };
   
@@ -302,18 +303,30 @@ export default function ResultUploadPage() {
           </CardHeader>
           <CardContent>
              <div className="space-y-4">
-                <div className="p-4 bg-secondary/50 rounded-md border">
+                <div className="p-4 bg-secondary/50 rounded-md border space-y-2">
                     <h3 className="font-semibold text-lg mb-2">File Scan Summary</h3>
+                     {sheetNames.length > 1 && (
+                      <div className="flex items-center gap-2">
+                          <Label htmlFor="sheetSelect" className="shrink-0">Select Sheet:</Label>
+                          <Select value={selectedSheet} onValueChange={setSelectedSheet}>
+                              <SelectTrigger id="sheetSelect" className="flex-1">
+                                  <SelectValue placeholder="Select a sheet"/>
+                              </SelectTrigger>
+                              <SelectContent>
+                                  {sheetNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                      </div>
+                    )}
                     <p>Template Placeholders Found: <span className="font-bold text-primary">{placeholders.length}</span></p>
-                    <p>Excel Sheet Selected: <span className="font-bold text-primary">{selectedSheet}</span></p>
-                    <p>Column Headers Found: <span className="font-bold text-primary">{columnHeaders.length}</span></p>
-                    <p className="text-sm text-muted-foreground mt-2">This step confirms that your files are readable. The next step will upload them to cloud storage.</p>
+                    <p>Column Headers Found in '{selectedSheet}': <span className="font-bold text-primary">{columnHeaders.length}</span></p>
+                    <p className="text-sm text-muted-foreground mt-2">Map the template placeholders to the corresponding columns from your scoresheet.</p>
                 </div>
 
                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                  {placeholders.map(placeholder => (
                    <div key={placeholder} className="flex items-center gap-2">
-                     <Badge variant="secondary" className="min-w-[150px] justify-center text-right break-all">{placeholder}</Badge>
+                     <Badge variant="secondary" className="min-w-[150px] justify-center text-right break-all">{`{{${placeholder}}}`}</Badge>
                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0"/>
                      <Select value={mappedFields[placeholder] || "__UNMAPPED__"} onValueChange={(value) => handleManualMapChange(placeholder, value)}>
                        <SelectTrigger className="flex-1"><SelectValue placeholder="Select column..."/></SelectTrigger>
@@ -327,10 +340,10 @@ export default function ResultUploadPage() {
                  ))}
                </div>
 
-                {Object.keys(mappedFields).length !== placeholders.length && (
+                {placeholders.length > 0 && Object.keys(mappedFields).length < placeholders.length && (
                     <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md text-yellow-800 dark:text-yellow-300 text-sm flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5"/>
-                        <span>Warning: For best results, ensure all placeholders are mapped.</span>
+                        <span>Warning: For best results, ensure all placeholders are mapped. Unmapped fields will be blank in the final document.</span>
                     </div>
                 )}
                
@@ -348,3 +361,5 @@ export default function ResultUploadPage() {
     </div>
   );
 }
+
+    
