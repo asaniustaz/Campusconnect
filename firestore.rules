@@ -2,21 +2,21 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Deny all reads and writes by default on any other collection
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Rules for the 'documents' collection
-    match /documents/{docId} {
-      // Allow any authenticated user to read (get, list) documents.
-      // This is necessary for students, staff, etc., to download their files.
+    match /documents/{documentId} {
+      // Allow any authenticated user to read documents.
+      // This is necessary for students, staff, and admins to access relevant files.
+      // Your app's client-side logic should handle filtering to ensure users only
+      // see documents they are permitted to see (e.g., their own class's results).
       allow read: if request.auth != null;
 
-      // Allow write (create, update, delete) operations only if the user is an admin.
-      // This rule relies on a custom claim 'admin' being set to true for admin users.
+      // Allow write (create, update, delete) operations only for users
+      // who have an 'admin' custom claim.
       allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // A catch-all rule to deny access to any other collections by default.
+    match /{path=**} {
+      allow read, write: if false;
     }
   }
 }
