@@ -264,29 +264,29 @@ export default function ResultUploadPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-3xl font-bold font-headline text-foreground">Generate & Store Student Results</h1>
-        <p className="text-muted-foreground">Upload a DOCX template and an Excel/CSV file to generate and save results documents.</p>
+        <h1 className="text-3xl font-bold font-headline text-foreground">Store Result Documents</h1>
+        <p className="text-muted-foreground">Upload a DOCX template and an Excel/CSV scoresheet to be stored for a class.</p>
       </header>
 
       {step === 1 && (
         <Card className="max-w-2xl mx-auto shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><FileSpreadsheet /> Step 1: Upload Files</CardTitle>
-            <CardDescription>Select the session, term, and class, then upload the required files.</CardDescription>
+            <CardDescription>Select the session, term, and class, then upload the required source files.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleFileRead)} className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="session" render={({ field }) => ( <FormItem><Label>Session</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Session" /></SelectTrigger></FormControl><SelectContent>{SESSIONS.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="term" render={({ field }) => ( <FormItem><Label>Term</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Term" /></SelectTrigger></FormControl><SelectContent>{TERMS.map(t => ( <SelectItem key={t} value={t}>{t}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="session" render={({ field }) => ( <FormItem><Label>Session</Label><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Session" /></SelectTrigger></FormControl><SelectContent>{SESSIONS.map(s => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="term" render={({ field }) => ( <FormItem><Label>Term</Label><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Term" /></SelectTrigger></FormControl><SelectContent>{TERMS.map(t => ( <SelectItem key={t} value={t}>{t}</SelectItem> ))}</SelectContent></Select><FormMessage /></FormItem>)} />
                   </div>
-                   <FormField control={form.control} name="classId" render={({ field }) => (<FormItem><Label>Class</Label><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger></FormControl><SelectContent>{getVisibleClasses().map(c => (<SelectItem key={c.id} value={c.id}>{c.name} ({c.displayLevel})</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="templateFile" render={({ field: { onChange, value, ...rest } }) => (<FormItem><Label htmlFor="templateFile" className="flex items-center gap-2"><FileType/> Report Card Template (.docx)</Label><FormControl><Input id="templateFile" type="file" accept={ACCEPTED_DOCX_TYPES.join(',')} onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>)} />
-                 <FormField control={form.control} name="resultsFile" render={({ field: { onChange, value, ...rest } }) => (<FormItem><Label htmlFor="resultsFile" className="flex items-center gap-2"><FileText/> Scoresheet (.xlsx, .csv)</Label><FormControl><Input id="resultsFile" type="file" accept={ACCEPTED_EXCEL_TYPES.join(',')} onChange={(e) => onChange(e.target.files)} {...rest} /></FormControl><FormMessage /></FormItem>)} />
+                   <FormField control={form.control} name="classId" render={({ field }) => (<FormItem><Label>Class</Label><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Class" /></SelectTrigger></FormControl><SelectContent>{getVisibleClasses().map(c => (<SelectItem key={c.id} value={c.id}>{c.name} ({c.displayLevel})</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="templateFile" render={({ field: { onChange, value, ...rest } }) => (<FormItem><Label htmlFor="templateFile" className="flex items-center gap-2"><FileType/> Report Card Template (.docx)</Label><FormControl><Input id="templateFile" type="file" accept={ACCEPTED_DOCX_TYPES.join(',')} onChange={(e) => onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>)} />
+                 <FormField control={form.control} name="resultsFile" render={({ field: { onChange, value, ...rest } }) => (<FormItem><Label htmlFor="resultsFile" className="flex items-center gap-2"><FileText/> Scoresheet (.xlsx, .csv)</Label><FormControl><Input id="resultsFile" type="file" accept={ACCEPTED_EXCEL_TYPES.join(',')} onChange={(e) => onChange(e.target.files)} /></FormControl><FormMessage /></FormItem>)} />
                 {processing && <Progress value={progress} className="w-full" />}
                 <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={processing}>
-                  {processing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/> Processing Files...</> : 'Scan Files and Map Fields'}
+                  {processing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/> Processing Files...</> : 'Scan Files & Continue'}
                 </Button>
               </form>
             </Form>
@@ -297,20 +297,19 @@ export default function ResultUploadPage() {
       {step === 2 && (
         <Card className="max-w-4xl mx-auto shadow-xl">
            <CardHeader>
-            <CardTitle className="flex items-center gap-2"><FileSpreadsheet /> Step 2: Map Fields</CardTitle>
-            <CardDescription>Review the automatic mapping between your DOCX template placeholders and your Excel sheet columns. Make corrections if needed.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><FileSpreadsheet /> Step 2: Confirm & Save</CardTitle>
+            <CardDescription>The system has scanned your files. Review the extracted placeholders and confirm the upload to save the documents to the cloud.</CardDescription>
           </CardHeader>
           <CardContent>
              <div className="space-y-4">
-               {sheetNames.length > 1 && (
-                 <div>
-                   <Label>Select Sheet</Label>
-                   <Select value={selectedSheet} onValueChange={setSelectedSheet}>
-                     <SelectTrigger><SelectValue/></SelectTrigger>
-                     <SelectContent>{sheetNames.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
-                   </Select>
-                 </div>
-               )}
+                <div className="p-4 bg-secondary/50 rounded-md border">
+                    <h3 className="font-semibold text-lg mb-2">File Scan Summary</h3>
+                    <p>Template Placeholders Found: <span className="font-bold text-primary">{placeholders.length}</span></p>
+                    <p>Excel Sheet Selected: <span className="font-bold text-primary">{selectedSheet}</span></p>
+                    <p>Column Headers Found: <span className="font-bold text-primary">{columnHeaders.length}</span></p>
+                    <p className="text-sm text-muted-foreground mt-2">This step confirms that your files are readable. The next step will upload them to cloud storage.</p>
+                </div>
+
                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                  {placeholders.map(placeholder => (
                    <div key={placeholder} className="flex items-center gap-2">
@@ -331,14 +330,14 @@ export default function ResultUploadPage() {
                 {Object.keys(mappedFields).length !== placeholders.length && (
                     <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md text-yellow-800 dark:text-yellow-300 text-sm flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5"/>
-                        <span>Warning: Not all placeholders are mapped. Please map all fields to proceed.</span>
+                        <span>Warning: For best results, ensure all placeholders are mapped.</span>
                     </div>
                 )}
                
                <div className="flex justify-between mt-6">
                  <Button variant="outline" onClick={resetFlow}>Back</Button>
-                 <Button onClick={form.handleSubmit(onSubmit)} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={Object.keys(mappedFields).length !== placeholders.length || processing}>
-                   {processing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/> Saving...</> : <><UploadCloud className="mr-2 h-4 w-4" /> Save Documents</>}
+                 <Button onClick={form.handleSubmit(onSubmit)} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={processing}>
+                   {processing ? <><RefreshCw className="mr-2 h-4 w-4 animate-spin"/> Saving...</> : <><UploadCloud className="mr-2 h-4 w-4" /> Save Documents to Cloud</>}
                  </Button>
                </div>
                 {processing && <Progress value={progress} className="w-full mt-4" />}
